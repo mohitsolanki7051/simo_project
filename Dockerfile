@@ -2,7 +2,7 @@ FROM dunglas/frankenphp:php8.2
 
 RUN apt-get update && apt-get install -y \
     git unzip libssl-dev pkg-config \
-    && pecl install mongodb-1.21.3 \
+    && pecl install mongodb \
     && docker-php-ext-enable mongodb
 
 WORKDIR /app
