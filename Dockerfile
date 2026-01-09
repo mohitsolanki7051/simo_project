@@ -11,6 +11,10 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-RUN composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-mongodb
+RUN composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-mongodb \
+ && php artisan config:clear \
+ && php artisan route:clear \
+ && php artisan view:clear
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
+# IMPORTANT: FrankenPHP default entrypoint
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
