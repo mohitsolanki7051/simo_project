@@ -32,13 +32,13 @@
                     <span class="tab-icon">💰</span>
                     <span class="tab-text">Pricing</span>
                 </button>
-                <button type="button" class="tab-btn" data-tab="variants">
-                    <span class="tab-icon">🎨</span>
-                    <span class="tab-text">Variants</span>
-                </button>
                 <button type="button" class="tab-btn" data-tab="media">
                     <span class="tab-icon">🖼️</span>
                     <span class="tab-text">Images</span>
+                </button>
+                <button type="button" class="tab-btn" data-tab="variants">
+                    <span class="tab-icon">🎨</span>
+                    <span class="tab-text">Variants</span>
                 </button>
             </div>
 
@@ -58,8 +58,8 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Category <span class="required">*</span></label>
-                            <select class="form-select" name="category_id" >
+                            <label class="form-label">Category</label>
+                            <select class="form-select" name="category_id">
                                 <option value="">Select Category</option>
                                 @foreach($categories as $category)
                                 <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
@@ -69,26 +69,34 @@
 
                         <div class="form-group">
                             <label class="form-label">Brand <span class="required">*</span></label>
-                            <select class="form-select" name="brand_id" >
-                                <option value="">Select Brand</option>
-                                @foreach($brands as $brand)
-                                <option value="{{ $brand->id }}" {{ old('brand_id') == $brand->id ? 'selected' : '' }}>{{ $brand->name }}</option>
-                                @endforeach
-                            </select>
+                            <input type="text" class="form-input" name="brand" value="{{ old('brand') }}" placeholder="Enter brand name" required>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Body Type <span class="required">*</span></label>
-                            <select class="form-select" name="body_type" required>
-                                <option value="">Select Body Type</option>
-                                <option value="PVC" {{ old('body_type') == 'PVC' ? 'selected' : '' }}>PVC</option>
-                                <option value="Metal" {{ old('body_type') == 'Metal' ? 'selected' : '' }}>Metal</option>
-                            </select>
+                            <input type="text" class="form-input" name="body_type" value="{{ old('body_type') }}" placeholder="e.g., PVC, Metal, Plastic" required>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Warranty <span class="required">*</span></label>
                             <input type="text" class="form-input" name="warranty" value="{{ old('warranty') }}" placeholder="e.g., 1 Year" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">SKU Code <span class="required">*</span></label>
+                            <input type="text" class="form-input" name="sku_code" value="{{ old('sku_code') }}" placeholder="e.g., LED-9W-001" required>
+                            <span class="form-hint">Unique product identifier</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Barcode Symbology <span class="required">*</span></label>
+                            <select class="form-select" name="barcode_symbology" required>
+                                <option value="CODE128" {{ old('barcode_symbology') == 'CODE128' ? 'selected' : '' }}>Code 128</option>
+                                <option value="CODE39" {{ old('barcode_symbology') == 'CODE39' ? 'selected' : '' }}>Code 39</option>
+                                <option value="EAN13" {{ old('barcode_symbology') == 'EAN13' ? 'selected' : '' }}>EAN-13</option>
+                                <option value="EAN8" {{ old('barcode_symbology') == 'EAN8' ? 'selected' : '' }}>EAN-8</option>
+                                <option value="UPC" {{ old('barcode_symbology') == 'UPC' ? 'selected' : '' }}>UPC</option>
+                            </select>
                         </div>
 
                         <div class="form-group">
@@ -135,6 +143,17 @@
                             <input type="number" step="0.01" class="form-input" name="gst" id="gstRate" value="{{ old('gst') }}" placeholder="18" required>
                         </div>
 
+                        <div class="form-group">
+                            <label class="form-label">Opening Stock</label>
+                            <input type="number" class="form-input" name="opening_stock" value="{{ old('opening_stock', 0) }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Min Stock Alert</label>
+                            <input type="number" class="form-input" name="min_stock_alert" value="{{ old('min_stock_alert', 10) }}">
+                            <span class="form-hint">Alert when stock is low</span>
+                        </div>
+
                         <div class="form-group full-width">
                             <div class="price-summary">
                                 <div class="summary-item">
@@ -154,88 +173,7 @@
                     </div>
                 </div>
 
-                <!-- Tab 3: Variants -->
-                <div class="tab-content" id="variants">
-                    <div class="tab-header">
-                        <h3 class="tab-title">Variants & Stock</h3>
-                        <p class="tab-description">Manage variations and inventory</p>
-                    </div>
-
-                    <div class="variants-container">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">SKU Code</label>
-                                <input type="text" class="form-input" name="sku_code" value="{{ old('sku_code') }}" placeholder="LED-9W-001">
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Watt</label>
-                                <input type="text" class="form-input" name="watt" value="{{ old('watt') }}" placeholder="9W">
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Shape</label>
-                                <input type="text" class="form-input" name="shape" value="{{ old('shape') }}" placeholder="Round">
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Color Temperature</label>
-                                <select class="form-select" name="color_temperature">
-                                    <option value="">Select</option>
-                                    <option value="WW" {{ old('color_temperature') == 'WW' ? 'selected' : '' }}>WW (Warm White)</option>
-                                    <option value="NW" {{ old('color_temperature') == 'NW' ? 'selected' : '' }}>NW (Natural White)</option>
-                                    <option value="WH" {{ old('color_temperature') == 'WH' ? 'selected' : '' }}>WH (White)</option>
-                                    <option value="3IN1" {{ old('color_temperature') == '3IN1' ? 'selected' : '' }}>3IN1</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Cutting/Size</label>
-                                <input type="text" class="form-input" name="cutting_size" value="{{ old('cutting_size') }}" placeholder="75mm">
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Unit</label>
-                                <input type="text" class="form-input" name="unit" value="{{ old('unit') }}" placeholder="Piece, Box, Set">
-                            </div>
-                        </div>
-
-                        <div class="form-section-title">Pricing Variants</div>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Cost Price (₹)</label>
-                                <input type="number" step="0.01" class="form-input" name="cost_price" value="{{ old('cost_price') }}" placeholder="0.00">
-                                <span class="form-hint">Your purchase price</span>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Dealer Price (₹)</label>
-                                <input type="number" step="0.01" class="form-input" name="dealer_price" value="{{ old('dealer_price') }}" placeholder="0.00">
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Distributor Price (₹)</label>
-                                <input type="number" step="0.01" class="form-input" name="distributor_price" value="{{ old('distributor_price') }}" placeholder="0.00">
-                            </div>
-                        </div>
-
-                        <div class="form-section-title">Stock Management</div>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Opening Stock</label>
-                                <input type="number" class="form-input" name="opening_stock" value="{{ old('opening_stock', 0) }}">
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Min Stock Alert</label>
-                                <input type="number" class="form-input" name="min_stock_alert" value="{{ old('min_stock_alert', 10) }}">
-                                <span class="form-hint">Alert when stock is low</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab 4: Images -->
+                <!-- Tab 3: Images -->
                 <div class="tab-content" id="media">
                     <div class="tab-header">
                         <h3 class="tab-title">Product Images</h3>
@@ -267,6 +205,24 @@
                                 </label>
                             </div>
                             <div class="gallery-preview" id="galleryPreview"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Variants -->
+                <div class="tab-content" id="variants">
+                    <div class="tab-header">
+                        <h3 class="tab-title">Product Variants</h3>
+                        <p class="tab-description">Add multiple variants of this product</p>
+                    </div>
+
+                    <div class="variants-section">
+                        <button type="button" class="btn-add-variant" onclick="addVariant()">
+                            <span>+</span> Add Variant
+                        </button>
+
+                        <div id="variantsContainer">
+                            <!-- Variants will be added here dynamically -->
                         </div>
                     </div>
                 </div>
@@ -310,7 +266,6 @@
     .back-btn { display: inline-flex; align-items: center; gap: 8px; color: #718096; text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; transition: all 0.3s; margin-bottom: 15px; }
     .back-btn:hover { background: #f7fafc; color: #ff6b35; }
     .page-title { font-size: 28px; font-weight: 700; color: #2d3748; margin-bottom: 5px; }
-    .page-subtitle { font-size: 14px; color: #718096; }
 
     .tab-container { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; }
     .tab-nav { display: flex; background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border-bottom: 2px solid #e2e8f0; overflow-x: auto; }
@@ -348,9 +303,6 @@
     .summary-value { font-size: 16px; color: #2d3748; font-weight: 700; }
     .summary-item.highlight .summary-value { color: #ff6b35; font-size: 18px; }
 
-    .form-section-title { font-size: 16px; font-weight: 700; color: #2d3748; margin: 25px 0 20px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
-    .variants-container { background: #f7fafc; padding: 25px; border-radius: 12px; border: 2px dashed #cbd5e0; }
-
     .image-upload-wrapper { margin-bottom: 20px; }
     .upload-label { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; border: 3px dashed #cbd5e0; border-radius: 12px; background: #f7fafc; cursor: pointer; transition: all 0.3s; }
     .upload-label:hover { border-color: #ff6b35; background: rgba(255,107,53,0.05); }
@@ -363,6 +315,20 @@
     .preview-image { width: 100%; height: 150px; object-fit: cover; display: block; }
     .remove-image { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; background: #fc8181; color: white; border: none; border-radius: 50%; cursor: pointer; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
     .remove-image:hover { background: #f56565; transform: scale(1.1); }
+
+    /* Variants Section */
+    .variants-section { margin-top: 20px; }
+    .btn-add-variant { padding: 12px 24px; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(72,187,120,0.3); display: flex; align-items: center; gap: 8px; margin-bottom: 25px; }
+    .btn-add-variant:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(72,187,120,0.4); }
+
+    #variantsContainer { display: flex; flex-direction: column; gap: 25px; }
+    .variant-card { background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); padding: 30px; border-radius: 16px; border: 2px solid #e2e8f0; position: relative; }
+    .variant-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #cbd5e0; }
+    .variant-title { font-size: 18px; font-weight: 700; color: #2d3748; }
+    .btn-remove-variant { padding: 8px 16px; background: #fc8181; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+    .btn-remove-variant:hover { background: #f56565; transform: scale(1.05); }
+
+    .variant-section-title { font-size: 15px; font-weight: 700; color: #2d3748; margin: 20px 0 15px; padding-bottom: 8px; border-bottom: 2px solid #cbd5e0; }
 
     .form-actions-fixed { position: fixed; bottom: 0; left: 260px; right: 0; background: white; padding: 20px 35px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); z-index: 100; }
     .form-actions-content { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto; }
@@ -384,7 +350,8 @@
 @push('scripts')
 <script>
     let currentTab = 0;
-    const tabs = ['basic-info', 'pricing', 'variants', 'media'];
+    const tabs = ['basic-info', 'pricing', 'media', 'variants'];
+    let variantCount = 0;
 
     // Show alert function
     function showAlert(message, type = 'success') {
@@ -592,6 +559,210 @@
         galleryFiles.forEach(file => dataTransfer.items.add(file));
         document.getElementById('gallery_images').files = dataTransfer.files;
         previewGalleryImages({ target: document.getElementById('gallery_images') });
+    }
+
+    // Add Variant Function
+    function addVariant() {
+        variantCount++;
+        const container = document.getElementById('variantsContainer');
+
+        const variantHtml = `
+            <div class="variant-card" id="variant-${variantCount}">
+                <div class="variant-header">
+                    <h4 class="variant-title">Variant #${variantCount}</h4>
+                    <button type="button" class="btn-remove-variant" onclick="removeVariant(${variantCount})">
+                        Remove Variant
+                    </button>
+                </div>
+
+                <div class="variant-section-title">Variant Details</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Watt</label>
+                        <input type="text" class="form-input" name="variants[${variantCount}][watt]" placeholder="e.g., 9W">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Shape</label>
+                        <input type="text" class="form-input" name="variants[${variantCount}][shape]" placeholder="e.g., Round">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Color Temperature</label>
+                        <select class="form-select" name="variants[${variantCount}][color_temperature]">
+                            <option value="">Select</option>
+                            <option value="WW">WW (Warm White)</option>
+                            <option value="NW">NW (Natural White)</option>
+                            <option value="WH">WH (White)</option>
+                            <option value="3IN1">3IN1</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Cutting/Size</label>
+                        <input type="text" class="form-input" name="variants[${variantCount}][cutting_size]" placeholder="e.g., 75mm">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Unit</label>
+                        <input type="text" class="form-input" name="variants[${variantCount}][unit]" placeholder="Piece, Box, Set">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">SKU Code <span class="required">*</span></label>
+                        <input type="text" class="form-input" name="variants[${variantCount}][sku_code]" placeholder="e.g., LED-9W-WW-001" required>
+                        <span class="form-hint">Unique variant identifier</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Barcode Symbology <span class="required">*</span></label>
+                        <select class="form-select" name="variants[${variantCount}][barcode_symbology]" required>
+                            <option value="CODE128">Code 128</option>
+                            <option value="CODE39">Code 39</option>
+                            <option value="EAN13">EAN-13</option>
+                            <option value="EAN8">EAN-8</option>
+                            <option value="UPC">UPC</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="variant-section-title">Pricing</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Cost Price (₹)</label>
+                        <input type="number" step="0.01" class="form-input" name="variants[${variantCount}][cost_price]" placeholder="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Dealer Price (₹)</label>
+                        <input type="number" step="0.01" class="form-input" name="variants[${variantCount}][dealer_price]" placeholder="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Distributor Price (₹)</label>
+                        <input type="number" step="0.01" class="form-input" name="variants[${variantCount}][distributor_price]" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="variant-section-title">Stock Management</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Opening Stock</label>
+                        <input type="number" class="form-input" name="variants[${variantCount}][opening_stock]" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Min Stock Alert</label>
+                        <input type="number" class="form-input" name="variants[${variantCount}][min_stock_alert]" value="10">
+                    </div>
+                </div>
+
+                <div class="variant-section-title">Variant Images</div>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="form-label">Variant Base Image</label>
+                        <div class="image-upload-wrapper">
+                            <input type="file" class="form-input-file" id="variant_base_${variantCount}"
+                                name="variants[${variantCount}][base_image]" accept="image/*"
+                                onchange="previewVariantBaseImage(event, ${variantCount})" hidden>
+                            <label for="variant_base_${variantCount}" class="upload-label">
+                                <div class="upload-icon">📸</div>
+                                <div class="upload-text">Click to upload variant image</div>
+                                <div class="upload-hint">PNG, JPG up to 2MB</div>
+                            </label>
+                        </div>
+                        <div class="image-preview-container" id="variantBasePreview-${variantCount}"></div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label class="form-label">Variant Gallery Images</label>
+                        <div class="image-upload-wrapper">
+                            <input type="file" class="form-input-file" id="variant_gallery_${variantCount}"
+                                name="variants[${variantCount}][gallery_images][]" accept="image/*" multiple
+                                onchange="previewVariantGalleryImages(event, ${variantCount})" hidden>
+                            <label for="variant_gallery_${variantCount}" class="upload-label">
+                                <div class="upload-icon">🖼️</div>
+                                <div class="upload-text">Upload multiple variant images</div>
+                                <div class="upload-hint">Select multiple files</div>
+                            </label>
+                        </div>
+                        <div class="gallery-preview" id="variantGalleryPreview-${variantCount}"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', variantHtml);
+    }
+
+    // Remove Variant Function
+    function removeVariant(id) {
+        const variant = document.getElementById(`variant-${id}`);
+        if (variant) {
+            variant.remove();
+        }
+    }
+
+    // Preview Variant Base Image
+    function previewVariantBaseImage(event, variantId) {
+        const input = event.target;
+        const container = document.getElementById(`variantBasePreview-${variantId}`);
+        container.innerHTML = '';
+
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image">
+                    <button type="button" class="remove-image" onclick="removeVariantBaseImage(${variantId})">×</button>
+                `;
+                container.appendChild(div);
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // Remove Variant Base Image
+    function removeVariantBaseImage(variantId) {
+        document.getElementById(`variant_base_${variantId}`).value = '';
+        document.getElementById(`variantBasePreview-${variantId}`).innerHTML = '';
+    }
+
+    // Preview Variant Gallery Images
+    function previewVariantGalleryImages(event, variantId) {
+        const input = event.target;
+        const container = document.getElementById(`variantGalleryPreview-${variantId}`);
+        container.innerHTML = '';
+
+        const files = Array.from(input.files);
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image">
+                    <button type="button" class="remove-image" onclick="removeVariantGalleryImage(${variantId}, ${index})">×</button>
+                `;
+                container.appendChild(div);
+            }
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Remove Variant Gallery Image
+    function removeVariantGalleryImage(variantId, imageIndex) {
+        const input = document.getElementById(`variant_gallery_${variantId}`);
+        const files = Array.from(input.files);
+        files.splice(imageIndex, 1);
+
+        const dataTransfer = new DataTransfer();
+        files.forEach(file => dataTransfer.items.add(file));
+        input.files = dataTransfer.files;
+
+        previewVariantGalleryImages({ target: input }, variantId);
     }
 
     // Show Laravel validation errors

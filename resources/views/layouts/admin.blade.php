@@ -514,9 +514,30 @@
                         <span class="submenu-icon"></span>
                         Add Product
                     </a>
+                    <a href="{{ url('/admin/barcode') }}" class="submenu-item {{ request()->is('admin/barcode*') ? 'active' : '' }}">
+                        <span class="submenu-icon"></span>
+                        Print Barcode
+                    </a>
                     <a href="#" class="submenu-item">
                         <span class="submenu-icon"></span>
                         Categories
+                    </a>
+                </div>
+            </div>
+            <div class="nav-item">
+                <div class="nav-link {{ request()->is('admin/warehouses*') ? 'active' : '' }}" onclick="toggleSubmenu(this)">
+                    <span class="nav-icon">🏢</span>
+                    <span class="nav-text">Warehouses</span>
+                    <span class="nav-arrow">▶</span>
+                </div>
+                <div class="submenu">
+                    <a href="{{ url('/admin/warehouses') }}" class="submenu-item {{ request()->is('admin/warehouses') && !request()->is('admin/warehouses/create') ? 'active' : '' }}">
+                        <span class="submenu-icon"></span>
+                        View Warehouses
+                    </a>
+                    <a href="{{ url('/admin/warehouses/create') }}" class="submenu-item {{ request()->is('admin/warehouses/create') ? 'active' : '' }}">
+                        <span class="submenu-icon"></span>
+                        Add Warehouse
                     </a>
                 </div>
             </div>

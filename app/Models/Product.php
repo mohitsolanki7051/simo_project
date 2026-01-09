@@ -13,29 +13,21 @@ class Product extends Model
         // Basic Information
         'name',
         'category_id',
-        'brand_id',
-        'body_type',
+        'brand', // Changed from brand_id to brand (text input)
+        'body_type', // Changed to text input
         'warranty',
         'status',
+
+        // Main Product SKU & Barcode
+        'sku_code',
+        'barcode',
+        'barcode_symbology',
 
         // Pricing & Tax
         'mrp_price',
         'price',
         'hsn_code',
         'gst',
-
-        // Variants
-        'sku_code',
-        'watt',
-        'shape',
-        'color_temperature',
-        'cutting_size',
-        'unit',
-
-        // Pricing Variants
-        'cost_price',
-        'dealer_price',
-        'distributor_price',
 
         // Stock Management
         'opening_stock',
@@ -49,16 +41,17 @@ class Product extends Model
         // Description
         'short_description',
         'description',
+
+        // Variants (Array of variant objects)
+        'variants',
     ];
 
     protected $casts = [
         'gallery_images' => 'array',
+        'variants' => 'array', // Array of variant objects
         'price' => 'decimal:2',
         'mrp_price' => 'decimal:2',
         'gst' => 'decimal:2',
-        'cost_price' => 'decimal:2',
-        'dealer_price' => 'decimal:2',
-        'distributor_price' => 'decimal:2',
         'opening_stock' => 'integer',
         'current_stock' => 'integer',
         'min_stock_alert' => 'integer',
@@ -68,11 +61,6 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
-    }
-
-    public function brand()
-    {
-        return $this->belongsTo(Brand::class);
     }
 
     // Accessors
@@ -158,28 +146,33 @@ class Product extends Model
         return $basePrice + $gstAmount;
     }
 
-    public function calculateProfit($type = 'selling')
+    // Get total stock including all variants
+    public function getTotalStockAttribute()
     {
-        if (!$this->cost_price) {
-            return 0;
+        $total = $this->current_stock ?? 0;
+
+        if ($this->variants && is_array($this->variants)) {
+            foreach ($this->variants as $variant) {
+                $total += $variant['current_stock'] ?? 0;
+            }
         }
 
-        $sellingPrice = match($type) {
-            'dealer' => $this->dealer_price,
-            'distributor' => $this->distributor_price,
-            default => $this->price,
-        };
-
-        return $sellingPrice - $this->cost_price;
+        return $total;
     }
 
-    public function calculateProfitMargin($type = 'selling')
+    // Get all SKUs (main + variants)
+    public function getAllSkus()
     {
-        if (!$this->cost_price || $this->cost_price <= 0) {
-            return 0;
+        $skus = [$this->sku_code];
+
+        if ($this->variants && is_array($this->variants)) {
+            foreach ($this->variants as $variant) {
+                if (!empty($variant['sku_code'])) {
+                    $skus[] = $variant['sku_code'];
+                }
+            }
         }
 
-        $profit = $this->calculateProfit($type);
-        return round(($profit / $this->cost_price) * 100, 2);
+        return array_filter($skus);
     }
 }
