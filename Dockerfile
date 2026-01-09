@@ -11,6 +11,6 @@ COPY . .
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-mongodb
 
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
