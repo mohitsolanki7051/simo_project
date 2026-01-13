@@ -1,5 +1,6 @@
 :8080 {
     root * /app/public
-    php_fastcgi unix//run/php/php.sock
+    encode gzip
+    php_server
     file_server
 }
