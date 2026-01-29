@@ -1,43 +1,104 @@
 <?php
 
 namespace App\Http\Controllers\Admin;
-
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
+use App\Models\Warehouse;
+use App\Models\StockHistory;
+use App\Models\Attribute;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
-    /**
-     * Display a listing of products
-     */
+
     public function index()
     {
-        $products = Product::with(['category'])
+        $products = Product::with(['category', 'warehouse'])
             ->orderBy('created_at', 'desc')
             ->get();
+        $warehouses = Warehouse::where('status', 'active')->orderBy('name', 'asc')->get();
 
-        return view('admin.products.index', compact('products'));
+        return view('admin.products.index', compact('products', 'warehouses'));
     }
-
-    /**
-     * Show the form for creating a new product
-     */
     public function create()
     {
-        $categories = Category::where('status', 'active')
-            ->orderBy('name', 'asc')
-            ->get();
+        $categories = Category::where('status', 'active')->orderBy('name', 'asc')->get();
+        $attributes = Attribute::active()->ordered()->get();
+        $warehouses = Warehouse::where('status', 'active')->orderBy('name', 'asc')->get();
 
-        return view('admin.products.create', compact('categories'));
+        return view('admin.products.create', compact('categories', 'attributes', 'warehouses'));
     }
 
     /**
-     * Store a newly created product
+     * Check SKU code availability (for real-time validation)
      */
+    public function checkSkuAvailability(Request $request)
+    {
+        try {
+            $sku = $request->input('sku_code');
+            $productId = $request->input('product_id'); // For edit mode
+
+            if (empty($sku)) {
+                return response()->json([
+                    'available' => true,
+                    'message' => ''
+                ]);
+            }
+
+            // Check in main products
+            $query = Product::where('sku_code', $sku);
+
+            // Exclude current product if editing
+            if ($productId) {
+                $query->where('_id', '!=', $productId);
+            }
+
+            $existsInProducts = $query->exists();
+
+            if ($existsInProducts) {
+                return response()->json([
+                    'available' => false,
+                    'message' => '⚠️ This SKU code is already used in another product'
+                ]);
+            }
+
+            // Check in variants of all products
+            $productsWithVariants = Product::all();
+            foreach ($productsWithVariants as $product) {
+                // Skip current product if editing
+                if ($productId && $product->_id == $productId) {
+                    continue;
+                }
+
+                if ($product->variants && is_array($product->variants)) {
+                    foreach ($product->variants as $variant) {
+                        if (isset($variant['sku_code']) && $variant['sku_code'] === $sku) {
+                            return response()->json([
+                                'available' => false,
+                                'message' => '⚠️ This SKU code is already used in a product variant'
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            return response()->json([
+                'available' => true,
+                'message' => '✓ SKU code is available'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('SKU check failed: ' . $e->getMessage());
+            return response()->json([
+                'available' => true,
+                'message' => ''
+            ]);
+        }
+    }
+
     public function store(Request $request)
     {
         // Validation
@@ -45,24 +106,19 @@ class ProductController extends Controller
             // Basic Information
             'name' => 'required|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
             'brand' => 'required|string|max:100',
             'body_type' => 'required|string|max:100',
-            'warranty' => 'required|string|max:100',
+            'warranty' => 'required|string|max:10',
             'status' => 'required|in:active,inactive',
 
             // Main Product SKU & Barcode
-            'sku_code' => 'required|string|max:100|unique:products,sku_code',
+            'sku_code' => 'required|string|max:16|unique:products,sku_code',
             'barcode_symbology' => 'required|in:CODE128,CODE39,EAN13,EAN8,UPC',
 
-            // Pricing & Tax
-            'mrp_price' => 'required|numeric|min:0',
-            'price' => 'required|numeric|min:0',
-            'hsn_code' => 'required|string|max:50',
+            // Tax (pricing fields removed from main product)
+            'hsn_code' => 'required|string|max:8',
             'gst' => 'required|numeric|min:0|max:100',
-
-            // Stock Management
-            'opening_stock' => 'nullable|integer|min:0',
-            'min_stock_alert' => 'nullable|integer|min:0',
 
             // Images
             'base_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -73,18 +129,19 @@ class ProductController extends Controller
 
             // Variants
             'variants' => 'nullable|array',
+            'variants.*.name' => 'required_with:variants|string|max:255',
+            'variants.*.color_temperature' => 'nullable|string|max:100',
             'variants.*.watt' => 'nullable|string|max:50',
             'variants.*.shape' => 'nullable|string|max:100',
-            'variants.*.color_temperature' => 'nullable|string|max:100',
-            'variants.*.cutting_size' => 'nullable|string|max:100',
-            'variants.*.unit' => 'nullable|string|max:50',
-            'variants.*.sku_code' => 'required_with:variants|string|max:100',
+            'variants.*.unit' => 'required_with:variants|string|max:50',
+            'variants.*.sku_code' => 'required_with:variants|string|max:16|distinct',
             'variants.*.barcode_symbology' => 'required_with:variants|in:CODE128,CODE39,EAN13,EAN8,UPC',
-            'variants.*.cost_price' => 'nullable|numeric|min:0',
-            'variants.*.dealer_price' => 'nullable|numeric|min:0',
-            'variants.*.distributor_price' => 'nullable|numeric|min:0',
-            'variants.*.opening_stock' => 'nullable|integer|min:0',
-            'variants.*.min_stock_alert' => 'nullable|integer|min:0',
+            'variants.*.mrp_price' => 'required_with:variants|numeric|min:0',
+            'variants.*.cost_price' => 'required_with:variants|numeric|min:0',
+            'variants.*.dealer_price' => 'required_with:variants|numeric|min:0',
+            'variants.*.distributor_price' => 'required_with:variants|numeric|min:0',
+            'variants.*.opening_stock' => 'required_with:variants|integer|min:0',
+            'variants.*.min_stock_alert' => 'required_with:variants|integer|min:0',
             'variants.*.base_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'variants.*.gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
@@ -133,22 +190,37 @@ class ProductController extends Controller
                     );
 
                     $variants[] = [
+                        // Variant name
+                        'name' => $variantData['name'],
+
+                        // Attribute values
+                        'color_temperature' => $variantData['color_temperature'] ?? null,
                         'watt' => $variantData['watt'] ?? null,
                         'shape' => $variantData['shape'] ?? null,
-                        'color_temperature' => $variantData['color_temperature'] ?? null,
-                        'cutting_size' => $variantData['cutting_size'] ?? null,
-                        'unit' => $variantData['unit'] ?? null,
+                        'unit' => $variantData['unit'],
+
+                        // SKU & Barcode
                         'sku_code' => $variantData['sku_code'],
                         'barcode' => $variantBarcode,
                         'barcode_symbology' => $variantData['barcode_symbology'],
-                        'cost_price' => $variantData['cost_price'] ?? null,
-                        'dealer_price' => $variantData['dealer_price'] ?? null,
-                        'distributor_price' => $variantData['distributor_price'] ?? null,
-                        'opening_stock' => $variantData['opening_stock'] ?? 0,
-                        'current_stock' => $variantData['opening_stock'] ?? 0,
-                        'min_stock_alert' => $variantData['min_stock_alert'] ?? 10,
+
+                        // Pricing
+                        'mrp_price' => $variantData['mrp_price'],
+                        'cost_price' => $variantData['cost_price'],
+                        'dealer_price' => $variantData['dealer_price'],
+                        'distributor_price' => $variantData['distributor_price'],
+
+                        // Stock
+                        'opening_stock' => $variantData['opening_stock'],
+                        'current_stock' => $variantData['opening_stock'],
+                        'min_stock_alert' => $variantData['min_stock_alert'],
+
+                        // Images
                         'base_image' => $variantBaseImage,
                         'gallery_images' => $variantGalleryImages,
+
+                        // Store complete attributes data
+                        'attributes' => json_decode($variantData['attributes'] ?? '[]', true)
                     ];
                 }
             }
@@ -158,6 +230,7 @@ class ProductController extends Controller
                 // Basic Information
                 'name' => $request->name,
                 'category_id' => $request->category_id,
+                'warehouse_id' => $request->warehouse_id,
                 'brand' => $request->brand,
                 'body_type' => $request->body_type,
                 'warranty' => $request->warranty,
@@ -168,23 +241,15 @@ class ProductController extends Controller
                 'barcode' => $barcode,
                 'barcode_symbology' => $request->barcode_symbology,
 
-                // Pricing & Tax
-                'mrp_price' => $request->mrp_price,
-                'price' => $request->price,
+                // Tax (no pricing/stock for main product)
                 'hsn_code' => $request->hsn_code,
                 'gst' => $request->gst,
-
-                // Stock Management
-                'opening_stock' => $request->opening_stock ?? 0,
-                'current_stock' => $request->opening_stock ?? 0,
-                'min_stock_alert' => $request->min_stock_alert ?? 10,
 
                 // Images
                 'base_image' => $baseImagePath,
                 'gallery_images' => $galleryPaths,
 
                 // Description
-                'short_description' => $request->short_description,
                 'description' => $request->description,
 
                 // Variants
@@ -193,7 +258,6 @@ class ProductController extends Controller
 
             return redirect()->route('admin.products.index')
                 ->with('success', 'Product created successfully with ' . count($variants) . ' variant(s)!');
-
         } catch (\Exception $e) {
             Log::error('Product creation failed: ' . $e->getMessage());
 
@@ -211,79 +275,85 @@ class ProductController extends Controller
                 ->with('error', 'Failed to create product. Please try again.');
         }
     }
+    private function generateBarcode($sku, $symbology)
+    {
+        // Remove any spaces or special characters
+        $barcode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $sku));
 
-    /**
-     * Generate barcode based on SKU and symbology
-     */
-    /**
- * Generate barcode based on SKU and symbology
- */
-private function generateBarcode($sku, $symbology)
-{
-    // ✅ SKU ko hi barcode banayein
-    // Remove any spaces or special characters
-    $barcode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $sku));
+        // Ensure barcode has minimum length for some symbologies
+        if ($symbology === 'EAN13' && strlen($barcode) < 12) {
+            $barcode = str_pad($barcode, 12, '0', STR_PAD_LEFT);
+        } elseif ($symbology === 'CODE39' && strlen($barcode) < 4) {
+            $barcode = str_pad($barcode, 4, '0', STR_PAD_LEFT);
+        }
 
-    // Ensure barcode has minimum length for some symbologies
-    if ($symbology === 'EAN13' && strlen($barcode) < 12) {
-        $barcode = str_pad($barcode, 12, '0', STR_PAD_LEFT);
-    } elseif ($symbology === 'CODE39' && strlen($barcode) < 4) {
-        $barcode = str_pad($barcode, 4, '0', STR_PAD_LEFT);
+        return $barcode;
     }
 
-    return $barcode;
-}
 
-    /**
-     * Show the form for editing the product
-     */
     public function edit($id)
     {
         $product = Product::findOrFail($id);
+        $categories = Category::where('status', 'active')->orderBy('name', 'asc')->get();
+        $warehouses = Warehouse::where('status', 'active')->orderBy('name', 'asc')->get();
 
-        $categories = Category::where('status', 'active')
-            ->orderBy('name', 'asc')
-            ->get();
-
-        return view('admin.products.edit', compact('product', 'categories'));
+        return view('admin.products.edit', compact('product', 'categories', 'warehouses'));
     }
 
-    /**
-     * Update the product
-     */
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
 
-        // Validation (similar to store but excluding unique SKU for current product)
+        // Validation
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'category_id' => 'required|exists:categories,id',
+            'category_id' => 'nullable|exists:categories,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
             'brand' => 'required|string|max:100',
             'body_type' => 'required|string|max:100',
-            'warranty' => 'required|string|max:100',
+            'warranty' => 'required|string|max:10',
             'status' => 'required|in:active,inactive',
-            'sku_code' => 'required|string|max:100|unique:products,sku_code,' . $id,
+            'sku_code' => 'required|string|max:16|unique:products,sku_code,' . $id,
             'barcode_symbology' => 'required|in:CODE128,CODE39,EAN13,EAN8,UPC',
-            'mrp_price' => 'required|numeric|min:0',
-            'price' => 'required|numeric|min:0',
-            'hsn_code' => 'required|string|max:50',
+            'hsn_code' => 'required|string|max:8',
             'gst' => 'required|numeric|min:0|max:100',
-            'current_stock' => 'nullable|integer|min:0',
-            'min_stock_alert' => 'nullable|integer|min:0',
             'base_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'short_description' => 'required|string|max:500',
             'description' => 'required|string',
+
+            // Variant validation
+            'variants' => 'nullable|array',
+            'variants.*.name' => 'required_with:variants|string|max:255',
+            'variants.*.unit' => 'required_with:variants|string|max:50',
+            'variants.*.sku_code' => 'required_with:variants|string|max:16',
+            'variants.*.barcode_symbology' => 'required_with:variants|in:CODE128,CODE39,EAN13,EAN8,UPC',
+            'variants.*.mrp_price' => 'required_with:variants|numeric|min:0',
+            'variants.*.cost_price' => 'required_with:variants|numeric|min:0',
+            'variants.*.dealer_price' => 'required_with:variants|numeric|min:0',
+            'variants.*.distributor_price' => 'required_with:variants|numeric|min:0',
+            'variants.*.current_stock' => 'required_with:variants|integer|min:0',
+            'variants.*.min_stock_alert' => 'required_with:variants|integer|min:0',
+            'variants.*.base_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'variants.*.gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         try {
-            $data = $request->except(['base_image', 'gallery_images']);
+            $data = $request->except(['base_image', 'gallery_images', 'remove_base_image', 'remove_gallery_images', 'variants']);
 
             // Update barcode if SKU or symbology changed
-            if ($request->sku_code !== $product->sku_code ||
-                $request->barcode_symbology !== $product->barcode_symbology) {
+            if (
+                $request->sku_code !== $product->sku_code ||
+                $request->barcode_symbology !== $product->barcode_symbology
+            ) {
                 $data['barcode'] = $this->generateBarcode($request->sku_code, $request->barcode_symbology);
+            }
+
+            // Handle base image removal
+            if ($request->has('remove_base_image') && $request->remove_base_image == '1') {
+                if ($product->base_image) {
+                    Storage::disk('public')->delete($product->base_image);
+                }
+                $data['base_image'] = null;
             }
 
             // Update base image if provided
@@ -294,26 +364,103 @@ private function generateBarcode($sku, $symbology)
                 $data['base_image'] = $request->file('base_image')->store('products', 'public');
             }
 
-            // Update gallery images if provided
-            if ($request->hasFile('gallery_images')) {
-                if ($product->gallery_images && is_array($product->gallery_images)) {
-                    foreach ($product->gallery_images as $oldImage) {
-                        Storage::disk('public')->delete($oldImage);
+            // Handle gallery images removal
+            if ($request->has('remove_gallery_images')) {
+                $currentGallery = $product->gallery_images ?? [];
+                $removeIndices = $request->remove_gallery_images;
+
+                foreach ($removeIndices as $index) {
+                    if (isset($currentGallery[$index])) {
+                        Storage::disk('public')->delete($currentGallery[$index]);
+                        unset($currentGallery[$index]);
                     }
                 }
 
-                $galleryPaths = [];
+                $data['gallery_images'] = array_values($currentGallery);
+            }
+
+            // Update gallery images if provided
+            if ($request->hasFile('gallery_images')) {
+                $galleryPaths = $data['gallery_images'] ?? $product->gallery_images ?? [];
+
                 foreach ($request->file('gallery_images') as $image) {
                     $galleryPaths[] = $image->store('products/gallery', 'public');
                 }
-                $data['gallery_images'] = $galleryPaths;
+
+                $data['gallery_images'] = array_values($galleryPaths);
+            }
+
+            // Update variants
+            if ($request->has('variants') && is_array($request->variants)) {
+                $updatedVariants = [];
+
+                foreach ($request->variants as $index => $variantData) {
+                    $existingVariant = $product->variants[$index] ?? [];
+
+                    // Handle variant base image
+                    $variantBaseImage = $existingVariant['base_image'] ?? null;
+
+                    // Remove old variant base image if new one uploaded
+                    if ($request->hasFile("variants.{$index}.base_image")) {
+                        if ($variantBaseImage) {
+                            Storage::disk('public')->delete($variantBaseImage);
+                        }
+                        $variantBaseImage = $request->file("variants.{$index}.base_image")
+                            ->store('products/variants', 'public');
+                    }
+
+                    // Handle variant gallery images
+                    $variantGalleryImages = $existingVariant['gallery_images'] ?? [];
+
+                    if ($request->hasFile("variants.{$index}.gallery_images")) {
+                        // Delete old gallery images
+                        foreach ($variantGalleryImages as $oldImg) {
+                            Storage::disk('public')->delete($oldImg);
+                        }
+
+                        $variantGalleryImages = [];
+                        foreach ($request->file("variants.{$index}.gallery_images") as $image) {
+                            $variantGalleryImages[] = $image->store('products/variants/gallery', 'public');
+                        }
+                    }
+
+                    // Update barcode if SKU changed
+                    $variantBarcode = $existingVariant['barcode'] ?? '';
+                    if (!isset($existingVariant['sku_code']) || $variantData['sku_code'] !== $existingVariant['sku_code']) {
+                        $variantBarcode = $this->generateBarcode(
+                            $variantData['sku_code'],
+                            $variantData['barcode_symbology']
+                        );
+                    }
+
+                    $updatedVariants[] = [
+                        'name' => $variantData['name'],
+                        'color_temperature' => $existingVariant['color_temperature'] ?? null,
+                        'watt' => $existingVariant['watt'] ?? null,
+                        'shape' => $existingVariant['shape'] ?? null,
+                        'unit' => $variantData['unit'],
+                        'sku_code' => $variantData['sku_code'],
+                        'barcode' => $variantBarcode,
+                        'barcode_symbology' => $variantData['barcode_symbology'],
+                        'mrp_price' => $variantData['mrp_price'],
+                        'cost_price' => $variantData['cost_price'],
+                        'dealer_price' => $variantData['dealer_price'],
+                        'distributor_price' => $variantData['distributor_price'],
+                        'current_stock' => $variantData['current_stock'],
+                        'min_stock_alert' => $variantData['min_stock_alert'],
+                        'base_image' => $variantBaseImage,
+                        'gallery_images' => $variantGalleryImages,
+                        'attributes' => $existingVariant['attributes'] ?? []
+                    ];
+                }
+
+                $data['variants'] = $updatedVariants;
             }
 
             $product->update($data);
 
             return redirect()->route('admin.products.index')
                 ->with('success', 'Product updated successfully!');
-
         } catch (\Exception $e) {
             Log::error('Product update failed: ' . $e->getMessage());
 
@@ -322,9 +469,6 @@ private function generateBarcode($sku, $symbology)
         }
     }
 
-    /**
-     * Remove the product
-     */
     public function destroy($id)
     {
         try {
@@ -360,7 +504,6 @@ private function generateBarcode($sku, $symbology)
 
             return redirect()->route('admin.products.index')
                 ->with('success', 'Product deleted successfully!');
-
         } catch (\Exception $e) {
             Log::error('Product deletion failed: ' . $e->getMessage());
 
@@ -368,81 +511,7 @@ private function generateBarcode($sku, $symbology)
         }
     }
 
-    /**
-     * Get product details (AJAX)
-     */
-    public function show($id)
-    {
-        try {
-            $product = Product::with(['category'])->findOrFail($id);
-            return response()->json([
-                'success' => true,
-                'product' => $product
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found'
-            ], 404);
-        }
-    }
 
-    /**
-     * Update product stock (AJAX)
-     */
-    public function updateStock(Request $request, $id)
-    {
-        try {
-            $product = Product::findOrFail($id);
-
-            $request->validate([
-                'quantity' => 'required|integer',
-                'type' => 'required|in:add,subtract,set'
-            ]);
-
-            $newStock = $product->updateStock($request->quantity, $request->type);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Stock updated successfully',
-                'current_stock' => $newStock
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update stock'
-            ], 500);
-        }
-    }
-
-    /**
-     * Get low stock products
-     */
-    public function lowStockProducts()
-    {
-        $products = Product::lowStock()
-            ->with(['category'])
-            ->get();
-
-        return view('admin.products.low-stock', compact('products'));
-    }
-
-    /**
-     * Get out of stock products
-     */
-    public function outOfStockProducts()
-    {
-        $products = Product::outOfStock()
-            ->with(['category'])
-            ->get();
-
-        return view('admin.products.out-of-stock', compact('products'));
-    }
-
-    /**
-     * Bulk delete products
-     */
     public function bulkDestroy(Request $request)
     {
         try {
@@ -482,13 +551,13 @@ private function generateBarcode($sku, $symbology)
                         }
                     }
                 }
-            }
 
-            Product::whereIn('id', $request->product_ids)->delete();
+                $product->delete();
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Products deleted successfully'
+                'message' => count($request->product_ids) . ' product(s) deleted successfully'
             ]);
         } catch (\Exception $e) {
             Log::error('Bulk product deletion failed: ' . $e->getMessage());
@@ -500,9 +569,6 @@ private function generateBarcode($sku, $symbology)
         }
     }
 
-    /**
-     * Bulk update products status
-     */
     public function bulkUpdateStatus(Request $request)
     {
         try {
@@ -516,12 +582,90 @@ private function generateBarcode($sku, $symbology)
 
             return response()->json([
                 'success' => true,
-                'message' => 'Products status updated successfully'
+                'message' => count($request->product_ids) . ' product(s) status updated to ' . $request->status
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update products status'
+            ], 500);
+        }
+    }
+
+
+    public function show($id)
+    {
+        try {
+            $product = Product::with(['category'])->findOrFail($id);
+            return response()->json([
+                'success' => true,
+                'product' => $product
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found'
+            ], 404);
+        }
+    }
+    public function updateStock(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'product_id' => 'required|exists:products,_id',
+                'warehouse_id' => 'required|exists:warehouses,id',
+                'stock_date' => 'required|date',
+                'adjustment_type' => 'required|in:add,reduce,set',
+                'quantity' => 'required|integer|min:1',
+                'remarks' => 'nullable|string|max:500',
+            ]);
+
+            $product = Product::findOrFail($request->product_id);
+            $oldStock = $product->current_stock ?? 0;
+
+            // Update stock based on adjustment type
+            switch ($request->adjustment_type) {
+                case 'add':
+                    $newStock = $oldStock + $request->quantity;
+                    break;
+                case 'reduce':
+                    $newStock = max(0, $oldStock - $request->quantity);
+                    break;
+                case 'set':
+                    $newStock = $request->quantity;
+                    break;
+                default:
+                    $newStock = $oldStock;
+            }
+
+            // Update product stock
+            $product->current_stock = $newStock;
+            $product->save();
+
+            // Create stock history record
+            StockHistory::create([
+                'product_id' => $product->_id,
+                'warehouse_id' => $request->warehouse_id,
+                'adjustment_type' => $request->adjustment_type,
+                'old_quantity' => $oldStock,
+                'new_quantity' => $newStock,
+                'adjustment_quantity' => $request->quantity,
+                'date' => $request->stock_date,
+                'remarks' => $request->remarks
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock updated successfully!',
+                'old_stock' => $oldStock,
+                'new_stock' => $newStock,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Stock update failed: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update stock: ' . $e->getMessage()
             ], 500);
         }
     }

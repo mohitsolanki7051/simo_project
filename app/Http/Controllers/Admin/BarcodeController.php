@@ -24,6 +24,7 @@ class BarcodeController extends Controller
 
     /**
      * Search products by SKU or name (AJAX)
+     * ✅ UPDATED: Filter by warehouse
      */
     public function searchProducts(Request $request)
     {
@@ -38,34 +39,43 @@ class BarcodeController extends Controller
                 ]);
             }
 
-            // Search in main products
+            // ✅ UPDATED: Check if warehouse is selected
+            if (empty($warehouseId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please select a warehouse first'
+                ]);
+            }
+
+            // ✅ UPDATED: Search in main products WITH warehouse filter
             $products = Product::where(function($query) use ($search) {
                 $query->where('name', 'like', '%' . $search . '%')
                       ->orWhere('sku_code', 'like', '%' . $search . '%')
                       ->orWhere('barcode', 'like', '%' . $search . '%');
             })
+            ->where('warehouse_id', $warehouseId) // ✅ ADDED: Filter by warehouse
             ->where('status', 'active')
             ->limit(20)
-            ->get(['id', 'name', 'sku_code', 'barcode', 'barcode_symbology', 'brand', 'current_stock', 'base_image', 'price', 'variants']);
+            ->get(['id', 'name', 'sku_code', 'barcode', 'barcode_symbology', 'brand', 'current_stock', 'base_image', 'price', 'variants', 'warehouse_id']);
 
             $results = [];
 
             // Add main products
             foreach ($products as $product) {
-                // ✅ Ensure barcode exists - use SKU if barcode is empty
                 $barcodeValue = !empty($product->barcode) ? $product->barcode : $product->sku_code;
 
                 $results[] = [
                     'id' => $product->id,
                     'type' => 'main',
                     'sku_code' => $product->sku_code,
-                    'barcode' => $barcodeValue, // ✅ Use SKU as barcode if empty
+                    'barcode' => $barcodeValue,
                     'barcode_symbology' => $product->barcode_symbology ?: 'CODE128',
                     'name' => $product->name,
                     'brand' => $product->brand,
                     'price' => $product->price,
                     'current_stock' => $product->current_stock,
                     'base_image' => $product->base_image ? asset('storage/' . $product->base_image) : null,
+                    'warehouse_id' => $product->warehouse_id, // ✅ ADDED
                 ];
 
                 // Add variants if they exist
@@ -80,7 +90,6 @@ class BarcodeController extends Controller
                             if (!empty($variant['color_temperature'])) $variantName .= ' ' . $variant['color_temperature'];
                             if (!empty($variant['shape'])) $variantName .= ' ' . $variant['shape'];
 
-                            // ✅ Ensure variant barcode exists - use variant SKU if barcode is empty
                             $variantBarcode = !empty($variant['barcode']) ? $variant['barcode'] : $variant['sku_code'];
 
                             $results[] = [
@@ -89,13 +98,14 @@ class BarcodeController extends Controller
                                 'product_id' => $product->id,
                                 'variant_index' => $index,
                                 'sku_code' => $variant['sku_code'],
-                                'barcode' => $variantBarcode, // ✅ Use variant SKU as barcode if empty
+                                'barcode' => $variantBarcode,
                                 'barcode_symbology' => $variant['barcode_symbology'] ?: 'CODE128',
                                 'name' => $variantName,
                                 'brand' => $product->brand,
                                 'price' => $variant['price'] ?? $product->price,
                                 'current_stock' => $variant['current_stock'] ?? 0,
                                 'base_image' => !empty($variant['base_image']) ? asset('storage/' . $variant['base_image']) : ($product->base_image ? asset('storage/' . $product->base_image) : null),
+                                'warehouse_id' => $product->warehouse_id, // ✅ ADDED
                             ];
                         }
                     }
@@ -145,7 +155,6 @@ class BarcodeController extends Controller
                 if (!empty($variant['color_temperature'])) $variantName .= ' ' . $variant['color_temperature'];
                 if (!empty($variant['shape'])) $variantName .= ' ' . $variant['shape'];
 
-                // ✅ Ensure variant barcode exists
                 $variantBarcode = !empty($variant['barcode']) ? $variant['barcode'] : $variant['sku_code'];
 
                 return response()->json([
@@ -156,20 +165,19 @@ class BarcodeController extends Controller
                         'product_id' => $product->id,
                         'variant_index' => $variantIndex,
                         'sku_code' => $variant['sku_code'],
-                        'barcode' => $variantBarcode, // ✅ Use SKU as barcode if empty
+                        'barcode' => $variantBarcode,
                         'barcode_symbology' => $variant['barcode_symbology'] ?: 'CODE128',
                         'name' => $variantName,
                         'brand' => $product->brand,
                         'price' => $variant['price'] ?? $product->price,
                         'current_stock' => $variant['current_stock'] ?? 0,
                         'base_image' => !empty($variant['base_image']) ? asset('storage/' . $variant['base_image']) : ($product->base_image ? asset('storage/' . $product->base_image) : null),
+                        'warehouse_id' => $product->warehouse_id, // ✅ ADDED
                     ]
                 ]);
             } else {
                 // Main product
                 $product = Product::findOrFail($id);
-
-                // ✅ Ensure barcode exists - use SKU if barcode is empty
                 $barcodeValue = !empty($product->barcode) ? $product->barcode : $product->sku_code;
 
                 return response()->json([
@@ -178,13 +186,14 @@ class BarcodeController extends Controller
                         'id' => $product->id,
                         'type' => 'main',
                         'sku_code' => $product->sku_code,
-                        'barcode' => $barcodeValue, // ✅ Use SKU as barcode if empty
+                        'barcode' => $barcodeValue,
                         'barcode_symbology' => $product->barcode_symbology ?: 'CODE128',
                         'name' => $product->name,
                         'brand' => $product->brand,
                         'price' => $product->price,
                         'current_stock' => $product->current_stock,
                         'base_image' => $product->base_image ? asset('storage/' . $product->base_image) : null,
+                        'warehouse_id' => $product->warehouse_id, // ✅ ADDED
                     ]
                 ]);
             }

@@ -510,15 +510,20 @@
                         <span class="submenu-icon"></span>
                         View Products
                     </a>
-                    <a href="{{ url('/admin/products/create') }}" class="submenu-item {{ request()->is('admin/products/create') ? 'active' : '' }}">
+                    {{-- <a href="{{ url('/admin/products/create') }}" class="submenu-item {{ request()->is('admin/products/create') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
                         Add Product
+                    </a> --}}
+                    <a href="{{ route('admin.attributes.index') }}" class="submenu-item {{ request()->routeIs('admin.attributes.*') ? 'active' : '' }}">
+
+                        <span class="submenu-icon"></span>
+                        Attributes
                     </a>
                     <a href="{{ url('/admin/barcode') }}" class="submenu-item {{ request()->is('admin/barcode*') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
                         Print Barcode
                     </a>
-                    <a href="#" class="submenu-item">
+                    <a href="{{ url('/admin/categories') }}" class="submenu-item {{ request()->is('admin/categories') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
                         Categories
                     </a>
@@ -535,36 +540,60 @@
                         <span class="submenu-icon"></span>
                         View Warehouses
                     </a>
-                    <a href="{{ url('/admin/warehouses/create') }}" class="submenu-item {{ request()->is('admin/warehouses/create') ? 'active' : '' }}">
+                    {{-- <a href="{{ url('/admin/warehouses/create') }}" class="submenu-item {{ request()->is('admin/warehouses/create') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
                         Add Warehouse
-                    </a>
+                    </a> --}}
                 </div>
             </div>
 
             <!-- Orders with Submenu -->
             <div class="nav-item">
-                <div class="nav-link" onclick="toggleSubmenu(this)">
+                <div class="nav-link {{ request()->is('admin/orders*') ? 'active' : '' }}" onclick="toggleSubmenu(this)">
                     <span class="nav-icon">🛍️</span>
-                    <span class="nav-text">Orders</span>
+                    <span class="nav-text">Sales</span>
                     <span class="nav-arrow">▶</span>
                 </div>
                 <div class="submenu">
-                    <a href="#" class="submenu-item">
+                     <a href="{{ url('/admin/orders') }}" class="submenu-item {{ request()->is('admin/orders') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
-                        All Orders
+                        All Sales
                     </a>
-                    <a href="#" class="submenu-item">
+                    {{-- <a href="#" class="submenu-item">
                         <span class="submenu-icon"></span>
                         Pending Orders
                     </a>
                     <a href="#" class="submenu-item">
                         <span class="submenu-icon"></span>
                         Completed Orders
-                    </a>
+                    </a> --}}
                 </div>
             </div>
-
+             <div class="nav-item">
+                <div class="nav-link {{ request()->is('admin/purchase-orders*') ? 'active' : '' }}" onclick="toggleSubmenu(this)">
+                    <span class="nav-icon">🛍️</span>
+                    <span class="nav-text">Purchase Orders</span>
+                    <span class="nav-arrow">▶</span>
+                </div>
+                <div class="submenu">
+                     <a href="{{ url('/admin/purchase-orders') }}" class="submenu-item {{ request()->is('admin/purchase-orders') ? 'active' : '' }}">
+                        <span class="submenu-icon"></span>
+                        All Purchase Orders
+                    </a>
+                     <a href="{{ url('/admin/suppliers') }}" class="submenu-item {{ request()->is('admin/suppliers') ? 'active' : '' }}">
+                        <span class="submenu-icon"></span>
+                        All Suppliers
+                    </a>
+                    {{-- <a href="#" class="submenu-item">
+                        <span class="submenu-icon"></span>
+                        Pending Orders
+                    </a>
+                    <a href="#" class="submenu-item">
+                        <span class="submenu-icon"></span>
+                        Completed Orders
+                    </a> --}}
+                </div>
+            </div>
             <!-- Customers with Submenu -->
             <div class="nav-item">
                 <div class="nav-link" onclick="toggleSubmenu(this)">
