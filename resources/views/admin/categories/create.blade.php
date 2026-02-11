@@ -1,170 +1,565 @@
 @extends('layouts.admin')
 
 @section('title', 'Create Category - Admin Panel')
-@section('header-title', 'Create New Category')
+@section('header-title', 'Categories Management')
 
 @section('content')
-<div class="create-category-container">
+<div class="products-container">
     <!-- Alert Messages -->
     <div id="alertContainer"></div>
 
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
-            <a href="{{ route('admin.categories.index') }}" class="back-btn">
-                <span>←</span> Back to Categories
-            </a>
             <h2 class="page-title">Add New Category</h2>
+        </div>
+        <div class="header-right">
+            <a href="{{ route('admin.categories.index') }}" class="btn-small btn-cancel">
+                <span class="btn-icon">←</span> Back to Categories
+            </a>
         </div>
     </div>
 
-    <form action="{{ route('admin.categories.store') }}" method="POST" enctype="multipart/form-data" id="categoryForm">
-        @csrf
+    <!-- Form Container -->
+    <div class="form-wrapper">
+        <form action="{{ route('admin.categories.store') }}" method="POST" enctype="multipart/form-data" id="categoryForm">
+            @csrf
 
-        <div class="form-container">
-            <div class="form-section">
-                <h3 class="section-title">Category Information</h3>
-
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Category Name <span class="required">*</span></label>
-                        <input type="text" class="form-input" name="name" value="{{ old('name') }}" placeholder="e.g., LED Lights" required>
-                        <span class="form-hint">Enter a unique name for this category</span>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Parent Category</label>
-                        <select class="form-select" name="parent_id">
-                            <option value="">Select Parent Category</option>
-                            @foreach($categories as $parent)
-                            <option value="{{ $parent->id }}" {{ old('parent_id') == $parent->id ? 'selected' : '' }}>{{ $parent->name }}</option>
-                            @endforeach
-                        </select>
-                        <span class="form-hint">Leave empty for main category</span>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Status <span class="required">*</span></label>
-                        <select class="form-select" name="status" required>
-                            <option value="active" {{ old('status') == 'active' ? 'selected' : '' }}>Active</option>
-                            <option value="inactive" {{ old('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Sort Order</label>
-                        <input type="number" class="form-input" name="sort_order" value="{{ old('sort_order', 0) }}" min="0">
-                        <span class="form-hint">Lower numbers appear first</span>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label class="form-label">Category Image</label>
-                        <div class="image-upload-wrapper">
-                            <input type="file" class="form-input-file" id="category_image" name="image" accept="image/*" onchange="previewImage(event)" hidden>
-                            <label for="category_image" class="upload-label">
-                                <div class="upload-icon">🖼️</div>
-                                <div class="upload-text">Click to upload image</div>
-                                <div class="upload-hint">PNG, JPG up to 2MB</div>
+            <!-- Basic Information Card -->
+            <div class="form-card">
+                <div class="card-header">
+                    <h3 class="card-title">Category Information</h3>
+                    <div class="card-subtitle">Enter basic details of the category</div>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <!-- Category Name -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="label-text">Category Name</span>
+                                <span class="required">*</span>
                             </label>
+                            <input type="text"
+                                   class="form-input @error('name') error @enderror"
+                                   name="name"
+                                   value="{{ old('name') }}"
+                                   placeholder="e.g., LED Lights"
+                                   required>
+                            @error('name')
+                                <div class="form-error">{{ $message }}</div>
+                            @enderror
                         </div>
-                        <div class="image-preview-container" id="imagePreview"></div>
-                    </div>
 
-                    <div class="form-group full-width">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-textarea" name="description" rows="4" placeholder="Enter category description">{{ old('description') }}</textarea>
+                        <!-- Slug -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="label-text">Slug</span>
+                            </label>
+                            <input type="text"
+                                   class="form-input @error('slug') error @enderror"
+                                   name="slug"
+                                   value="{{ old('slug') }}"
+                                   placeholder="e.g., led-lights">
+                            @error('slug')
+                                <div class="form-error">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <!-- Status -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="label-text">Status</span>
+                                <span class="required">*</span>
+                            </label>
+                            <select class="form-select @error('status') error @enderror" name="status" required>
+                                <option value="">Select Status</option>
+                                <option value="active" {{ old('status') == 'active' ? 'selected' : '' }}>Active</option>
+                                <option value="inactive" {{ old('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                            </select>
+                            @error('status')
+                                <div class="form-error">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div></div>
+
+                        <!-- Image Upload -->
+                       <div class="form-group image-desc">
+                            <label class="form-label">
+                                <span class="label-text">Category Image</span>
+                            </label>
+                            <div class="image-upload-section">
+                                <input type="file"
+                                       class="form-input-file @error('image') error @enderror"
+                                       id="category_image"
+                                       name="image"
+                                       accept="image/*"
+                                       onchange="previewImage(event)"
+                                       hidden>
+                                <label for="category_image" class="upload-label">
+                                    <div class="upload-icon">🖼️</div>
+                                    <div class="upload-text">Click to upload image</div>
+                                    <div class="upload-hint">PNG, JPG, JPEG, GIF up to 2MB</div>
+                                </label>
+                                @error('image')
+                                    <div class="form-error">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="image-preview-container" id="imagePreview"></div>
+                        </div>
+
+                        <!-- Description -->
+                       <div class="form-group image-desc">
+                            <label class="form-label">
+                                <span class="label-text">Description</span>
+                            </label>
+                            <textarea class="form-textarea @error('description') error @enderror"
+                                      name="description"
+                                      rows="4"
+                                      placeholder="Enter category description">{{ old('description') }}</textarea>
+                            @error('description')
+                                <div class="form-error">{{ $message }}</div>
+                            @enderror
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="form-section">
-                <h3 class="section-title">SEO Information (Optional)</h3>
-
-                <div class="form-grid">
-                    <div class="form-group full-width">
-                        <label class="form-label">Meta Title</label>
-                        <input type="text" class="form-input" name="meta_title" value="{{ old('meta_title') }}" placeholder="SEO title for search engines">
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label class="form-label">Meta Description</label>
-                        <textarea class="form-textarea" name="meta_description" rows="3" placeholder="SEO description for search engines">{{ old('meta_description') }}</textarea>
-                        <span class="form-hint">Recommended: 150-160 characters</span>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label class="form-label">Meta Keywords</label>
-                        <input type="text" class="form-input" name="meta_keywords" value="{{ old('meta_keywords') }}" placeholder="comma, separated, keywords">
-                        <span class="form-hint">Separate keywords with commas</span>
-                    </div>
-                </div>
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <a href="{{ route('admin.categories.index') }}" class="btn-action btn-secondary">
+                    Cancel
+                </a>
+                <button type="submit" class="btn-action btn-primary">
+                    <span class="submit-icon">✓</span> Create Category
+                </button>
             </div>
-        </div>
-
-        <!-- Form Actions -->
-        <div class="form-actions">
-            <a href="{{ route('admin.categories.index') }}" class="btn-cancel">Cancel</a>
-            <button type="submit" class="btn-primary">
-                <span>✓</span> Create Category
-            </button>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 @push('styles')
 <style>
-    .create-category-container { padding: 30px; max-width: 1000px; margin: 0 auto; }
+    /* Main Container */
+    .products-container {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    }
+    /* Image + Description same row balance */
+.form-grid .form-group:nth-last-child(2),
+.form-grid .form-group:nth-last-child(1) {
+    align-self: stretch;
+}
 
-    /* Alert Styles */
-    #alertContainer { position: fixed; top: 90px; right: 35px; z-index: 9999; max-width: 400px; }
-    .alert { padding: 16px 20px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s ease; font-weight: 600; }
-    @keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
-    .alert-success { background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%); color: #22543d; border-left: 4px solid #38a169; }
-    .alert-error { background: linear-gradient(135deg, #fed7d7 0%, #fc8181 100%); color: #9b2c2c; border-left: 4px solid #f56565; }
+/* Description textarea height match image */
+.form-textarea {
+    min-height: 140px;
+}
 
-    .page-header { margin-bottom: 30px; }
-    .back-btn { display: inline-flex; align-items: center; gap: 8px; color: #718096; text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; transition: all 0.3s; margin-bottom: 15px; }
-    .back-btn:hover { background: #f7fafc; color: #ff6b35; }
-    .page-title { font-size: 28px; font-weight: 700; color: #2d3748; }
+/* Force image + description same row */
+.form-group.image-desc {
+    align-self: stretch;
+}
 
-    .form-container { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; }
-    .form-section { padding: 30px; border-bottom: 2px solid #e2e8f0; }
-    .form-section:last-child { border-bottom: none; }
+/* Match height */
+.form-group.image-desc .form-textarea {
+    min-height: 140px;
+}
 
-    .section-title { font-size: 18px; font-weight: 700; color: #2d3748; margin-bottom: 20px; }
+    /* Alert Messages */
+    #alertContainer {
+        position: fixed;
+        top: 90px;
+        right: 35px;
+        z-index: 9999;
+        max-width: 400px;
+    }
 
-    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-    .form-group { display: flex; flex-direction: column; }
-    .form-group.full-width { grid-column: span 2; }
-    .form-label { margin-bottom: 8px; font-weight: 600; color: #4a5568; font-size: 14px; }
-    .required { color: #fc8181; }
-    .form-input, .form-textarea, .form-select { padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 14px; transition: all 0.3s; font-family: inherit; }
-    .form-input:focus, .form-textarea:focus, .form-select:focus { outline: none; border-color: #ff6b35; box-shadow: 0 0 0 3px rgba(255,107,53,0.1); }
-    .form-textarea { min-height: 100px; resize: vertical; }
-    .form-hint { margin-top: 6px; font-size: 12px; color: #a0aec0; }
+    .alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        animation: slideIn 0.3s ease;
+        font-weight: 600;
+        font-size: 11px;
+        border-left: 4px solid transparent;
+    }
 
-    .image-upload-wrapper { margin-bottom: 15px; }
-    .upload-label { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; border: 3px dashed #cbd5e0; border-radius: 12px; background: #f7fafc; cursor: pointer; transition: all 0.3s; }
-    .upload-label:hover { border-color: #ff6b35; background: rgba(255,107,53,0.05); }
-    .upload-icon { font-size: 36px; margin-bottom: 10px; }
-    .upload-text { font-size: 14px; font-weight: 600; color: #2d3748; margin-bottom: 5px; }
-    .upload-hint { font-size: 12px; color: #a0aec0; }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(100px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
 
-    .image-preview-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
-    .preview-item { position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    .preview-image { width: 100%; height: 150px; object-fit: cover; display: block; }
-    .remove-image { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; background: #fc8181; color: white; border: none; border-radius: 50%; cursor: pointer; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-    .remove-image:hover { background: #f56565; transform: scale(1.1); }
+    .alert-success {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #065f46;
+        border-left-color: #10b981;
+    }
 
-    .form-actions { display: flex; justify-content: flex-end; gap: 15px; margin-top: 30px; }
-    .btn-cancel { padding: 12px 24px; background: #e2e8f0; color: #4a5568; border: none; border-radius: 10px; font-weight: 600; text-decoration: none; transition: all 0.3s; }
-    .btn-cancel:hover { background: #cbd5e0; }
-    .btn-primary { padding: 12px 30px; background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(255,107,53,0.3); display: flex; align-items: center; gap: 8px; }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,107,53,0.4); }
+    .alert-error {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #991b1b;
+        border-left-color: #ef4444;
+    }
 
+    /* Header */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .page-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #2d3748;
+        margin: 0;
+    }
+
+    .btn-small {
+        padding: 5px 10px;
+        background: white;
+        color: #fa8128;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-small:hover {
+        background: #f3f4f6;
+        border-color: #9ca3af;
+        transform: translateY(-1px);
+    }
+
+    .btn-icon {
+        font-size: 12px;
+    }
+
+    /* Form Wrapper */
+    .form-wrapper {
+        max-width: 100%;
+    }
+
+    /* Form Card */
+    .form-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    }
+
+    .card-header {
+        padding: 18px 24px;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .card-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        margin: 0;
+    }
+
+    .card-subtitle {
+        font-size: 11px;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Form Grid */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 0;
+    }
+
+    .form-group {
+        margin-bottom: 0;
+    }
+
+    .form-group.full-width {
+        grid-column: span 2;
+    }
+
+    /* Form Elements */
+    .form-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .required {
+        color: #ef4444;
+        margin-left: 2px;
+    }
+
+    .form-input, .form-textarea, .form-select {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 12px;
+        font-family: inherit;
+        transition: all 0.2s;
+        background: white;
+        box-sizing: border-box;
+    }
+
+    .form-input:focus, .form-textarea:focus, .form-select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        background: white;
+    }
+
+    .form-input.error, .form-textarea.error, .form-select.error {
+        border-color: #ef4444;
+        background: #fef2f2;
+    }
+
+    .form-textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .form-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
+    }
+
+    .form-error {
+        color: #ef4444;
+        font-size: 11px;
+        margin-top: 4px;
+        font-weight: 500;
+    }
+
+    .form-hint {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #9ca3af;
+        line-height: 1.4;
+    }
+
+    /* Image Upload */
+    .image-upload-section {
+        margin-bottom: 10px;
+    }
+
+    .upload-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 25px;
+        border: 2px dashed #d1d5db;
+        border-radius: 10px;
+        background: #f9fafb;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .upload-label:hover {
+        border-color: #fa8427;
+        background: rgba(250, 132, 39, 0.05);
+        transform: translateY(-2px);
+    }
+
+    .upload-icon {
+        font-size: 28px;
+        margin-bottom: 8px;
+        opacity: 0.7;
+    }
+
+    .upload-text {
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 4px;
+    }
+
+    .upload-hint {
+        font-size: 11px;
+        color: #9ca3af;
+    }
+
+    .image-preview-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+        margin-bottom: 10px;
+    }
+
+    .preview-item {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .preview-image {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .remove-image {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 24px;
+        height: 24px;
+        background: #ef4444;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    .remove-image:hover {
+        background: #dc2626;
+        transform: scale(1.1);
+    }
+
+    /* Form Actions */
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        padding: 10px;
+        background: white;
+        border-top: 1px solid #e5e7eb;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .btn-action {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 160px;
+        justify-content: center;
+    }
+
+    .btn-secondary {
+        background: white;
+        color: #4b5563;
+        border: 1px solid #d1d5db;
+    }
+
+    .btn-secondary:hover {
+        background: #f3f4f6;
+        border-color: #9ca3af;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #fa8427 0%, #f97316 100%);
+        color: white;
+        border: 1px solid #fa8427;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #e97317 0%, #ea580c 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(250, 132, 39, 0.3);
+    }
+
+    .submit-icon {
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    /* Responsive */
     @media (max-width: 768px) {
-        .form-grid { grid-template-columns: 1fr; }
-        .form-group.full-width { grid-column: span 1; }
+        .products-container {
+            padding: 15px;
+        }
+
+        .page-header {
+            flex-direction: column;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        .form-group.full-width {
+            grid-column: span 1;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .btn-action {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .products-container {
+            padding: 12px;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        .image-preview-container {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 @endpush
@@ -187,6 +582,24 @@
         container.innerHTML = '';
 
         if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
+            const maxSize = 2 * 1024 * 1024; // 2MB
+
+            // Check file type
+            if (!validTypes.includes(file.type)) {
+                showAlert('Please upload only JPEG, PNG, JPG or GIF images', 'error');
+                input.value = '';
+                return;
+            }
+
+            // Check file size
+            if (file.size > maxSize) {
+                showAlert('Image size should be less than 2MB', 'error');
+                input.value = '';
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 const div = document.createElement('div');
@@ -197,7 +610,7 @@
                 `;
                 container.appendChild(div);
             }
-            reader.readAsDataURL(input.files[0]);
+            reader.readAsDataURL(file);
         }
     }
 
@@ -206,13 +619,61 @@
         document.getElementById('imagePreview').innerHTML = '';
     }
 
+    // Auto-generate slug from name - FIXED VERSION
+    document.addEventListener('DOMContentLoaded', function() {
+        const nameInput = document.querySelector('input[name="name"]');
+        const slugInput = document.querySelector('input[name="slug"]');
+
+        // Auto-focus on name input
+        nameInput.focus();
+
+        // Auto-generate slug when name changes
+        nameInput.addEventListener('input', function(e) {
+            // Only auto-generate if slug is empty or hasn't been manually modified
+            if (!slugInput.dataset.manual) {
+                const name = e.target.value;
+                if (name.trim()) {
+                    // Convert to lowercase and create slug
+                    let slug = name
+                        .toLowerCase()
+                        .trim()
+                        .replace(/[^\w\s-]/g, '') // Remove special characters
+                        .replace(/\s+/g, '-')     // Replace spaces with hyphens
+                        .replace(/[-\s]+/g, '-')  // Replace multiple hyphens with single hyphen
+                        .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+
+                    slugInput.value = slug;
+                } else {
+                    slugInput.value = '';
+                }
+            }
+        });
+
+        // Mark slug as manually modified when user types in it
+        slugInput.addEventListener('input', function() {
+            this.dataset.manual = 'true';
+        });
+
+        // Clear manual flag if user clears the slug field
+        slugInput.addEventListener('blur', function() {
+            if (!this.value.trim()) {
+                delete this.dataset.manual;
+            }
+        });
+    });
+
     // Form validation
     document.getElementById('categoryForm').addEventListener('submit', function(e) {
-        const requiredInputs = document.querySelectorAll('[required]');
         let isValid = true;
+        const requiredInputs = document.querySelectorAll('[required]');
 
-        requiredInputs.forEach(input => {
+        // Reset errors
+        document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(input => {
             input.classList.remove('error');
+        });
+
+        // Check required fields
+        requiredInputs.forEach(input => {
             if (!input.value.trim()) {
                 input.classList.add('error');
                 isValid = false;
@@ -222,9 +683,16 @@
         if (!isValid) {
             e.preventDefault();
             showAlert('Please fill in all required fields', 'error');
+
+            // Scroll to first error
+            const firstError = document.querySelector('.error');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
     });
 
+    // Display validation errors from server
     @if($errors->any())
         @foreach($errors->all() as $error)
             showAlert('{{ $error }}', 'error');
@@ -232,11 +700,11 @@
     @endif
 
     @if(session('success'))
-        showAlert('{{ session("success") }}', 'success');
+        showAlert('{{ session('success') }}', 'success');
     @endif
 
     @if(session('error'))
-        showAlert('{{ session("error") }}', 'error');
+        showAlert('{{ session('error') }}', 'error');
     @endif
 </script>
 @endpush

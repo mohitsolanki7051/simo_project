@@ -13,9 +13,9 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f7fa;
-            color: #2d3748;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: #f8f9fa;
+            color: #1a1a1a;
         }
 
         /* Sidebar Styles */
@@ -23,58 +23,43 @@
             position: fixed;
             left: 0;
             top: 0;
-            width: 260px;
+            width: 240px;
             height: 100vh;
-            background: linear-gradient(180deg, #1a202c 0%, #2d3748 100%);
-            padding: 20px 0;
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
             z-index: 1000;
-            box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
         }
 
         .sidebar.collapsed {
-            width: 100px;
+            width: 70px;
         }
 
         .sidebar-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 0 10px 25px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 25px;
+            justify-content: center;
+            padding: 18px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            position: relative;
         }
 
         .sidebar-logo {
             display: flex;
             align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            width: 45px;
-            height: 45px;
-            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
             justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .logo-icon img {
-            width: 32px;
-            height: 32px;
-            object-fit: contain;
+            gap: 10px;
+            width: 100%;
         }
 
         .logo-text {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
-            color: white;
+            color: #f98824;
             white-space: nowrap;
             transition: opacity 0.3s ease;
+            letter-spacing: 0.5px;
         }
 
         .sidebar.collapsed .logo-text {
@@ -83,22 +68,25 @@
         }
 
         .sidebar-toggle {
-            background: rgba(255, 255, 255, 0.1);
+            background: transparent;
             border: none;
-            color: white;
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+            color: #6b7280;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
-            transition: all 0.3s ease;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            position: absolute;
+            right: 12px;
         }
 
         .sidebar-toggle:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: #f3f4f6;
+            color: #1a1a1a;
         }
 
         .sidebar.collapsed .sidebar-toggle {
@@ -106,41 +94,42 @@
         }
 
         .sidebar-nav {
-            padding: 0 15px;
+            padding: 12px 8px;
         }
 
         .nav-item {
             position: relative;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
         }
 
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 14px 15px;
-            color: #cbd5e0;
+            padding: 9px 10px;
+            color: #6b7280;
             text-decoration: none;
-            border-radius: 10px;
-            transition: all 0.3s ease;
+            border-radius: 6px;
+            transition: all 0.2s ease;
             cursor: pointer;
             position: relative;
+            font-size: 13px;
         }
 
         .nav-link:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
+            background: #f3f4f6;
+            color: #1a1a1a;
         }
 
         .nav-link.active {
             background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
             color: white;
-            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+            font-weight: 500;
         }
 
         .nav-icon {
-            width: 22px;
-            margin-right: 14px;
-            font-size: 18px;
+            width: 18px;
+            margin-right: 10px;
+            font-size: 16px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
@@ -154,6 +143,7 @@
         .nav-text {
             white-space: nowrap;
             transition: opacity 0.3s ease;
+            font-size: 13px;
         }
 
         .sidebar.collapsed .nav-text {
@@ -163,8 +153,8 @@
 
         .nav-arrow {
             margin-left: auto;
-            transition: transform 0.3s ease;
-            font-size: 12px;
+            transition: transform 0.2s ease;
+            font-size: 10px;
         }
 
         .sidebar.collapsed .nav-arrow {
@@ -180,11 +170,11 @@
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
-            padding-left: 15px;
+            padding-left: 10px;
         }
 
         .submenu.open {
-            max-height: 500px;
+            max-height: 400px;
         }
 
         .sidebar.collapsed .submenu {
@@ -194,33 +184,33 @@
         .submenu-item {
             display: flex;
             align-items: center;
-            padding: 10px 15px;
-            color: #a0aec0;
+            padding: 7px 10px;
+            color: #6b7280;
             text-decoration: none;
-            border-radius: 8px;
-            margin: 3px 0;
-            font-size: 14px;
-            transition: all 0.3s ease;
+            border-radius: 5px;
+            margin: 1px 0;
+            font-size: 12px;
+            transition: all 0.2s ease;
         }
 
         .submenu-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            padding-left: 20px;
+            background: #f3f4f6;
+            color: #1a1a1a;
+            padding-left: 14px;
         }
 
         .submenu-item.active {
-            background: rgba(255, 107, 53, 0.2);
+            background: #fef3f2;
             color: #ff6b35;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         .submenu-icon {
-            width: 6px;
-            height: 6px;
-            background: #a0aec0;
+            width: 4px;
+            height: 4px;
+            background: #9ca3af;
             border-radius: 50%;
-            margin-right: 12px;
+            margin-right: 10px;
         }
 
         .submenu-item.active .submenu-icon {
@@ -235,18 +225,18 @@
 
         .nav-tooltip {
             position: absolute;
-            left: 75px;
+            left: 65px;
             top: 50%;
             transform: translateY(-50%);
-            background: #1a202c;
+            background: #1a1a1a;
             color: white;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 12px;
             white-space: nowrap;
             opacity: 0;
             visibility: hidden;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             pointer-events: none;
             z-index: 1000;
         }
@@ -257,65 +247,48 @@
 
         /* Main Content */
         .main-content {
-            margin-left: 260px;
+            margin-left: 240px;
             min-height: 100vh;
-            transition: margin-left 0.3s ease;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .main-content.expanded {
-            margin-left: 80px;
+            margin-left: 70px;
         }
 
         /* Header */
         .header {
             background: white;
-            height: 75px;
+            height: 64px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 35px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            padding: 0 15px;
+            border-bottom: 1px solid #e5e7eb;
             position: sticky;
             top: 0;
             z-index: 100;
         }
 
         .header-title {
-            font-size: 26px;
-            font-weight: 700;
-            color: #2d3748;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 20px;
-        }
-
-        .notification-btn {
-            position: relative;
-            width: 42px;
-            height: 42px;
-            background: #f7fafc;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 18px;
-        }
-
-        .notification-btn:hover {
-            background: #edf2f7;
-            transform: scale(1.05);
+            gap: 12px;
         }
 
         .notification-badge {
             position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 8px;
-            height: 8px;
-            background: #f56565;
+            top: 6px;
+            right: 6px;
+            width: 6px;
+            height: 6px;
+            background: #ef4444;
             border-radius: 50%;
             border: 2px solid white;
         }
@@ -323,29 +296,29 @@
         .user-profile {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 8px 15px;
-            background: #f7fafc;
-            border-radius: 12px;
+            gap: 10px;
+            padding: 6px 10px;
+            background: transparent;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
 
         .user-profile:hover {
-            background: #edf2f7;
+            background: #f3f4f6;
         }
 
         .user-avatar {
-            width: 42px;
-            height: 42px;
+            width: 34px;
+            height: 34px;
             background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-weight: 700;
-            font-size: 16px;
+            font-weight: 600;
+            font-size: 13px;
         }
 
         .user-info {
@@ -353,19 +326,19 @@
         }
 
         .user-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #2d3748;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1a1a1a;
         }
 
         .user-role {
-            font-size: 12px;
-            color: #718096;
+            font-size: 11px;
+            color: #6b7280;
         }
 
         /* Dashboard Content */
         .dashboard-content {
-            padding: 35px;
+            padding: 15px;
         }
 
         /* Mobile Menu Toggle */
@@ -373,22 +346,23 @@
             display: none;
             background: none;
             border: none;
-            font-size: 24px;
+            font-size: 20px;
             cursor: pointer;
-            color: #2d3748;
+            color: #1a1a1a;
         }
 
         /* User Dropdown Menu */
         .user-menu {
             display: none;
             position: absolute;
-            top: 70px;
-            right: 35px;
+            top: 60px;
+            right: 24px;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             z-index: 1000;
-            min-width: 200px;
+            min-width: 180px;
+            border: 1px solid #e5e7eb;
         }
 
         .user-menu.show {
@@ -396,45 +370,47 @@
         }
 
         .user-menu-header {
-            padding: 15px;
-            border-bottom: 1px solid #e2e8f0;
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
         }
 
         .user-menu-name {
-            font-weight: 600;
-            color: #2d3748;
+            font-weight: 500;
+            color: #1a1a1a;
+            font-size: 13px;
         }
 
         .user-menu-email {
-            font-size: 12px;
-            color: #718096;
+            font-size: 11px;
+            color: #6b7280;
             margin-top: 4px;
         }
 
         .user-menu-actions {
-            padding: 10px;
+            padding: 8px;
         }
 
         .logout-btn {
             width: 100%;
-            padding: 10px;
-            background: #fed7d7;
-            color: #9b2c2c;
+            padding: 8px;
+            background: #fef2f2;
+            color: #dc2626;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.2s ease;
         }
 
         .logout-btn:hover {
-            background: #fc8181;
+            background: #fee2e2;
         }
 
         /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
-                transform: translateX(-260px);
+                transform: translateX(-240px);
             }
 
             .sidebar.mobile-open {
@@ -450,26 +426,26 @@
             }
 
             .header {
-                padding: 0 20px;
+                padding: 0 16px;
             }
         }
 
         /* Scrollbar Styling */
         .sidebar::-webkit-scrollbar {
-            width: 6px;
+            width: 5px;
         }
 
         .sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
+            background: transparent;
         }
 
         .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
+            background: #e5e7eb;
             border-radius: 3px;
         }
 
         .sidebar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: #d1d5db;
         }
     </style>
     @stack('styles')
@@ -479,10 +455,6 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-logo">
-                <div class="logo-icon">
-                    <!-- Replace this with your company logo -->
-                    <img src="{{ asset('storage/logos/company-logo.png') }}" alt="Logo" onerror="this.parentElement.innerHTML='🛒'">
-                </div>
                 <div class="logo-text">Simko</div>
             </div>
             <button class="sidebar-toggle" id="sidebarToggle">☰</button>
@@ -515,7 +487,6 @@
                         Add Product
                     </a> --}}
                     <a href="{{ route('admin.attributes.index') }}" class="submenu-item {{ request()->routeIs('admin.attributes.*') ? 'active' : '' }}">
-
                         <span class="submenu-icon"></span>
                         Attributes
                     </a>
@@ -529,6 +500,8 @@
                     </a>
                 </div>
             </div>
+
+            <!-- Warehouses with Submenu -->
             <div class="nav-item">
                 <div class="nav-link {{ request()->is('admin/warehouses*') ? 'active' : '' }}" onclick="toggleSubmenu(this)">
                     <span class="nav-icon">🏢</span>
@@ -540,24 +513,46 @@
                         <span class="submenu-icon"></span>
                         View Warehouses
                     </a>
+                    <a href="{{ url('admin/godown') }}" class="submenu-item {{ request()->is('admin/godown') ? 'active' : '' }}">
+                        <span class="submenu-icon"></span>
+                        View Godown
+                    </a>
                     {{-- <a href="{{ url('/admin/warehouses/create') }}" class="submenu-item {{ request()->is('admin/warehouses/create') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
                         Add Warehouse
                     </a> --}}
                 </div>
             </div>
-
-            <!-- Orders with Submenu -->
+            <!-- Customers with Submenu -->
             <div class="nav-item">
-                <div class="nav-link {{ request()->is('admin/orders*') ? 'active' : '' }}" onclick="toggleSubmenu(this)">
+                <div class="nav-link {{ request()->is('admin/customers*') ? 'active' : '' }}" onclick="toggleSubmenu(this)">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Customers</span>
+                    <span class="nav-arrow">▶</span>
+                </div>
+                <div class="submenu">
+                    <a href="{{ url('/admin/customers') }}" class="submenu-item {{ request()->is('admin/customers') && !request()->is('admin/customers/create') ? 'active' : '' }}">
+                        <span class="submenu-icon"></span>
+                        View Customers
+                    </a>
+                </div>
+            </div>
+
+            <!-- Sales with Submenu -->
+            <div class="nav-item">
+                <div class="nav-link {{ request()->is('admin/sales*') ? 'active' : '' }}" onclick="toggleSubmenu(this)">
                     <span class="nav-icon">🛍️</span>
                     <span class="nav-text">Sales</span>
                     <span class="nav-arrow">▶</span>
                 </div>
                 <div class="submenu">
-                     <a href="{{ url('/admin/orders') }}" class="submenu-item {{ request()->is('admin/orders') ? 'active' : '' }}">
+                     <a href="{{ url('/admin/sales') }}" class="submenu-item {{ request()->is('admin/sales') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
                         All Sales
+                    </a>
+                     <a href="{{ url('/admin/invoice-settings') }}" class="submenu-item {{ request()->is('admin/invoice-settings') ? 'active' : '' }}">
+                        <span class="submenu-icon"></span>
+                        Invoice Settings
                     </a>
                     {{-- <a href="#" class="submenu-item">
                         <span class="submenu-icon"></span>
@@ -569,14 +564,16 @@
                     </a> --}}
                 </div>
             </div>
-             <div class="nav-item">
+
+            <!-- Purchase Orders with Submenu -->
+            <div class="nav-item">
                 <div class="nav-link {{ request()->is('admin/purchase-orders*') ? 'active' : '' }}" onclick="toggleSubmenu(this)">
-                    <span class="nav-icon">🛍️</span>
+                    <span class="nav-icon">📋</span>
                     <span class="nav-text">Purchase Orders</span>
                     <span class="nav-arrow">▶</span>
                 </div>
                 <div class="submenu">
-                     <a href="{{ url('/admin/purchase-orders') }}" class="submenu-item {{ request()->is('admin/purchase-orders') ? 'active' : '' }}">
+                     <a href="{{ url('/admin/purchases') }}" class="submenu-item {{ request()->is('admin/purchases') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
                         All Purchase Orders
                     </a>
@@ -584,34 +581,14 @@
                         <span class="submenu-icon"></span>
                         All Suppliers
                     </a>
-                    {{-- <a href="#" class="submenu-item">
+                     <a href="{{ url('/admin/supplier-payments') }}" class="submenu-item {{ request()->is('admin/supplier-payments') ? 'active' : '' }}">
                         <span class="submenu-icon"></span>
-                        Pending Orders
-                    </a>
-                    <a href="#" class="submenu-item">
-                        <span class="submenu-icon"></span>
-                        Completed Orders
-                    </a> --}}
-                </div>
-            </div>
-            <!-- Customers with Submenu -->
-            <div class="nav-item">
-                <div class="nav-link" onclick="toggleSubmenu(this)">
-                    <span class="nav-icon">👥</span>
-                    <span class="nav-text">Customers</span>
-                    <span class="nav-arrow">▶</span>
-                </div>
-                <div class="submenu">
-                    <a href="#" class="submenu-item">
-                        <span class="submenu-icon"></span>
-                        All Customers
-                    </a>
-                    <a href="#" class="submenu-item">
-                        <span class="submenu-icon"></span>
-                        Add Customer
+                        Supplier Payments
                     </a>
                 </div>
             </div>
+
+
 
             <!-- Reports -->
             <div class="nav-item">
@@ -655,10 +632,7 @@
             <h1 class="header-title">@yield('header-title', 'Dashboard')</h1>
 
             <div class="header-right">
-                <button class="notification-btn">
-                    🔔
-                    <span class="notification-badge"></span>
-                </button>
+
 
                 <div class="user-profile" onclick="toggleUserMenu()">
                     <div class="user-avatar">{{ strtoupper(substr(Auth::guard('admin')->user()->name ?? 'A', 0, 1)) }}</div>
@@ -789,6 +763,7 @@
             }
         });
     </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     @stack('scripts')
 </body>
 </html>

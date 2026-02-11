@@ -1,25 +1,24 @@
 @extends('layouts.admin')
 
-@section('title', 'Edit Product - Admin Panel')
-@section('header-title', 'Edit Product')
+@section('title', 'Edit Variant Product')
+@section('header-title', 'Edit Variant Product')
 
 @section('content')
-<div class="edit-product-container">
+<div class="create-product-container">
     <!-- Alert Messages -->
     <div id="alertContainer"></div>
 
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
-            <a href="{{ route('admin.products.index') }}" class="back-btn">
-                <span>←</span> Back to Products
-            </a>
-            <h2 class="page-title">Edit Product</h2>
-            <p class="page-subtitle">Update product information</p>
+            <h2 class="page-title">Edit Variant Product</h2>
+        </div>
+        <div class="header-right">
+            <a href="{{ url('/admin/products') }}" class="back-btn">← Back to Products</a>
         </div>
     </div>
 
-    <form action="{{ route('admin.products.update', $product->id) }}" method="POST" enctype="multipart/form-data" id="productForm">
+    <form action="{{ route('admin.products.update', $variantProduct->_id) }}" method="POST" enctype="multipart/form-data" id="productForm">
         @csrf
         @method('PUT')
 
@@ -27,16 +26,13 @@
         <div class="tab-container">
             <div class="tab-nav">
                 <button type="button" class="tab-btn active" data-tab="basic-info">
-                    <span class="tab-icon">📝</span>
-                    <span class="tab-text">Basic Info</span>
+                    📝 Basic Info
                 </button>
                 <button type="button" class="tab-btn" data-tab="media">
-                    <span class="tab-icon">🖼️</span>
-                    <span class="tab-text">Images</span>
+                    🖼️ Images
                 </button>
                 <button type="button" class="tab-btn" data-tab="variants">
-                    <span class="tab-icon">🎨</span>
-                    <span class="tab-text">Variants</span>
+                    🎨 Variants
                 </button>
             </div>
 
@@ -45,106 +41,107 @@
                 <!-- Tab 1: Basic Information -->
                 <div class="tab-content active" id="basic-info">
                     <div class="tab-header">
-                        <h3 class="tab-title">Basic Product Information</h3>
-                        <p class="tab-description">Update the essential details about your product</p>
+                        <h3 class="tab-title">Basic Information</h3>
                     </div>
 
                     <div class="form-grid">
-                        <div class="form-group full-width">
+                        <div class="form-group">
                             <label class="form-label">Product Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="name" value="{{ old('name', $product->name) }}" placeholder="e.g., LED Bulb 9W" required>
+                            <input type="text" class="form-input" id="productName" name="name"
+                                value="{{ old('name', $variantProduct->name) }}" placeholder="e.g., LED Bulb" required>
+                            @error('name')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
                         </div>
+
+
 
                         <div class="form-group">
                             <label class="form-label">Category</label>
                             <select class="form-select" name="category_id">
                                 <option value="">Select Category</option>
                                 @foreach($categories as $category)
-                                <option value="{{ $category->id }}" {{ old('category_id', $product->category_id) == $category->id ? 'selected' : '' }}>
+                                <option value="{{ $category->id }}"
+                                    {{ old('category_id', $variantProduct->category_id) == $category->id ? 'selected' : '' }}>
                                     {{ $category->name }}
                                 </option>
                                 @endforeach
                             </select>
+                            @error('category_id')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Warehouse <span class="required">*</span></label>
-                            <select class="form-select" name="warehouse_id" required>
-                                <option value="">Select Warehouse</option>
-                                @foreach($warehouses as $warehouse)
-                                <option value="{{ $warehouse->id }}" {{ old('warehouse_id', $product->warehouse_id) == $warehouse->id ? 'selected' : '' }}>
-                                    {{ $warehouse->name }} ({{ $warehouse->code }})
-                                </option>
-                                @endforeach
-                            </select>
-                            <span class="form-hint">Select the warehouse where this product is stored</span>
+                            <label class="form-label">Brand</label>
+                            <input type="text" class="form-input" value="Simko" readonly style="background-color: #f5f5f5;">
+                            <input type="hidden" name="brand" value="Simko">
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Brand <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="brand" value="{{ old('brand', $product->brand) }}" placeholder="Enter brand name" required>
-                        </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Body Type <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="body_type" value="{{ old('body_type', $product->body_type) }}" placeholder="e.g., PVC, Metal, Plastic" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Warranty <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="warranty" value="{{ old('warranty', $product->warranty) }}" placeholder="e.g., 12 months" maxlength="10" required>
-                        </div>
-
-                        <!-- Main Product SKU with Real-Time Validation -->
-                        <div class="form-group">
-                            <label class="form-label">SKU Code <span class="required">*</span></label>
-                            <input
-                                type="text"
-                                class="form-input"
-                                id="main_sku_code"
-                                name="sku_code"
-                                value="{{ old('sku_code', $product->sku_code) }}"
-                                placeholder="e.g., LED-9W-001"
-                                maxlength="16"
-                                required
-                                onkeyup="validateSkuCode('main', this.value)">
-                            <div class="sku-validation-message" id="main_sku_message"></div>
-                            <span class="form-hint">Unique product identifier (Max 16 characters)</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Barcode Symbology <span class="required">*</span></label>
-                            <select class="form-select" name="barcode_symbology" required>
-                                <option value="CODE128" {{ old('barcode_symbology', $product->barcode_symbology) == 'CODE128' ? 'selected' : '' }}>Code 128</option>
-                                <option value="CODE39" {{ old('barcode_symbology', $product->barcode_symbology) == 'CODE39' ? 'selected' : '' }}>Code 39</option>
-                                <option value="EAN13" {{ old('barcode_symbology', $product->barcode_symbology) == 'EAN13' ? 'selected' : '' }}>EAN-13</option>
-                                <option value="EAN8" {{ old('barcode_symbology', $product->barcode_symbology) == 'EAN8' ? 'selected' : '' }}>EAN-8</option>
-                                <option value="UPC" {{ old('barcode_symbology', $product->barcode_symbology) == 'UPC' ? 'selected' : '' }}>UPC</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">HSN Code <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="hsn_code" value="{{ old('hsn_code', $product->hsn_code) }}" placeholder="85395000" maxlength="8" required>
-                            <span class="form-hint">Maximum 8 digits</span>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">GST (%) <span class="required">*</span></label>
-                            <input type="number" step="0.01" class="form-input" name="gst" value="{{ old('gst', $product->gst) }}" placeholder="18" required>
-                        </div>
 
                         <div class="form-group">
                             <label class="form-label">Status <span class="required">*</span></label>
                             <select class="form-select" name="status" required>
-                                <option value="active" {{ old('status', $product->status) == 'active' ? 'selected' : '' }}>Active</option>
-                                <option value="inactive" {{ old('status', $product->status) == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                <option value="active" {{ old('status', $variantProduct->status) == 'active' ? 'selected' : '' }}>Active</option>
+                                <option value="inactive" {{ old('status', $variantProduct->status) == 'inactive' ? 'selected' : '' }}>Inactive</option>
                             </select>
+                            @error('status')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Warranty Duration</label>
+                            <input type="number" class="form-input" name="warranty_duration" value="{{ old('warranty_duration', $variantProduct->warranty_duration) }}" placeholder="e.g., 12" min="1">
+                            @error('warranty_duration')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Warranty Unit</label>
+                            <select class="form-select" name="warranty_unit">
+                                <option value="">Select Unit</option>
+                                <option value="month" {{ old('warranty_unit', $variantProduct->warranty_unit) == 'month' ? 'selected' : '' }}>Month(s)</option>
+                                <option value="year" {{ old('warranty_unit', $variantProduct->warranty_unit) == 'year' ? 'selected' : '' }}>Year(s)</option>
+                            </select>
+                            @error('warranty_unit')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <!-- GST Field in Edit Page -->
+                        <div class="form-group">
+                            <label class="form-label">GST (%) <span class="required">*</span></label>
+                            <input type="number" step="0.01" class="form-input" name="gst"
+                                value="{{ old('gst', $variantProduct->gst) }}"
+                                placeholder="18" min="0" max="100" required
+                                oninput="validateGST(this, 'gst-error-edit')">
+                            <div class="error-message" id="gst-error-edit"></div>
+                            @error('gst')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+
+
+                        <div class="form-group">
+                            <label class="form-label">HSN Code <span class="required">*</span></label>
+                            <input type="text" class="form-input" name="hsn_code"
+                                value="{{ old('hsn_code', $variantProduct->hsn_code) }}" placeholder="85395000" maxlength="8" required>
+                            @error('hsn_code')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <div class="form-group full-width">
                             <label class="form-label">Description <span class="required">*</span></label>
-                            <textarea class="form-textarea" name="description" rows="5" placeholder="Enter detailed product description with features and specifications" required>{{ old('description', $product->description) }}</textarea>
+                            <textarea class="form-textarea" name="description" rows="4"
+                                placeholder="Enter product description" required>{{ old('description', $variantProduct->description) }}</textarea>
+                            @error('description')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
                         </div>
                     </div>
                 </div>
@@ -153,64 +150,74 @@
                 <div class="tab-content" id="media">
                     <div class="tab-header">
                         <h3 class="tab-title">Product Images</h3>
-                        <p class="tab-description">Update product images (800x800px recommended)</p>
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group full-width">
                             <label class="form-label">Main Image</label>
+                            <div class="image-upload-wrapper">
+                                <input type="file" class="form-input-file" id="base_image" name="base_image"
+                                    accept="image/*" onchange="previewBaseImage(event)" hidden>
+                                <label for="base_image" class="upload-label">
+                                    <div class="upload-icon">📸</div>
+                                    <div class="upload-text">Change Main Image</div>
+                                    <div class="upload-hint">JPG, PNG up to 2MB</div>
+                                </label>
+                            </div>
 
-                            @if($product->base_image)
-                            <div class="current-image-preview">
-                                <div class="current-label">Current Image:</div>
-                                <div class="image-preview-container">
-                                    <div class="preview-item" id="current-base-image">
-                                        <img src="{{ asset('storage/' . $product->base_image) }}" class="preview-image" alt="Current Image">
-                                        <input type="checkbox" name="remove_base_image" id="remove_base_image" value="1" style="display: none;">
-                                        <button type="button" class="remove-image" onclick="markImageForRemoval('base')">×</button>
+                            <!-- Current Image -->
+                            @if($variantProduct->base_image)
+                            <div class="current-image-section">
+                                <div class="current-image-label">Current Image:</div>
+                                <div class="image-preview-container" id="currentBaseImagePreview">
+                                    <div class="preview-item">
+                                        <img src="{{ Storage::url($variantProduct->base_image) }}" class="preview-image">
+                                        <button type="button" class="remove-image" onclick="removeCurrentBaseImage()">×</button>
                                     </div>
                                 </div>
+                                <input type="hidden" name="remove_base_image" id="remove_base_image" value="0">
                             </div>
                             @endif
 
-                            <div class="image-upload-wrapper">
-                                <input type="file" class="form-input-file" id="base_image" name="base_image" accept="image/*" onchange="previewBaseImage(event)" hidden>
-                                <label for="base_image" class="upload-label">
-                                    <div class="upload-icon">📸</div>
-                                    <div class="upload-text">Click to upload new image</div>
-                                    <div class="upload-hint">PNG, JPG up to 2MB</div>
-                                </label>
-                            </div>
                             <div class="image-preview-container" id="baseImagePreview"></div>
+                            @error('base_image')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <div class="form-group full-width">
                             <label class="form-label">Gallery Images</label>
-
-                            @if($product->gallery_images && count($product->gallery_images) > 0)
-                            <div class="current-image-preview">
-                                <div class="current-label">Current Gallery Images:</div>
-                                <div class="gallery-preview" id="currentGalleryPreview">
-                                    @foreach($product->gallery_images as $index => $image)
-                                    <div class="preview-item" id="current-gallery-{{ $index }}">
-                                        <img src="{{ asset('storage/' . $image) }}" class="preview-image" alt="Gallery Image">
-                                        <input type="checkbox" name="remove_gallery_images[]" value="{{ $index }}" style="display: none;" id="remove-gallery-{{ $index }}">
-                                        <button type="button" class="remove-image" onclick="markGalleryImageForRemoval({{ $index }})">×</button>
-                                    </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                            @endif
-
                             <div class="image-upload-wrapper">
-                                <input type="file" class="form-input-file" id="gallery_images" name="gallery_images[]" accept="image/*" multiple onchange="previewGalleryImages(event)" hidden>
+                                <input type="file" class="form-input-file" id="gallery_images" name="gallery_images[]"
+                                    accept="image/*" multiple onchange="previewGalleryImages(event)" hidden>
                                 <label for="gallery_images" class="upload-label">
                                     <div class="upload-icon">🖼️</div>
-                                    <div class="upload-text">Upload additional gallery images</div>
+                                    <div class="upload-text">Add Gallery Images</div>
                                     <div class="upload-hint">Select multiple files</div>
                                 </label>
                             </div>
+
+                            <!-- Current Gallery Images -->
+                            @if($variantProduct->gallery_images && count($variantProduct->gallery_images) > 0)
+                            <div class="current-gallery-section">
+                                <div class="current-image-label">Current Gallery Images:</div>
+                                <div class="gallery-preview" id="currentGalleryPreview">
+                                    @foreach($variantProduct->gallery_images as $index => $image)
+                                    <div class="preview-item">
+                                        <img src="{{ Storage::url($image) }}" class="preview-image">
+                                        <button type="button" class="remove-image"
+                                            onclick="removeCurrentGalleryImage({{ $index }})">×</button>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                <input type="hidden" name="remove_gallery_images[]" id="remove_gallery_images" value="">
+                            </div>
+                            @endif
+
                             <div class="gallery-preview" id="galleryPreview"></div>
+                            @error('gallery_images')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
                         </div>
                     </div>
                 </div>
@@ -219,237 +226,382 @@
                 <div class="tab-content" id="variants">
                     <div class="tab-header">
                         <h3 class="tab-title">Product Variants</h3>
-                        <p class="tab-description">Manage existing variants and add new ones</p>
                     </div>
 
                     <div class="variants-section">
-                        <!-- Existing Variants Section -->
-                        <div class="existing-variants-section">
-                            <h4 class="section-title">Existing Variants ({{ count($product->variants ?? []) }})</h4>
+                        <!-- Attribute Selector (Same as Create Page) -->
+                        <div class="attribute-selector-section">
+                            <div class="selector-title">
+                                Select Attributes
+                            </div>
 
-                            @if($product->variants && count($product->variants) > 0)
-                                <div class="variants-info-box">
-                                    <div class="info-icon">📦</div>
-                                    <div>
-                                        <strong>{{ count($product->variants) }} Existing Variant(s)</strong>
-                                        <p>You can update variant details but cannot modify opening stock for existing variants.</p>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Attribute Type <span class="required">*</span></label>
+                                    <select class="form-select" id="attribute_type" onchange="loadAttributeValues()">
+                                        <option value="">Select Type</option>
+                                        @foreach($attributeTypes as $attribute)
+                                            <option value="{{ $attribute->type }}">{{ ucfirst($attribute->type) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Attribute Values <span class="required">*</span></label>
+                                    <div id="valuesContainer">
+                                        <div class="no-values">Select attribute type first</div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div id="existingVariantsContainer">
-                                    @foreach($product->variants as $index => $variant)
-                                    <div class="variant-card existing-variant" id="existing-variant-{{ $index }}">
-                                        <div class="variant-header">
-                                            <h4 class="variant-title">
-                                                Existing Variant #{{ $index + 1 }}
-                                            </h4>
-                                        </div>
-
-                                        <input type="hidden" name="variants[{{ $index }}][is_new]" value="0">
-                                        <input type="hidden" name="variants[{{ $index }}][attributes]" value='{{ json_encode($variant["attributes"] ?? []) }}'>
-                                        <input type="hidden" name="variants[{{ $index }}][color_temperature]" value="{{ $variant['color_temperature'] ?? '' }}">
-                                        <input type="hidden" name="variants[{{ $index }}][watt]" value="{{ $variant['watt'] ?? '' }}">
-                                        <input type="hidden" name="variants[{{ $index }}][shape]" value="{{ $variant['shape'] ?? '' }}">
-
-                                        <div class="form-grid">
-                                            <div class="form-group full-width">
-                                                <label class="form-label">Variant Name <span class="required">*</span></label>
-                                                <input type="text" class="form-input" name="variants[{{ $index }}][name]" value="{{ $variant['name'] ?? '' }}" placeholder="Enter variant name" required>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">Color Temperature</label>
-                                                <input type="text" class="form-input" value="{{ $variant['color_temperature'] ?? '' }}" readonly>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">Watt</label>
-                                                <input type="text" class="form-input" value="{{ $variant['watt'] ?? '' }}" readonly>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">Shape</label>
-                                                <input type="text" class="form-input" value="{{ $variant['shape'] ?? '' }}" readonly>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">Unit <span class="required">*</span></label>
-                                                <input type="text" class="form-input" name="variants[{{ $index }}][unit]" value="{{ $variant['unit'] ?? 'Piece' }}" required>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">SKU Code <span class="required">*</span></label>
-                                                <input
-                                                    type="text"
-                                                    class="form-input"
-                                                    id="existing_variant_sku_{{ $index }}"
-                                                    name="variants[{{ $index }}][sku_code]"
-                                                    value="{{ $variant['sku_code'] ?? '' }}"
-                                                    maxlength="16"
-                                                    required
-                                                    onkeyup="validateSkuCode('existing_variant_{{ $index }}', this.value)">
-                                                <div class="sku-validation-message" id="existing_variant_{{ $index }}_sku_message"></div>
-                                                <span class="form-hint">Max 16 characters</span>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">Barcode Symbology <span class="required">*</span></label>
-                                                <select class="form-select" name="variants[{{ $index }}][barcode_symbology]" required>
-                                                    <option value="CODE128" {{ ($variant['barcode_symbology'] ?? '') == 'CODE128' ? 'selected' : '' }}>Code 128</option>
-                                                    <option value="CODE39" {{ ($variant['barcode_symbology'] ?? '') == 'CODE39' ? 'selected' : '' }}>Code 39</option>
-                                                    <option value="EAN13" {{ ($variant['barcode_symbology'] ?? '') == 'EAN13' ? 'selected' : '' }}>EAN-13</option>
-                                                    <option value="EAN8" {{ ($variant['barcode_symbology'] ?? '') == 'EAN8' ? 'selected' : '' }}>EAN-8</option>
-                                                    <option value="UPC" {{ ($variant['barcode_symbology'] ?? '') == 'UPC' ? 'selected' : '' }}>UPC</option>
-                                                </select>
-                                            </div>
-
-                                            <!-- Opening Stock - Read Only for existing variants -->
-                                            <div class="form-group">
-                                                <label class="form-label">Opening Stock</label>
-                                                <input type="number" class="form-input" value="{{ $variant['opening_stock'] ?? 0 }}" readonly>
-                                                <span class="form-hint">Cannot modify for existing variants</span>
-                                                <input type="hidden" name="variants[{{ $index }}][opening_stock]" value="{{ $variant['opening_stock'] ?? 0 }}">
-                                            </div>
-                                        </div>
-
-                                        <div class="variant-section-title">Pricing</div>
-                                        <div class="form-grid">
-                                            <div class="form-group">
-                                                <label class="form-label">Cost Price (₹) <span class="required">*</span></label>
-                                                <input type="number" step="0.01" class="form-input" id="existing_variant_cost_price_{{ $index }}" name="variants[{{ $index }}][cost_price]" value="{{ $variant['cost_price'] ?? '' }}" required oninput="validateExistingVariantPricing({{ $index }})">
-                                                <span class="form-hint">Base cost of the product</span>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">MRP Price (₹) <span class="required">*</span></label>
-                                                <input type="number" step="0.01" class="form-input" id="existing_variant_mrp_price_{{ $index }}" name="variants[{{ $index }}][mrp_price]" value="{{ $variant['mrp_price'] ?? '' }}" required oninput="validateExistingVariantPricing({{ $index }})">
-                                                <span class="form-hint error-hint" id="existing_mrp_error_{{ $index }}" style="display: none;">Must be greater than cost price</span>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">Dealer Price (₹) <span class="required">*</span></label>
-                                                <input type="number" step="0.01" class="form-input" id="existing_variant_dealer_price_{{ $index }}" name="variants[{{ $index }}][dealer_price]" value="{{ $variant['dealer_price'] ?? '' }}" required oninput="validateExistingVariantPricing({{ $index }})">
-                                                <span class="form-hint error-hint" id="existing_dealer_error_{{ $index }}" style="display: none;">Must be greater than cost price</span>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">Distributor Price (₹) <span class="required">*</span></label>
-                                                <input type="number" step="0.01" class="form-input" id="existing_variant_distributor_price_{{ $index }}" name="variants[{{ $index }}][distributor_price]" value="{{ $variant['distributor_price'] ?? '' }}" required oninput="validateExistingVariantPricing({{ $index }})">
-                                                <span class="form-hint error-hint" id="existing_distributor_error_{{ $index }}" style="display: none;">Must be greater than cost price</span>
-                                            </div>
-                                        </div>
-
-                                        <div class="variant-section-title">Stock Management</div>
-                                        <div class="form-grid">
-                                            <div class="form-group">
-                                                <label class="form-label">Current Stock <span class="required">*</span></label>
-                                                <input type="number" class="form-input" id="existing_variant_current_stock_{{ $index }}" name="variants[{{ $index }}][current_stock]" value="{{ $variant['current_stock'] ?? 0 }}" required oninput="validateExistingVariantStock({{ $index }})">
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label class="form-label">Min Stock Alert <span class="required">*</span></label>
-                                                <input type="number" class="form-input" id="existing_variant_min_stock_{{ $index }}" name="variants[{{ $index }}][min_stock_alert]" value="{{ $variant['min_stock_alert'] ?? 10 }}" required oninput="validateExistingVariantStock({{ $index }})">
-                                                <span class="form-hint">Alert when stock reaches this level</span>
-                                                <span class="form-hint error-hint" id="existing_current_stock_error_{{ $index }}" style="display: none;">Current stock must be greater than or equal to min stock alert</span>
-                                            </div>
-                                        </div>
-
-                                        <div class="variant-section-title">Variant Images</div>
-                                        <div class="form-grid">
-                                            <div class="form-group full-width">
-                                                <label class="form-label">Variant Base Image</label>
-
-                                                @if(!empty($variant['base_image']))
-                                                <div class="current-image-preview">
-                                                    <div class="current-label">Current Variant Image:</div>
-                                                    <div class="image-preview-container">
-                                                        <div class="preview-item">
-                                                            <img src="{{ asset('storage/' . $variant['base_image']) }}" class="preview-image" alt="Variant Image">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                @endif
-
-                                                <div class="image-upload-wrapper">
-                                                    <input type="file" class="form-input-file" id="existing_variant_base_{{ $index }}" name="variants[{{ $index }}][base_image]" accept="image/*" onchange="previewExistingVariantBaseImage(event, {{ $index }})" hidden>
-                                                    <label for="existing_variant_base_{{ $index }}" class="upload-label">
-                                                        <div class="upload-icon">📸</div>
-                                                        <div class="upload-text">Upload new variant image</div>
-                                                        <div class="upload-hint">PNG, JPG up to 2MB</div>
-                                                    </label>
-                                                </div>
-                                                <div class="image-preview-container" id="existingVariantBasePreview-{{ $index }}"></div>
-                                            </div>
-
-                                            <div class="form-group full-width">
-                                                <label class="form-label">Variant Gallery Images</label>
-
-                                                @if(!empty($variant['gallery_images']) && is_array($variant['gallery_images']) && count($variant['gallery_images']) > 0)
-                                                <div class="current-image-preview">
-                                                    <div class="current-label">Current Gallery Images:</div>
-                                                    <div class="gallery-preview">
-                                                        @foreach($variant['gallery_images'] as $galleryImg)
-                                                        <div class="preview-item">
-                                                            <img src="{{ asset('storage/' . $galleryImg) }}" class="preview-image" alt="Variant Gallery">
-                                                        </div>
-                                                        @endforeach
-                                                    </div>
-                                                </div>
-                                                @endif
-
-                                                <div class="image-upload-wrapper">
-                                                    <input type="file" class="form-input-file" id="existing_variant_gallery_{{ $index }}" name="variants[{{ $index }}][gallery_images][]" accept="image/*" multiple onchange="previewExistingVariantGalleryImages(event, {{ $index }})" hidden>
-                                                    <label for="existing_variant_gallery_{{ $index }}" class="upload-label">
-                                                        <div class="upload-icon">🖼️</div>
-                                                        <div class="upload-text">Upload new gallery images</div>
-                                                        <div class="upload-hint">Select multiple files</div>
-                                                    </label>
-                                                </div>
-                                                <div class="gallery-preview" id="existingVariantGalleryPreview-{{ $index }}"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    @endforeach
-                                </div>
-                            @else
-                                <div class="no-variants-message">
-                                    <div class="empty-icon">📦</div>
-                                    <p>No existing variants found for this product</p>
-                                    <p class="empty-hint">You can add new variants using the section below</p>
-                                </div>
-                            @endif
+                            <button type="button" class="btn-add-attribute" onclick="addSelectedAttribute()">
+                                <span>+</span> Add Attribute
+                            </button>
                         </div>
 
-                        <!-- Add New Variants Section -->
-                        <div class="new-variants-section">
-                            <h4 class="section-title">Add New Variants</h4>
+                        <!-- Selected Attributes -->
+                        <div class="selected-attributes-section" id="selectedAttributesSection" style="display: none;">
+                            <div class="section-header">
+                                <h4>Selected Attributes:</h4>
+                                <button type="button" class="btn-clear-all" onclick="clearAllAttributes()">Clear All</button>
+                            </div>
+                            <div class="selected-attributes-list" id="selectedAttributesList"></div>
+                        </div>
 
-                            <div class="attribute-selector-section">
-                                <div class="selector-title">
-                                    🎨 Select Attribute Values for New Variants
-                                </div>
+                        <!-- Generate Button -->
+                        <button type="button" class="btn-generate-variants" id="generateVariantsBtn" onclick="generateVariants()" disabled>
+                            ⚡ Generate New Variants
+                        </button>
 
-                                <div id="attributesContainer">
-                                    <div class="loading-attributes">
-                                        <div class="spinner"></div>
-                                        <span>Loading attributes...</span>
+                        <!-- Variants Info -->
+                        <div class="generated-variants-info" id="variantsInfo">
+                            <p class="info-text" id="variantsInfoText"></p>
+                        </div>
+
+                        <!-- Existing Variants Container -->
+                        <div class="existing-variants-section">
+                            <div class="section-header">
+                                <h4>Existing Variants:</h4>
+                            </div>
+                            <div id="existingVariantsContainer">
+                                @if($variantProduct->variants && count($variantProduct->variants) > 0)
+                                 @php
+                                    // ✅ FIX: Ensure we're working with array
+                                    $variants = $variantProduct->variants;
+                                    if (is_string($variants)) {
+                                        $variants = json_decode($variants, true);
+                                    }
+                                    $variants = is_array($variants) ? $variants : [];
+                                @endphp
+                                    @foreach($variantProduct->variants as $index => $variant)
+                                         @php
+                                            // Get the actual variant ID
+                                            $variantId = $variant['_id'] ?? null;
+                                             if (is_array($variantId) && isset($variantId['$oid'])) {
+                                                $variantId = $variantId['$oid'];
+                                            }
+                                            $variantIdString = $variantId ? (string) $variantId : 'new-' . $index;
+                                        @endphp
+                                        <div class="variant-card" id="existing-variant-{{ $index }}">
+                                            <div class="variant-header">
+                                                <h4 class="variant-title">Existing Variant {{ $index + 1 }}</h4>
+                                                {{-- <button type="button" class="btn-remove-variant" onclick="removeExistingVariant({{ $index }})">
+                                                    Remove
+                                                </button> --}}
+                                            </div>
+                                             <input type="hidden" name="variants[{{ $index }}][_id]" value="{{ $variantIdString }}">
+
+                                            @if(isset($variant['attributes']) && is_array($variant['attributes']))
+                                            <div class="variant-attribute-info">
+                                                <strong>Attributes:</strong>
+                                                <div class="variant-attribute-tags">
+                                                    @foreach($variant['attributes'] as $attr)
+                                                        <span class="variant-attribute-tag">
+                                                            <span class="attr-type">{{ ucfirst($attr['displayName'] ?? $attr['type']) }}:</span>
+                                                            <span class="attr-value">{{ $attr['value'] }}</span>
+                                                        </span>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                            @endif
+
+                                            <!-- FIX: Store attributes as hidden inputs in array format -->
+                                            @if(isset($variant['attributes']) && is_array($variant['attributes']))
+                                                @foreach($variant['attributes'] as $attrIndex => $attribute)
+                                                    <input type="hidden"
+                                                           name="variants[{{ $index }}][attributes][{{ $attrIndex }}][type]"
+                                                           value="{{ $attribute['type'] ?? '' }}">
+                                                    <input type="hidden"
+                                                           name="variants[{{ $index }}][attributes][{{ $attrIndex }}][displayName]"
+                                                           value="{{ $attribute['displayName'] ?? $attribute['type'] ?? '' }}">
+                                                    <input type="hidden"
+                                                           name="variants[{{ $index }}][attributes][{{ $attrIndex }}][value]"
+                                                           value="{{ $attribute['value'] ?? '' }}">
+                                                @endforeach
+                                            @endif
+
+                                            <!-- Variant Name and Unit in same row -->
+                                            <div class="variant-form-grid">
+                                                <div class="form-group">
+                                                    <label class="form-label">Variant Name <span class="required">*</span></label>
+                                                    <input type="text"
+                                                           class="form-input"
+                                                           name="variants[{{ $index }}][name]"
+                                                           value="{{ old("variants.{$index}.name", $variant['name'] ?? '') }}"
+                                                           required>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="form-label">Unit <span class="required">*</span></label>
+                                                    <select class="form-select" name="variants[{{ $index }}][unit]" required>
+                                                        <option value="">Select Unit</option>
+                                                        @foreach(['piece', 'set', 'box', 'meter', 'kg', 'liter', 'pack', 'dozen', 'roll', 'sheet'] as $unit)
+                                                            <option value="{{ $unit }}"
+                                                                {{ old("variants.{$index}.unit", $variant['unit'] ?? '') == $unit ? 'selected' : '' }}>
+                                                                {{ ucfirst($unit) }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <!-- SKU and Barcode in same row -->
+                                            <div class="variant-form-grid">
+                                                <div class="form-group">
+                                                    <label class="form-label">SKU Code <span class="required">*</span></label>
+                                                    <input type="text"
+                                                           class="form-input"
+                                                           id="variant_sku_{{ $index }}"
+                                                           name="variants[{{ $index }}][sku_code]"
+                                                           value="{{ old("variants.{$index}.sku_code", $variant['sku_code'] ?? '') }}"
+                                                           maxlength="16"
+                                                           required
+                                                           onkeyup="validateVariantSku({{ $index }}, this.value)">
+                                                    <div class="sku-validation-message" id="variant_{{ $index }}_sku_message"></div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="form-label">Barcode Symbology <span class="required">*</span></label>
+                                                    <select class="form-select" name="variants[{{ $index }}][barcode_symbology]" required>
+                                                        <option value="CODE128" {{ old("variants.{$index}.barcode_symbology", $variant['barcode_symbology'] ?? 'CODE128') == 'CODE128' ? 'selected' : '' }}>
+                                                            CODE128
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="variant-section-title">Pricing</div>
+                                            <div class="variant-form-grid three-columns">
+                                                <div class="form-group">
+                                                    <label class="form-label">Cost Price (₹) <span class="required">*</span></label>
+                                                    <input type="number"
+                                                           step="0.01"
+                                                           class="form-input cost-price"
+                                                           id="variant_cost_price_{{ $index }}"
+                                                           name="variants[{{ $index }}][cost_price]"
+                                                           value="{{ old("variants.{$index}.cost_price", $variant['cost_price'] ?? '') }}"
+                                                           min="0"
+                                                           required
+                                                           onkeyup="validatePrices({{ $index }})">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="form-label">Sale Price (₹) <span class="required">*</span></label>
+                                                    <input type="number"
+                                                           step="0.01"
+                                                           class="form-input sale-price"
+                                                           id="variant_sale_price_{{ $index }}"
+                                                           name="variants[{{ $index }}][sale_price]"
+                                                           value="{{ old("variants.{$index}.sale_price", $variant['sale_price'] ?? '') }}"
+                                                           min="0"
+                                                           required
+                                                           onkeyup="validatePrices({{ $index }})">
+                                                    <div class="price-message" id="sale_price_msg_{{ $index }}"></div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="form-label">MRP Price (₹) <span class="required">*</span></label>
+                                                    <input type="number"
+                                                           step="0.01"
+                                                           class="form-input mrp-price"
+                                                           id="variant_mrp_price_{{ $index }}"
+                                                           name="variants[{{ $index }}][mrp_price]"
+                                                           value="{{ old("variants.{$index}.mrp_price", $variant['mrp_price'] ?? '') }}"
+                                                           min="0"
+                                                           required
+                                                           onkeyup="validatePrices({{ $index }})">
+                                                    <div class="price-message" id="mrp_price_msg_{{ $index }}"></div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="form-label">Dealer Price (₹) <span class="required">*</span></label>
+                                                    <input type="number"
+                                                           step="0.01"
+                                                           class="form-input"
+                                                           id="variant_dealer_price_{{ $index }}"
+                                                           name="variants[{{ $index }}][dealer_price]"
+                                                           value="{{ old("variants.{$index}.dealer_price", $variant['dealer_price'] ?? '') }}"
+                                                           min="0"
+                                                           required>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="form-label">Distributor Price (₹) <span class="required">*</span></label>
+                                                    <input type="number"
+                                                           step="0.01"
+                                                           class="form-input"
+                                                           id="variant_distributor_price_{{ $index }}"
+                                                           name="variants[{{ $index }}][distributor_price]"
+                                                           value="{{ old("variants.{$index}.distributor_price", $variant['distributor_price'] ?? '') }}"
+                                                           min="0"
+                                                           required>
+                                                </div>
+                                            </div>
+
+                                            <div class="variant-section-title">Stock Management</div>
+                                            <div class="variant-form-grid">
+                                                @php
+                                                    // Get warehouse stock for this variant
+                                                    $warehouseStock = null;
+                                                    if ($variantId) {
+                                                        $warehouseStock = \App\Models\WarehouseStock::where('product_id', $variantProduct->_id)
+                                                            ->where('product_type', 'variant')
+                                                            ->where('variant_id', (string) $variantId)
+                                                            ->first();
+                                                    }
+
+                                                    $variantIdStr = (string) $variantId;
+
+                                                    $openingStock = $variantOpeningStocks[$variantIdStr] ?? 0;
+                                                    $minStockAlert = $warehouseStock ? $warehouseStock->min_stock_alert : ($variant['min_stock_alert'] ?? 0);
+                                                @endphp
+
+                                                <!-- Opening Stock (Readonly) -->
+                                                <div class="form-group">
+                                                    <label class="form-label">Opening Stock</label>
+                                                    <input type="number"
+                                                        class="form-input"
+                                                        value="{{ $openingStock }}"
+                                                        disabled
+                                                        style="background-color: #e9ecef;">
+                                                    <div class="opening-stock-note">
+                                                        Opening stock from initial product creation
+                                                    </div>
+                                                    <input type="hidden"
+                                                        name="variants[{{ $index }}][opening_stock]"
+                                                        value="{{ $openingStock }}">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="form-label">Min Stock Alert <span class="required">*</span></label>
+                                                    <input type="number"
+                                                        class="form-input"
+                                                        id="variant_min_stock_{{ $index }}"
+                                                        name="variants[{{ $index }}][min_stock_alert]"
+                                                        value="{{ old("variants.{$index}.min_stock_alert", $minStockAlert) }}"
+                                                        min="0"
+                                                        required>
+                                                </div>
+
+                                            </div>
+
+
+
+                                            <div class="variant-section-title">Variant Images</div>
+                                            <div class="variant-form-grid">
+                                                <div class="form-group">
+                                                    <label class="form-label">Variant Base Image</label>
+                                                    <div class="image-upload-wrapper">
+                                                        <input type="file"
+                                                               class="form-input-file"
+                                                               id="variant_base_{{ $index }}"
+                                                               name="variants[{{ $index }}][base_image]"
+                                                               accept="image/*"
+                                                               onchange="previewVariantBaseImage(event, {{ $index }})"
+                                                               hidden>
+                                                        <label for="variant_base_{{ $index }}" class="upload-label">
+                                                            <div class="upload-icon">📸</div>
+                                                            <div class="upload-text">{{ isset($variant['base_image']) ? 'Change' : 'Upload' }}</div>
+                                                        </label>
+                                                    </div>
+
+                                                    @if(isset($variant['base_image']) && $variant['base_image'])
+                                                    <div class="current-image-section">
+                                                        <div class="current-image-label">Current Image:</div>
+                                                        <div class="image-preview-container" id="currentVariantBasePreview-{{ $index }}">
+                                                            <div class="preview-item">
+                                                                <img src="{{ Storage::url($variant['base_image']) }}" class="preview-image">
+                                                                <button type="button" class="remove-image"
+                                                                    onclick="removeCurrentVariantBaseImage({{ $index }})">×</button>
+                                                            </div>
+                                                        </div>
+                                                        <input type="hidden"
+                                                               name="remove_variant_base_image[{{ $index }}]"
+                                                               id="remove_variant_base_image_{{ $index }}"
+                                                               value="0">
+                                                    </div>
+                                                    @endif
+
+                                                    <div class="image-preview-container" id="variantBasePreview-{{ $index }}"></div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="form-label">Gallery Images</label>
+                                                    <div class="image-upload-wrapper">
+                                                        <input type="file"
+                                                               class="form-input-file"
+                                                               id="variant_gallery_{{ $index }}"
+                                                               name="variants[{{ $index }}][gallery_images][]"
+                                                               accept="image/*"
+                                                               multiple
+                                                               onchange="previewVariantGalleryImages(event, {{ $index }})"
+                                                               hidden>
+                                                        <label for="variant_gallery_{{ $index }}" class="upload-label">
+                                                            <div class="upload-icon">🖼️</div>
+                                                            <div class="upload-text">Add Images</div>
+                                                        </label>
+                                                    </div>
+
+                                                    @if(isset($variant['gallery_images']) && is_array($variant['gallery_images']) && count($variant['gallery_images']) > 0)
+                                                    <div class="current-gallery-section">
+                                                        <div class="current-image-label">Current Gallery Images:</div>
+                                                        <div class="gallery-preview" id="currentVariantGalleryPreview-{{ $index }}">
+                                                            @foreach($variant['gallery_images'] as $imgIndex => $image)
+                                                            <div class="preview-item">
+                                                                <img src="{{ Storage::url($image) }}" class="preview-image">
+                                                                <button type="button" class="remove-image"
+                                                                    onclick="removeCurrentVariantGalleryImage({{ $index }}, {{ $imgIndex }})">×</button>
+                                                            </div>
+                                                            @endforeach
+                                                        </div>
+                                                        <input type="hidden"
+                                                               name="remove_variant_gallery_images[{{ $index }}][]"
+                                                               id="remove_variant_gallery_images_{{ $index }}"
+                                                               value="">
+                                                    </div>
+                                                    @endif
+
+                                                    <div class="gallery-preview" id="variantGalleryPreview-{{ $index }}"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                @else
+                                    <div class="no-variants-message" id="noExistingVariantsMessage">
+                                        <div class="no-variants-icon">🎨</div>
+                                        <h3>No Existing Variants</h3>
+                                        <p>Generate variants using attributes above</p>
                                     </div>
-                                </div>
-
-                                <button type="button" class="btn-generate-variants" id="generateVariantsBtn" onclick="generateNewVariants()" disabled>
-                                    <span>⚡</span> Generate New Variants
-                                </button>
+                                @endif
                             </div>
+                        </div>
 
-                            <!-- Generated New Variants Info -->
-                            <div class="generated-variants-info" id="newVariantsInfo">
-                                <p class="info-text" id="newVariantsInfoText"></p>
+                        <!-- New Variants Container -->
+                        <div class="new-variants-section" id="newVariantsSection" style="display: none;">
+                            <div class="section-header">
+                                <h4>New Variants:</h4>
                             </div>
-
-                            <!-- New Variants Container -->
-                            <div id="newVariantsContainer">
-                                <!-- Newly generated variants will appear here -->
-                            </div>
+                            <div id="newVariantsContainer"></div>
                         </div>
                     </div>
                 </div>
@@ -457,20 +609,17 @@
         </div>
 
         <!-- Form Actions -->
-        <div class="form-actions-fixed">
-            <div class="form-actions-content">
+        <div class="form-actions">
+            <div class="action-buttons">
                 <button type="button" class="btn-back" id="backBtn" style="display: none;">
-                    <span>←</span> Back
+                    ← Back
                 </button>
-                <div class="action-buttons-right">
-                    <a href="{{ route('admin.products.index') }}" class="btn-cancel">
-                        <span>✕</span> Cancel
-                    </a>
+                <div class="right-buttons">
                     <button type="button" class="btn-next" id="nextBtn">
-                        Next <span>→</span>
+                        Next →
                     </button>
                     <button type="submit" class="btn-primary" id="submitBtn" style="display: none;">
-                        <span>✓</span> Update Product
+                        ✓ Update Product
                     </button>
                 </div>
             </div>
@@ -480,1320 +629,1723 @@
 
 @push('styles')
 <style>
-    .edit-product-container { padding-bottom: 100px; }
-    #alertContainer { position: fixed; top: 90px; right: 35px; z-index: 9999; max-width: 400px; }
-    .alert { padding: 16px 20px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); animation: slideIn 0.3s ease; font-weight: 600; }
-    @keyframes slideIn { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
-    .alert-success { background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%); color: #22543d; border-left: 4px solid #38a169; }
-    .alert-error { background: linear-gradient(135deg, #fed7d7 0%, #fc8181 100%); color: #9b2c2c; border-left: 4px solid #f56565; }
-    .page-header { margin-bottom: 30px; }
-    .back-btn { display: inline-flex; align-items: center; gap: 8px; color: #718096; text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; transition: all 0.3s; margin-bottom: 15px; }
-    .back-btn:hover { background: #f7fafc; color: #ff6b35; }
-    .page-title { font-size: 28px; font-weight: 700; color: #2d3748; margin-bottom: 5px; }
-    .page-subtitle { font-size: 14px; color: #718096; }
-    .tab-container { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; }
-    .tab-nav { display: flex; background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border-bottom: 2px solid #e2e8f0; overflow-x: auto; }
-    .tab-btn { flex: 1; min-width: 140px; padding: 18px 20px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: #718096; }
-    .tab-btn:hover { background: rgba(255,107,53,0.05); color: #ff6b35; }
-    .tab-btn.active { background: white; color: #ff6b35; border-bottom-color: #ff6b35; }
-    .tab-btn.completed { color: #38a169; }
-    .tab-icon { font-size: 18px; }
-    .tab-content-wrapper { padding: 40px; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; animation: fadeIn 0.3s; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .tab-header { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
-    .tab-title { font-size: 20px; font-weight: 700; color: #2d3748; margin-bottom: 5px; }
-    .tab-description { font-size: 14px; color: #718096; }
-    .section-title { font-size: 18px; font-weight: 700; color: #2d3748; margin: 30px 0 20px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
-    .existing-variants-section, .new-variants-section { margin-bottom: 40px; }
-    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px; margin-bottom: 25px; }
-    .form-group { display: flex; flex-direction: column; }
-    .form-group.full-width { grid-column: span 2; }
-    .form-label { margin-bottom: 8px; font-weight: 600; color: #4a5568; font-size: 14px; }
-    .required { color: #fc8181; }
-    .form-input, .form-textarea, .form-select { padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 14px; transition: all 0.3s; font-family: inherit; }
-    .form-input:focus, .form-textarea:focus, .form-select:focus { outline: none; border-color: #ff6b35; box-shadow: 0 0 0 3px rgba(255,107,53,0.1); }
-    .form-input.error, .form-textarea.error, .form-select.error { border-color: #fc8181; background: #fff5f5; }
-    .form-input:read-only { background-color: #f7fafc; color: #718096; cursor: not-allowed; }
-    .form-textarea { min-height: 120px; resize: vertical; }
-    .form-hint { margin-top: 6px; font-size: 12px; color: #a0aec0; }
-    .error-hint { color: #fc8181 !important; font-weight: 600; }
+    /* Variant edit और simple edit में ये CSS classes add करें */
+    .warehouse-note {
+        font-size: 9px;
+        color: #d97706;
+        margin-top: 3px;
+        font-style: italic;
+    }
 
-    /* SKU VALIDATION STYLES */
-    .sku-validation-message {
-        display: none;
-        margin-top: 6px;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 8px 12px;
+    .opening-stock-note {
+        font-size: 9px;
+        color: #6c757d;
+        font-style: italic;
+        margin-top: 2px;
+    }
+
+    .form-input:disabled {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    /* Rest of the CSS remains the same as your variant edit page */
+    .create-product-container {
+        padding: 0 15px 80px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 13px;
+    }
+
+    #alertContainer {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 300px;
+    }
+
+    .alert {
+        padding: 10px 12px;
         border-radius: 6px;
-        animation: slideDown 0.3s ease;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        animation: slideIn 0.3s ease;
+        font-size: 12px;
+        font-weight: 500;
     }
-    .sku-validation-message.error {
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(100px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border-left: 3px solid #28a745;
+    }
+
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border-left: 3px solid #dc3545;
+    }
+
+    .page-header {
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .header-right {
+        display: flex;
+        align-items: center;
+    }
+
+    .back-btn {
+        color: #fa8128;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: all 0.2s;
+        border: 1px solid #dee2e6;
+        background: white;
+    }
+    .page-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #343a40;
+        margin: 0;
+    }
+
+    .tab-container {
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        overflow: hidden;
+        border: 1px solid #dee2e6;
+    }
+
+    .tab-nav {
+        display: flex;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 0;
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 10px 12px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 11px;
+        font-weight: 500;
+        color: #6c757d;
+        text-align: center;
+    }
+
+    .tab-btn:hover {
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    .tab-btn.active {
+        background: white;
+        color: #007bff;
+        border-bottom-color: #007bff;
+        font-weight: 600;
+    }
+
+    .tab-content-wrapper {
+        padding: 15px;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
         display: block;
-        background: #fff5f5;
-        color: #c53030;
-        border-left: 3px solid #fc8181;
+        animation: fadeIn 0.2s;
     }
-    .sku-validation-message.success {
-        display: block;
-        background: #f0fff4;
-        color: #22543d;
-        border-left: 3px solid #68d391;
-    }
-    .sku-validation-message.checking {
-        display: block;
-        background: #ebf8ff;
-        color: #2c5282;
-        border-left: 3px solid #4299e1;
-    }
-    @keyframes slideDown {
-        from { opacity: 0; transform: translateY(-5px); }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
         to { opacity: 1; transform: translateY(0); }
     }
-    .form-input.sku-error {
-        border-color: #fc8181 !important;
-        background: #fff5f5 !important;
-    }
-    .form-input.sku-success {
-        border-color: #68d391 !important;
-        background: #f0fff4 !important;
-    }
-    .form-input.sku-checking {
-        border-color: #4299e1 !important;
-        background: #ebf8ff !important;
+
+    .tab-header {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #dee2e6;
     }
 
-    /* Existing Variant Styles */
-    .existing-variant { background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border: 2px solid #cbd5e0; }
-    .variants-info-box { background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%); padding: 20px; border-radius: 12px; margin-bottom: 25px; border-left: 4px solid #4299e1; display: flex; gap: 15px; align-items: start; }
-    .info-icon { font-size: 28px; }
-    .variants-info-box strong { color: #2c5282; font-size: 15px; display: block; margin-bottom: 5px; }
-    .variants-info-box p { color: #2d3748; font-size: 13px; margin: 0; }
-    .no-variants-message { background: #f7fafc; padding: 40px 20px; border-radius: 12px; text-align: center; border: 2px dashed #cbd5e0; margin-bottom: 20px; }
-    .empty-icon { font-size: 48px; margin-bottom: 15px; }
-    .no-variants-message p { color: #4a5568; margin-bottom: 5px; }
-    .empty-hint { font-size: 12px; color: #a0aec0; }
+    .tab-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #343a40;
+        margin: 0;
+    }
 
-    /* New Variants Section */
-    .new-variants-section { background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%); padding: 25px; border-radius: 16px; border: 2px solid #9ae6b4; }
-    .attribute-selector-section { background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); padding: 25px; border-radius: 12px; margin-bottom: 30px; border: 2px solid #e2e8f0; }
-    .selector-title { font-size: 16px; font-weight: 700; color: #2d3748; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-    .loading-attributes { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 20px; color: #718096; }
-    .spinner { width: 20px; height: 20px; border: 3px solid #e2e8f0; border-top-color: #ff6b35; border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .attributes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; margin-bottom: 20px; }
-    .attribute-group { background: white; padding: 20px; border-radius: 12px; border: 2px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    .attribute-group-title { font-size: 15px; font-weight: 700; color: #2d3748; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
-    .attribute-values { display: flex; flex-direction: column; gap: 10px; }
-    .attribute-checkbox { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; transition: all 0.2s; cursor: pointer; border: 1px solid transparent; }
-    .attribute-checkbox:hover { background: #f7fafc; border-color: #cbd5e0; }
-    .attribute-checkbox input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #ff6b35; }
-    .attribute-checkbox label { cursor: pointer; font-size: 14px; color: #2d3748; flex: 1; font-weight: 500; }
-    .btn-generate-variants { padding: 14px 28px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(102,126,234,0.3); display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 20px; width: 100%; }
-    .btn-generate-variants:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
-    .btn-generate-variants:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .generated-variants-info { background: #e6fffa; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; display: none; border-left: 4px solid #38a169; }
-    .generated-variants-info.show { display: block; }
-    .info-text { font-size: 14px; color: #234e52; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 15px;
+    }
 
-    /* New Variant Card Styles */
-    .new-variant-card { background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%); padding: 30px; border-radius: 16px; border: 2px solid #9ae6b4; margin-bottom: 25px; animation: slideIn 0.3s ease; }
-    .variant-card { padding: 30px; border-radius: 16px; border: 2px solid #e2e8f0; margin-bottom: 25px; position: relative; }
-    .variant-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #cbd5e0; }
-    .variant-title { font-size: 18px; font-weight: 700; color: #2d3748; }
-    .btn-remove-variant { padding: 8px 16px; background: #fc8181; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-    .btn-remove-variant:hover { background: #f56565; transform: scale(1.05); }
-    .variant-attribute-info { background: #ebf8ff; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4299e1; font-size: 13px; color: #2c5282; }
-    .variant-section-title { font-size: 16px; font-weight: 700; color: #2d3748; margin: 20px 0 15px; padding-bottom: 8px; border-bottom: 2px solid #cbd5e0; }
-    .variant-images-display { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
 
-    /* Current Image Styles */
-    .current-image-preview { margin-bottom: 20px; }
-    .current-label { font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 12px; }
-    .image-upload-wrapper { margin-bottom: 20px; }
-    .upload-label { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; border: 3px dashed #cbd5e0; border-radius: 12px; background: #f7fafc; cursor: pointer; transition: all 0.3s; }
-    .upload-label:hover { border-color: #ff6b35; background: rgba(255,107,53,0.05); }
-    .upload-icon { font-size: 48px; margin-bottom: 15px; }
-    .upload-text { font-size: 16px; font-weight: 600; color: #2d3748; margin-bottom: 5px; }
-    .upload-hint { font-size: 13px; color: #a0aec0; }
-    .image-preview-container, .gallery-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
-    .preview-item { position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    .preview-image { width: 100%; height: 150px; object-fit: cover; display: block; }
-    .remove-image { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; background: #fc8181; color: white; border: none; border-radius: 50%; cursor: pointer; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-    .remove-image:hover { background: #f56565; transform: scale(1.1); }
-    .preview-item.marked-for-removal { opacity: 0.4; }
-    .preview-item.marked-for-removal::after { content: 'Will be removed'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(252, 129, 129, 0.9); color: white; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+    .form-group.full-width {
+        grid-column: span 2;
+    }
 
-    .form-actions-fixed { position: fixed; bottom: 0; left: 260px; right: 0; background: white; padding: 20px 35px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); z-index: 100; }
-    .form-actions-content { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto; }
-    .action-buttons-right { display: flex; gap: 15px; margin-left: auto; }
-    .btn-back, .btn-next, .btn-cancel { padding: 12px 24px; background: #e2e8f0; color: #4a5568; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; text-decoration: none; }
-    .btn-back:hover, .btn-next:hover, .btn-cancel:hover { background: #cbd5e0; transform: translateY(-2px); }
-    .btn-primary { padding: 12px 30px; background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(255,107,53,0.3); display: flex; align-items: center; gap: 8px; }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,107,53,0.4); }
-    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } .form-group.full-width { grid-column: span 1; } .form-actions-fixed { left: 0; } .attributes-grid { grid-template-columns: 1fr; } }
+    .form-label {
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: #495057;
+        font-size: 11px;
+    }
+
+    .required {
+        color: #dc3545;
+    }
+
+    .form-input, .form-textarea, .form-select {
+        padding: 6px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 12px;
+        transition: all 0.2s;
+        font-family: inherit;
+        background: white;
+        height: 32px;
+    }
+
+    .form-input:focus, .form-textarea:focus, .form-select:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    }
+
+    .form-input.error, .form-textarea.error, .form-select.error {
+        border-color: #dc3545;
+        background: #fff5f5;
+    }
+
+    .form-textarea {
+        min-height: 70px;
+        resize: vertical;
+        height: auto;
+    }
+
+    .error-message {
+        color: #dc3545;
+        font-size: 10px;
+        font-weight: 500;
+        margin-top: 3px;
+    }
+
+    /* Attribute Selector Section */
+    .attribute-selector-section {
+        background: #f8f9fa;
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        border: 1px solid #dee2e6;
+    }
+
+    .selector-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    #valuesContainer {
+        min-height: 80px;
+        max-height: 120px;
+        overflow-y: auto;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        padding: 6px;
+        background: white;
+    }
+
+    .no-values {
+        color: #6c757d;
+        font-size: 11px;
+        text-align: center;
+        padding: 20px 0;
+    }
+
+    .value-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 6px;
+        border-radius: 3px;
+        margin-bottom: 3px;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 11px;
+    }
+
+    .value-item:hover {
+        background: #f1f3f4;
+    }
+
+    .value-item.selected {
+        background: #e3f2fd;
+        border-left: 2px solid #2196f3;
+    }
+
+    .value-checkbox {
+        width: 14px;
+        height: 14px;
+        border: 1px solid #adb5bd;
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+    }
+
+    .value-checkbox.checked {
+        background: #007bff;
+        border-color: #007bff;
+        color: white;
+    }
+
+    .value-label {
+        flex: 1;
+        color: #495057;
+    }
+
+    /* Add Attribute Button */
+    .btn-add-attribute {
+        padding: 6px 12px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        margin-top: 8px;
+    }
+
+    .btn-add-attribute:hover {
+        background: #0069d9;
+    }
+
+    /* Selected Attributes */
+    .selected-attributes-section {
+        background: white;
+        padding: 10px;
+        border-radius: 6px;
+        margin-top: 8px;
+        border: 1px solid #dee2e6;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .selected-attributes-section h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: #495057;
+        margin: 0;
+    }
+
+    .btn-clear-all {
+        padding: 3px 8px;
+        background: #f8d7da;
+        color: #721c24;
+        border: none;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-clear-all:hover {
+        background: #f5c6cb;
+    }
+
+    .selected-attributes-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .selected-attribute-item {
+        background: #e3f2fd;
+        padding: 6px 8px;
+        border-radius: 4px;
+        border: 1px solid #bbdefb;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+    }
+
+    .selected-attribute-type {
+        font-weight: 600;
+        color: #1565c0;
+        text-transform: capitalize;
+    }
+
+    .selected-attribute-values {
+        display: flex;
+        gap: 3px;
+    }
+
+    .attribute-value-badge {
+        background: white;
+        padding: 1px 5px;
+        border-radius: 8px;
+        font-size: 9px;
+        border: 1px solid #bbdefb;
+        color: #0d47a1;
+    }
+
+    /* Generate Button */
+    .btn-generate-variants {
+        padding: 8px 16px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        margin-top: 8px;
+        width: 100%;
+        font-size: 11px;
+    }
+
+    .btn-generate-variants:hover:not(:disabled) {
+        background: #218838;
+    }
+
+    .btn-generate-variants:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Variants Info */
+    .generated-variants-info {
+        background: #d4edda;
+        padding: 8px 10px;
+        border-radius: 4px;
+        margin: 8px 0;
+        display: none;
+        border-left: 3px solid #28a745;
+    }
+
+    .generated-variants-info.show {
+        display: block;
+    }
+
+    .info-text {
+        font-size: 11px;
+        color: #155724;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    /* No Variants Message */
+    .no-variants-message {
+        text-align: center;
+        padding: 20px 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px dashed #adb5bd;
+        margin-top: 8px;
+    }
+
+    .no-variants-icon {
+        font-size: 28px;
+        margin-bottom: 8px;
+        color: #adb5bd;
+    }
+
+    .no-variants-message h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 4px;
+    }
+
+    .no-variants-message p {
+        color: #6c757d;
+        font-size: 11px;
+        margin: 0;
+    }
+
+    /* Variants Container */
+    #variantsContainer {
+        margin-top: 12px;
+    }
+
+    /* Variant Card */
+    .variant-card {
+        background: white;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        margin-bottom: 8px;
+        position: relative;
+    }
+
+    .variant-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .variant-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .btn-remove-variant {
+        padding: 3px 6px;
+        background: #f8d7da;
+        color: #721c24;
+        border: none;
+        border-radius: 3px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 10px;
+    }
+
+    .btn-remove-variant:hover {
+        background: #f5c6cb;
+    }
+
+    /* Variant Attribute Info */
+    .variant-attribute-info {
+        background: #e3f2fd;
+        padding: 6px 8px;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        font-size: 10px;
+        border-left: 3px solid #2196f3;
+    }
+
+    .variant-attribute-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+    }
+
+    .variant-attribute-tag {
+        background: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 9px;
+        border: 1px solid #bbdefb;
+    }
+
+    .attr-type {
+        font-weight: 600;
+        color: #1565c0;
+        margin-right: 2px;
+    }
+
+    /* Variant Section Title */
+    .variant-section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #495057;
+        margin: 8px 0 6px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    /* Variant Form Grid */
+    .variant-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .variant-form-grid.three-columns {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+
+    /* Price Validation */
+    .price-error {
+        border-color: #dc3545 !important;
+        background: #f8d7da !important;
+    }
+
+    .price-success {
+        border-color: #28a745 !important;
+        background: #d4edda !important;
+    }
+
+    .price-message {
+        font-size: 9px;
+        margin-top: 3px;
+        padding: 3px 5px;
+        border-radius: 3px;
+        display: none;
+    }
+
+    .price-message.error {
+        display: block;
+        background: #f8d7da;
+        color: #721c24;
+        border-left: 2px solid #dc3545;
+    }
+
+    .price-message.success {
+        display: block;
+        background: #d4edda;
+        color: #155724;
+        border-left: 2px solid #28a745;
+    }
+
+    /* SKU Validation */
+    .sku-validation-message {
+        font-size: 9px;
+        margin-top: 3px;
+        padding: 3px 5px;
+        border-radius: 3px;
+        display: none;
+    }
+
+    .sku-validation-message.error {
+        display: block;
+        background: #f8d7da;
+        color: #721c24;
+        border-left: 2px solid #dc3545;
+    }
+
+    .sku-validation-message.success {
+        display: block;
+        background: #d4edda;
+        color: #155724;
+        border-left: 2px solid #28a745;
+    }
+
+    /* Image Upload */
+    .image-upload-wrapper {
+        margin-bottom: 8px;
+    }
+
+    .upload-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 15px;
+        border: 1px dashed #adb5bd;
+        border-radius: 4px;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .upload-label:hover {
+        border-color: #007bff;
+        background: #e7f1ff;
+    }
+
+    .upload-icon {
+        font-size: 18px;
+        margin-bottom: 5px;
+    }
+
+    .upload-text {
+        font-size: 11px;
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 2px;
+    }
+
+    .upload-hint {
+        font-size: 9px;
+        color: #6c757d;
+    }
+
+    .image-preview-container, .gallery-preview {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        gap: 6px;
+        margin-top: 8px;
+    }
+
+    .preview-item {
+        position: relative;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .preview-image {
+        width: 100%;
+        height: 60px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .remove-image {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 16px;
+        height: 16px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        line-height: 1;
+        padding: 0;
+    }
+
+    .remove-image:hover {
+        background: #c82333;
+        transform: scale(1.1);
+    }
+
+    /* Form Actions */
+    .form-actions {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 10px 15px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 100;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .right-buttons {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+    }
+
+    .btn-back, .btn-next {
+        padding: 5px 10px;
+        background: #fa8128;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+    }
+
+
+    .btn-primary {
+        padding: 5px 12px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+    }
+
+    .btn-primary:hover {
+        background: #218838;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .form-grid, .variant-form-grid {
+            grid-template-columns: 1fr;
+        }
+        .variant-form-grid.three-columns {
+            grid-template-columns: 1fr;
+        }
+        .form-group.full-width {
+            grid-column: span 1;
+        }
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .header-right {
+            width: 100%;
+        }
+        .back-btn {
+            width: 100%;
+            text-align: center;
+        }
+    }
+
+    .product-id {
+        font-size: 11px;
+        color: #6c757d;
+        background: #f8f9fa;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        margin-left: 10px;
+    }
+
+    .existing-variants-section, .new-variants-section {
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .existing-variants-section .section-header,
+    .new-variants-section .section-header {
+        margin-bottom: 10px;
+    }
+
+    .current-image-section, .current-gallery-section {
+        margin-bottom: 10px;
+    }
+
+    .current-image-label {
+        font-size: 11px;
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 5px;
+    }
+
+    .existing-variants-section h4,
+    .new-variants-section h4 {
+        font-size: 13px;
+        font-weight: 600;
+        color: #343a40;
+        margin: 0;
+    }
 </style>
 @endpush
 
 @push('scripts')
 <script>
+    // ========== GLOBAL VARIABLES ==========
     let currentTab = 0;
     const tabs = ['basic-info', 'media', 'variants'];
-
-    // ✅ SKU VALIDATION VARIABLES
-    let skuValidationTimers = {};
-    let skuValidationStates = {};
-
-    // Variant management
+    let variantCount = {{ $variantProduct->variants ? count($variantProduct->variants) : 0 }};
     let newVariantCount = 0;
-    let selectedAttributes = {};
-    let existingVariants = @json($product->variants ?? []);
+    let selectedAttributes = [];
+    let generatedVariants = [];
+    let removedGalleryImages = [];
+    let removedVariantGalleryImages = {};
+    let existingVariantKeys = [];
 
+    // Store existing variant keys on page load
+    @if($variantProduct->variants)
+        @foreach($variantProduct->variants as $variant)
+            @if(isset($variant['attributes']) && is_array($variant['attributes']))
+                existingVariantKeys.push(generateVariantKeyFromArray(@json($variant['attributes'])));
+            @endif
+        @endforeach
+    @endif
+
+    // Function to generate variant key from attributes array
+    function generateVariantKeyFromArray(attributes) {
+        if (!Array.isArray(attributes)) return '';
+
+        // Sort attributes by type for consistent key
+        const sortedAttrs = [...attributes].sort((a, b) => {
+            return (a.type || '').localeCompare(b.type || '');
+        });
+
+        return sortedAttrs.map(attr => `${attr.type}:${attr.value}`).join('|');
+    }
+
+    // ========== ALERT SYSTEM ==========
     function showAlert(message, type = 'success') {
         const container = document.getElementById('alertContainer');
         const alert = document.createElement('div');
         alert.className = `alert alert-${type}`;
-        alert.innerHTML = `<span class="alert-icon">${type === 'success' ? '✓' : '✕'}</span><span>${message}</span>`;
+        alert.innerHTML = `<span>${message}</span>`;
         container.appendChild(alert);
-        setTimeout(() => { alert.classList.add('removing'); setTimeout(() => alert.remove(), 300); }, 5000);
+
+        setTimeout(() => {
+            alert.remove();
+        }, 3000);
     }
 
+    // ========== TAB MANAGEMENT ==========
     function showTab(index) {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
         document.getElementById(tabs[index]).classList.add('active');
         document.querySelectorAll('.tab-btn')[index].classList.add('active');
-        document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-            if (i < index) btn.classList.add('completed');
-            else btn.classList.remove('completed');
-        });
+
         const backBtn = document.getElementById('backBtn');
         const nextBtn = document.getElementById('nextBtn');
         const submitBtn = document.getElementById('submitBtn');
+
         backBtn.style.display = index === 0 ? 'none' : 'flex';
         nextBtn.style.display = index === tabs.length - 1 ? 'none' : 'flex';
         submitBtn.style.display = index === tabs.length - 1 ? 'flex' : 'none';
     }
 
-    function validateCurrentTab() {
-        const currentTabElement = document.getElementById(tabs[currentTab]);
-        const requiredInputs = currentTabElement.querySelectorAll('[required]');
-        let isValid = true;
-        let firstErrorField = null;
-        requiredInputs.forEach(input => {
+    // ========== GST VALIDATION ==========
+    function validateGST(input, errorId) {
+        const value = parseFloat(input.value);
+        const errorDiv = document.getElementById(errorId);
+
+        if (!errorDiv) {
+            console.error('Error div not found:', errorId);
+            return;
+        }
+
+        if (isNaN(value)) {
+            errorDiv.textContent = 'GST must be a number';
+            input.classList.add('error');
+        } else if (value < 0) {
+            errorDiv.textContent = 'GST cannot be negative';
+            input.classList.add('error');
+        } else if (value > 100) {
+            errorDiv.textContent = 'GST cannot be greater than 100%';
+            input.classList.add('error');
+        } else {
+            errorDiv.textContent = '';
             input.classList.remove('error');
-            if (!input.value.trim()) {
-                input.classList.add('error');
-                if (!firstErrorField) firstErrorField = input;
-                isValid = false;
-            }
-        });
-        if (firstErrorField) firstErrorField.focus();
-        return isValid;
+        }
     }
 
-    // ✅ REAL-TIME SKU VALIDATION FUNCTION - FIXED
-    function validateSkuCode(fieldId, skuCode) {
-        // Clear existing timer
-        if (skuValidationTimers[fieldId]) {
-            clearTimeout(skuValidationTimers[fieldId]);
-        }
+    // ========== ATTRIBUTE MANAGEMENT ==========
+    function loadAttributeValues() {
+        const attributeType = document.getElementById('attribute_type').value;
+        const container = document.getElementById('valuesContainer');
 
-        // Get the correct input field based on fieldId
-        let inputField;
-        if (fieldId === 'main') {
-            inputField = document.getElementById('main_sku_code');
-        } else if (fieldId.startsWith('existing_variant_')) {
-            const variantIndex = fieldId.replace('existing_variant_', '');
-            inputField = document.getElementById(`existing_variant_sku_${variantIndex}`);
-        } else if (fieldId.startsWith('new_variant_')) {
-            const variantId = fieldId.replace('new_variant_', '');
-            inputField = document.getElementById(`new_variant_sku_${variantId}`);
-        }
-
-        const messageDiv = document.getElementById(`${fieldId}_sku_message`);
-
-        if (!inputField || !messageDiv) {
-            console.error(`Element not found for fieldId: ${fieldId}`);
+        if (!attributeType) {
+            container.innerHTML = '<div class="no-values">Select attribute type first</div>';
             return;
         }
 
-        // Reset validation state
-        inputField.classList.remove('sku-error', 'sku-success', 'sku-checking');
-        messageDiv.className = 'sku-validation-message';
-        messageDiv.textContent = '';
+        container.innerHTML = '<div class="no-values">Loading values...</div>';
 
-        // If empty, don't validate
-        if (!skuCode || skuCode.trim() === '') {
-            skuValidationStates[fieldId] = null;
-            return;
-        }
-
-        // Show checking state
-        inputField.classList.add('sku-checking');
-        messageDiv.className = 'sku-validation-message checking';
-        messageDiv.textContent = '🔍 Checking SKU availability...';
-
-        // Set new timer for debounced validation
-        skuValidationTimers[fieldId] = setTimeout(() => {
-            // First check for duplicates within the form
-            const isDuplicateInForm = checkSkuDuplicateInForm(fieldId, skuCode);
-
-            if (isDuplicateInForm) {
-                inputField.classList.remove('sku-checking');
-                inputField.classList.add('sku-error');
-                messageDiv.className = 'sku-validation-message error';
-                messageDiv.textContent = '⚠️ This SKU code is already used in another field on this form';
-                skuValidationStates[fieldId] = false;
-                return;
-            }
-
-            // Then check against database
-            fetch('{{ route("admin.products.check-sku") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    sku_code: skuCode.trim(),
-                    product_id: '{{ $product->id }}' // Include current product ID for edit mode
-                })
+        fetch('{{ route("admin.products.get-attribute-values") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                attribute_type: attributeType
             })
-            .then(response => response.json())
-            .then(data => {
-                inputField.classList.remove('sku-checking');
-
-                if (data.available) {
-                    inputField.classList.add('sku-success');
-                    messageDiv.className = 'sku-validation-message success';
-                    messageDiv.textContent = data.message;
-                    skuValidationStates[fieldId] = true;
-                } else {
-                    inputField.classList.add('sku-error');
-                    messageDiv.className = 'sku-validation-message error';
-                    messageDiv.textContent = data.message;
-                    skuValidationStates[fieldId] = false;
-                }
-            })
-            .catch(error => {
-                console.error('SKU validation error:', error);
-                inputField.classList.remove('sku-checking');
-                messageDiv.className = 'sku-validation-message';
-                messageDiv.textContent = '';
-                skuValidationStates[fieldId] = null;
-            });
-        }, 500); // 500ms debounce
-    }
-
-    // ✅ CHECK SKU DUPLICATE WITHIN FORM
-    function checkSkuDuplicateInForm(currentFieldId, skuCode) {
-        if (!skuCode || skuCode.trim() === '') {
-            return false;
-        }
-
-        const trimmedSku = skuCode.trim().toUpperCase();
-
-        // Check main SKU field
-        if (currentFieldId !== 'main') {
-            const mainSkuField = document.getElementById('main_sku_code');
-            if (mainSkuField) {
-                const mainSku = mainSkuField.value?.trim()?.toUpperCase();
-                if (mainSku && mainSku === trimmedSku) {
-                    return true;
-                }
-            }
-        }
-
-        // Check all existing variant SKU fields
-        const existingVariantCards = document.querySelectorAll('.existing-variant');
-        for (let card of existingVariantCards) {
-            const variantIndex = card.id.replace('existing-variant-', '');
-            const fieldIdToCheck = `existing_variant_${variantIndex}`;
-
-            if (fieldIdToCheck !== currentFieldId) {
-                const variantSkuInput = document.getElementById(`existing_variant_sku_${variantIndex}`);
-                if (variantSkuInput) {
-                    const variantSku = variantSkuInput.value?.trim()?.toUpperCase();
-                    if (variantSku && variantSku === trimmedSku) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        // Check all new variant SKU fields
-        const newVariantCards = document.querySelectorAll('.new-variant-card');
-        for (let card of newVariantCards) {
-            const variantId = card.id.replace('new-variant-', '');
-            const fieldIdToCheck = `new_variant_${variantId}`;
-
-            if (fieldIdToCheck !== currentFieldId) {
-                const variantSkuInput = document.getElementById(`new_variant_sku_${variantId}`);
-                if (variantSkuInput) {
-                    const variantSku = variantSkuInput.value?.trim()?.toUpperCase();
-                    if (variantSku && variantSku === trimmedSku) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    // ✅ VALIDATE ALL SKU CODES BEFORE FORM SUBMISSION
-    function validateAllSkuCodes() {
-        let allValid = true;
-        const errors = [];
-
-        // Check main SKU
-        const mainSkuField = document.getElementById('main_sku_code');
-        if (mainSkuField) {
-            const mainSku = mainSkuField.value?.trim();
-            if (mainSku) {
-                if (skuValidationStates['main'] === false) {
-                    allValid = false;
-                    errors.push('Main product SKU code is invalid or already in use');
-                } else if (skuValidationStates['main'] === null) {
-                    allValid = false;
-                    errors.push('Main product SKU code validation is pending');
-                }
-            }
-        }
-
-        // Check existing variant SKUs
-        const existingVariantCards = document.querySelectorAll('.existing-variant');
-        existingVariantCards.forEach((card) => {
-            const variantIndex = card.id.replace('existing-variant-', '');
-            const fieldId = `existing_variant_${variantIndex}`;
-            const variantSkuField = document.getElementById(`existing_variant_sku_${variantIndex}`);
-
-            if (variantSkuField) {
-                const variantSku = variantSkuField.value?.trim();
-                if (variantSku) {
-                    if (skuValidationStates[fieldId] === false) {
-                        allValid = false;
-                        errors.push(`Existing Variant #${parseInt(variantIndex) + 1} SKU code is invalid or already in use`);
-                    } else if (skuValidationStates[fieldId] === null) {
-                        allValid = false;
-                        errors.push(`Existing Variant #${parseInt(variantIndex) + 1} SKU code validation is pending`);
-                    }
-                }
-            }
-        });
-
-        // Check new variant SKUs
-        const newVariantCards = document.querySelectorAll('.new-variant-card');
-        newVariantCards.forEach((card) => {
-            const variantId = card.id.replace('new-variant-', '');
-            const fieldId = `new_variant_${variantId}`;
-            const variantSkuField = document.getElementById(`new_variant_sku_${variantId}`);
-
-            if (variantSkuField) {
-                const variantSku = variantSkuField.value?.trim();
-                if (variantSku) {
-                    if (skuValidationStates[fieldId] === false) {
-                        allValid = false;
-                        errors.push(`New Variant #${variantId} SKU code is invalid or already in use`);
-                    } else if (skuValidationStates[fieldId] === null) {
-                        allValid = false;
-                        errors.push(`New Variant #${variantId} SKU code validation is pending`);
-                    }
-                }
-            }
-        });
-
-        if (!allValid && errors.length > 0) {
-            showAlert(errors[0], 'error');
-        }
-
-        return allValid;
-    }
-
-    // Real-time validation for existing variant pricing
-    function validateExistingVariantPricing(variantIndex) {
-        const costPrice = parseFloat(document.getElementById(`existing_variant_cost_price_${variantIndex}`)?.value) || 0;
-        const mrpPrice = parseFloat(document.getElementById(`existing_variant_mrp_price_${variantIndex}`)?.value) || 0;
-        const dealerPrice = parseFloat(document.getElementById(`existing_variant_dealer_price_${variantIndex}`)?.value) || 0;
-        const distributorPrice = parseFloat(document.getElementById(`existing_variant_distributor_price_${variantIndex}`)?.value) || 0;
-
-        const mrpInput = document.getElementById(`existing_variant_mrp_price_${variantIndex}`);
-        const dealerInput = document.getElementById(`existing_variant_dealer_price_${variantIndex}`);
-        const distributorInput = document.getElementById(`existing_variant_distributor_price_${variantIndex}`);
-
-        const mrpError = document.getElementById(`existing_mrp_error_${variantIndex}`);
-        const dealerError = document.getElementById(`existing_dealer_error_${variantIndex}`);
-        const distributorError = document.getElementById(`existing_distributor_error_${variantIndex}`);
-
-        if (!mrpInput || !dealerInput || !distributorInput) return;
-
-        // Validate MRP Price
-        if (mrpPrice > 0 && mrpPrice <= costPrice) {
-            mrpInput.classList.add('error');
-            if (mrpError) mrpError.style.display = 'block';
-        } else {
-            mrpInput.classList.remove('error');
-            if (mrpError) mrpError.style.display = 'none';
-        }
-
-        // Validate Dealer Price
-        if (dealerPrice > 0 && dealerPrice <= costPrice) {
-            dealerInput.classList.add('error');
-            if (dealerError) dealerError.style.display = 'block';
-        } else {
-            dealerInput.classList.remove('error');
-            if (dealerError) dealerError.style.display = 'none';
-        }
-
-        // Validate Distributor Price
-        if (distributorPrice > 0 && distributorPrice <= costPrice) {
-            distributorInput.classList.add('error');
-            if (distributorError) distributorError.style.display = 'block';
-        } else {
-            distributorInput.classList.remove('error');
-            if (distributorError) distributorError.style.display = 'none';
-        }
-    }
-
-    // Real-time validation for existing variant stock
-    function validateExistingVariantStock(variantIndex) {
-        const currentStock = parseInt(document.getElementById(`existing_variant_current_stock_${variantIndex}`)?.value) || 0;
-        const minStockAlert = parseInt(document.getElementById(`existing_variant_min_stock_${variantIndex}`)?.value) || 0;
-
-        const currentStockInput = document.getElementById(`existing_variant_current_stock_${variantIndex}`);
-        const currentStockError = document.getElementById(`existing_current_stock_error_${variantIndex}`);
-
-        if (!currentStockInput) return;
-
-        // Validate Current Stock >= Min Stock Alert
-        if (currentStock < minStockAlert) {
-            currentStockInput.classList.add('error');
-            if (currentStockError) currentStockError.style.display = 'block';
-        } else {
-            currentStockInput.classList.remove('error');
-            if (currentStockError) currentStockError.style.display = 'none';
-        }
-    }
-
-    // Real-time validation for new variant pricing
-    function validateNewVariantPricing(variantId) {
-        const costPrice = parseFloat(document.getElementById(`new_variant_cost_price_${variantId}`)?.value) || 0;
-        const mrpPrice = parseFloat(document.getElementById(`new_variant_mrp_price_${variantId}`)?.value) || 0;
-        const dealerPrice = parseFloat(document.getElementById(`new_variant_dealer_price_${variantId}`)?.value) || 0;
-        const distributorPrice = parseFloat(document.getElementById(`new_variant_distributor_price_${variantId}`)?.value) || 0;
-
-        const mrpInput = document.getElementById(`new_variant_mrp_price_${variantId}`);
-        const dealerInput = document.getElementById(`new_variant_dealer_price_${variantId}`);
-        const distributorInput = document.getElementById(`new_variant_distributor_price_${variantId}`);
-
-        const mrpError = document.getElementById(`new_mrp_error_${variantId}`);
-        const dealerError = document.getElementById(`new_dealer_error_${variantId}`);
-        const distributorError = document.getElementById(`new_distributor_error_${variantId}`);
-
-        if (!mrpInput || !dealerInput || !distributorInput) return;
-
-        // Validate MRP Price
-        if (mrpPrice > 0 && mrpPrice <= costPrice) {
-            mrpInput.classList.add('error');
-            if (mrpError) mrpError.style.display = 'block';
-        } else {
-            mrpInput.classList.remove('error');
-            if (mrpError) mrpError.style.display = 'none';
-        }
-
-        // Validate Dealer Price
-        if (dealerPrice > 0 && dealerPrice <= costPrice) {
-            dealerInput.classList.add('error');
-            if (dealerError) dealerError.style.display = 'block';
-        } else {
-            dealerInput.classList.remove('error');
-            if (dealerError) dealerError.style.display = 'none';
-        }
-
-        // Validate Distributor Price
-        if (distributorPrice > 0 && distributorPrice <= costPrice) {
-            distributorInput.classList.add('error');
-            if (distributorError) distributorError.style.display = 'block';
-        } else {
-            distributorInput.classList.remove('error');
-            if (distributorError) distributorError.style.display = 'none';
-        }
-    }
-
-    // Real-time validation for new variant stock
-    function validateNewVariantStock(variantId) {
-        const openingStock = parseInt(document.getElementById(`new_variant_opening_stock_${variantId}`)?.value) || 0;
-        const minStockAlert = parseInt(document.getElementById(`new_variant_min_stock_${variantId}`)?.value) || 0;
-
-        const openingStockInput = document.getElementById(`new_variant_opening_stock_${variantId}`);
-        const openingStockError = document.getElementById(`new_opening_stock_error_${variantId}`);
-
-        if (!openingStockInput) return;
-
-        // Validate Opening Stock >= Min Stock Alert
-        if (openingStock < minStockAlert) {
-            openingStockInput.classList.add('error');
-            if (openingStockError) openingStockError.style.display = 'block';
-        } else {
-            openingStockInput.classList.remove('error');
-            if (openingStockError) openingStockError.style.display = 'none';
-        }
-    }
-
-    document.getElementById('nextBtn').addEventListener('click', () => {
-        if (!validateCurrentTab()) {
-            showAlert('Please fill in all required fields', 'error');
-            return;
-        }
-        if (currentTab < tabs.length - 1) {
-            currentTab++;
-            showTab(currentTab);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    });
-
-    document.getElementById('backBtn').addEventListener('click', () => {
-        if (currentTab > 0) {
-            currentTab--;
-            showTab(currentTab);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    });
-
-    document.querySelectorAll('.tab-btn').forEach((btn, index) => {
-        btn.addEventListener('click', () => {
-            currentTab = index;
-            showTab(currentTab);
-        });
-    });
-
-    // ✅ UPDATED FORM SUBMIT WITH SKU VALIDATION
-    document.getElementById('productForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        // ✅ VALIDATE ALL SKU CODES FIRST
-        if (!validateAllSkuCodes()) {
-            currentTab = 0; // Go to basic info tab if main SKU invalid
-            // Check if error is in variants tab
-            const variantCards = document.querySelectorAll('.existing-variant, .new-variant-card');
-            variantCards.forEach((card) => {
-                const isExisting = card.classList.contains('existing-variant');
-                if (isExisting) {
-                    const variantIndex = card.id.replace('existing-variant-', '');
-                    const fieldId = `existing_variant_${variantIndex}`;
-                    if (skuValidationStates[fieldId] === false) {
-                        currentTab = 2; // Go to variants tab
-                    }
-                } else {
-                    const variantId = card.id.replace('new-variant-', '');
-                    const fieldId = `new_variant_${variantId}`;
-                    if (skuValidationStates[fieldId] === false) {
-                        currentTab = 2; // Go to variants tab
-                    }
-                }
-            });
-            showTab(currentTab);
-            return;
-        }
-
-        // Validate all variants have required fields filled and pass validation
-        let allVariantsValid = true;
-        let validationErrors = [];
-
-        // Validate existing variants
-        const existingVariantCards = document.querySelectorAll('.existing-variant');
-        existingVariantCards.forEach((card) => {
-            const variantIndex = card.id.replace('existing-variant-', '');
-
-            // Check required fields
-            const requiredFields = card.querySelectorAll('[required]');
-            requiredFields.forEach(field => {
-                field.classList.remove('error');
-                if (!field.value.trim()) {
-                    field.classList.add('error');
-                    allVariantsValid = false;
-                }
-            });
-
-            // Validate pricing
-            const costPrice = parseFloat(document.getElementById(`existing_variant_cost_price_${variantIndex}`)?.value) || 0;
-            const mrpPrice = parseFloat(document.getElementById(`existing_variant_mrp_price_${variantIndex}`)?.value) || 0;
-            const dealerPrice = parseFloat(document.getElementById(`existing_variant_dealer_price_${variantIndex}`)?.value) || 0;
-            const distributorPrice = parseFloat(document.getElementById(`existing_variant_distributor_price_${variantIndex}`)?.value) || 0;
-
-            if (mrpPrice > 0 && mrpPrice <= costPrice) {
-                allVariantsValid = false;
-                validationErrors.push(`Existing Variant #${parseInt(variantIndex) + 1}: MRP price must be greater than cost price`);
-            }
-            if (dealerPrice > 0 && dealerPrice <= costPrice) {
-                allVariantsValid = false;
-                validationErrors.push(`Existing Variant #${parseInt(variantIndex) + 1}: Dealer price must be greater than cost price`);
-            }
-            if (distributorPrice > 0 && distributorPrice <= costPrice) {
-                allVariantsValid = false;
-                validationErrors.push(`Existing Variant #${parseInt(variantIndex) + 1}: Distributor price must be greater than cost price`);
-            }
-
-            // Validate stock
-            const currentStock = parseInt(document.getElementById(`existing_variant_current_stock_${variantIndex}`)?.value) || 0;
-            const minStockAlert = parseInt(document.getElementById(`existing_variant_min_stock_${variantIndex}`)?.value) || 0;
-
-            if (currentStock < minStockAlert) {
-                allVariantsValid = false;
-                validationErrors.push(`Existing Variant #${parseInt(variantIndex) + 1}: Current stock must be greater than or equal to min stock alert`);
-            }
-        });
-
-        // Validate new variants
-        const newVariantCards = document.querySelectorAll('.new-variant-card');
-        newVariantCards.forEach((card) => {
-            const variantId = card.id.replace('new-variant-', '');
-
-            // Check required fields
-            const requiredFields = card.querySelectorAll('[required]');
-            requiredFields.forEach(field => {
-                field.classList.remove('error');
-                if (!field.value.trim()) {
-                    field.classList.add('error');
-                    allVariantsValid = false;
-                }
-            });
-
-            // Validate pricing
-            const costPrice = parseFloat(document.getElementById(`new_variant_cost_price_${variantId}`)?.value) || 0;
-            const mrpPrice = parseFloat(document.getElementById(`new_variant_mrp_price_${variantId}`)?.value) || 0;
-            const dealerPrice = parseFloat(document.getElementById(`new_variant_dealer_price_${variantId}`)?.value) || 0;
-            const distributorPrice = parseFloat(document.getElementById(`new_variant_distributor_price_${variantId}`)?.value) || 0;
-
-            if (mrpPrice > 0 && mrpPrice <= costPrice) {
-                allVariantsValid = false;
-                validationErrors.push(`New Variant #${variantId}: MRP price must be greater than cost price`);
-            }
-            if (dealerPrice > 0 && dealerPrice <= costPrice) {
-                allVariantsValid = false;
-                validationErrors.push(`New Variant #${variantId}: Dealer price must be greater than cost price`);
-            }
-            if (distributorPrice > 0 && distributorPrice <= costPrice) {
-                allVariantsValid = false;
-                validationErrors.push(`New Variant #${variantId}: Distributor price must be greater than cost price`);
-            }
-
-            // Validate stock
-            const openingStock = parseInt(document.getElementById(`new_variant_opening_stock_${variantId}`)?.value) || 0;
-            const minStockAlert = parseInt(document.getElementById(`new_variant_min_stock_${variantId}`)?.value) || 0;
-
-            if (openingStock < minStockAlert) {
-                allVariantsValid = false;
-                validationErrors.push(`New Variant #${variantId}: Opening stock must be greater than or equal to min stock alert`);
-            }
-        });
-
-        if (!allVariantsValid) {
-            currentTab = 2; // Variants tab
-            showTab(currentTab);
-            if (validationErrors.length > 0) {
-                showAlert(validationErrors[0], 'error');
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.values && data.values.length > 0) {
+                container.innerHTML = '';
+                data.values.forEach(value => {
+                    const div = document.createElement('div');
+                    div.className = 'value-item';
+                    div.innerHTML = `
+                        <div class="value-checkbox"></div>
+                        <span class="value-label">${value}</span>
+                    `;
+                    div.onclick = function() {
+                        this.classList.toggle('selected');
+                        const checkbox = this.querySelector('.value-checkbox');
+                        checkbox.classList.toggle('checked');
+                        checkbox.innerHTML = checkbox.classList.contains('checked') ? '✓' : '';
+                    };
+                    container.appendChild(div);
+                });
             } else {
-                showAlert('Please fill in all required variant fields', 'error');
+                container.innerHTML = '<div class="no-values">No values found</div>';
+                showAlert('No values found for this attribute type', 'error');
             }
+        })
+        .catch(error => {
+            console.error('Error loading attribute values:', error);
+            container.innerHTML = '<div class="no-values">Error loading values</div>';
+            showAlert('Error loading attribute values', 'error');
+        });
+    }
+
+    function addSelectedAttribute() {
+        const typeSelect = document.getElementById('attribute_type');
+        const container = document.getElementById('valuesContainer');
+        const selectedValues = [];
+
+        // Get selected values
+        container.querySelectorAll('.value-item.selected').forEach(item => {
+            const label = item.querySelector('.value-label').textContent;
+            selectedValues.push(label);
+        });
+
+        const attributeType = typeSelect.value;
+
+        if (!attributeType || selectedValues.length === 0) {
+            showAlert('Select attribute type and at least one value', 'error');
             return;
         }
 
-        // Validate all required fields
-        let allValid = true;
-        const allRequiredInputs = document.querySelectorAll('[required]');
-        allRequiredInputs.forEach(input => {
-            input.classList.remove('error');
-            if (!input.value.trim()) {
-                input.classList.add('error');
-                allValid = false;
+        // Check if this attribute type already exists
+        const existingIndex = selectedAttributes.findIndex(attr => attr.type === attributeType);
+
+        if (existingIndex !== -1) {
+            // Update existing attribute
+            selectedAttributes[existingIndex].values = selectedValues;
+        } else {
+            // Add new attribute
+            const displayName = attributeType.split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+
+            selectedAttributes.push({
+                type: attributeType,
+                displayName: displayName,
+                values: selectedValues
+            });
+        }
+
+        updateSelectedAttributesDisplay();
+
+        // Reset
+        typeSelect.value = '';
+        container.innerHTML = '<div class="no-values">Select attribute type first</div>';
+
+        showAlert('Attribute added', 'success');
+    }
+
+    function updateSelectedAttributesDisplay() {
+        const section = document.getElementById('selectedAttributesSection');
+        const list = document.getElementById('selectedAttributesList');
+        const generateBtn = document.getElementById('generateVariantsBtn');
+
+        if (selectedAttributes.length === 0) {
+            section.style.display = 'none';
+            generateBtn.disabled = true;
+            return;
+        }
+
+        section.style.display = 'block';
+        list.innerHTML = '';
+
+        selectedAttributes.forEach((attr, index) => {
+            const attributeDiv = document.createElement('div');
+            attributeDiv.className = 'selected-attribute-item';
+
+            let valuesHtml = '';
+            attr.values.forEach(value => {
+                valuesHtml += `<span class="attribute-value-badge">${value}</span>`;
+            });
+
+            attributeDiv.innerHTML = `
+                <span class="selected-attribute-type">${attr.displayName}:</span>
+                <div class="selected-attribute-values">${valuesHtml}</div>
+            `;
+
+            list.appendChild(attributeDiv);
+        });
+
+        generateBtn.disabled = false;
+    }
+
+    function clearAllAttributes() {
+        if (confirm('Clear all selected attributes?')) {
+            selectedAttributes = [];
+            updateSelectedAttributesDisplay();
+            showAlert('All attributes cleared', 'success');
+        }
+    }
+
+    // ========== VARIANT GENERATION ==========
+    function generateVariants() {
+        if (selectedAttributes.length === 0) {
+            showAlert('Add at least one attribute', 'error');
+            return;
+        }
+
+        const combinations = generateAttributeCombinations();
+
+        if (combinations.length === 0) {
+            showAlert('No combinations found', 'error');
+            return;
+        }
+
+        // Check for duplicates with existing variants
+        const duplicateCombinations = [];
+        const newCombinations = [];
+
+        combinations.forEach(combination => {
+            const variantKey = generateVariantKey(combination);
+
+            // Check if this combination already exists
+            if (existingVariantKeys.includes(variantKey)) {
+                duplicateCombinations.push(combination);
+            } else {
+                newCombinations.push(combination);
             }
         });
-        if (!allValid) {
-            for (let i = 0; i < tabs.length; i++) {
-                const tabElement = document.getElementById(tabs[i]);
-                const errorInput = tabElement.querySelector('.error');
-                if (errorInput) {
-                    currentTab = i;
-                    showTab(i);
-                    errorInput.focus();
-                    showAlert('Please fill in all required fields', 'error');
-                    return;
-                }
-            }
-            showAlert('Please fill in all required fields', 'error');
+
+        if (duplicateCombinations.length > 0) {
+            showAlert(`${duplicateCombinations.length} variant(s) already exist and were skipped`, 'warning');
+        }
+
+        if (newCombinations.length === 0) {
+            showAlert('All generated variants already exist', 'error');
             return;
         }
-        this.submit();
-    });
 
-    function markImageForRemoval(type) {
-        const checkbox = document.getElementById('remove_base_image');
-        const previewItem = document.getElementById('current-base-image');
-        if (checkbox && previewItem) {
-            if (checkbox.checked) {
-                checkbox.checked = false;
-                previewItem.classList.remove('marked-for-removal');
-            } else {
-                checkbox.checked = true;
-                previewItem.classList.add('marked-for-removal');
+        // Generate new variants
+        const container = document.getElementById('newVariantsContainer');
+        container.innerHTML = '';
+
+        newCombinations.forEach((combination, index) => {
+            createNewVariantCard(combination, newVariantCount + index + 1);
+        });
+
+        newVariantCount += newCombinations.length;
+
+        // Show new variants section
+        const newVariantsSection = document.getElementById('newVariantsSection');
+        newVariantsSection.style.display = 'block';
+
+        const infoDiv = document.getElementById('variantsInfo');
+        const infoText = document.getElementById('variantsInfoText');
+        if (infoDiv && infoText) {
+            infoText.textContent = `Generated ${newCombinations.length} new variant(s) (${duplicateCombinations.length} duplicates skipped)`;
+            infoDiv.classList.add('show');
+        }
+
+        showAlert(`Generated ${newCombinations.length} new variant(s)`, 'success');
+    }
+
+    function generateAttributeCombinations() {
+        if (selectedAttributes.length === 0) return [];
+
+        let combinations = [[]];
+
+        selectedAttributes.forEach(attribute => {
+            const values = attribute.values;
+            const newCombinations = [];
+
+            combinations.forEach(combo => {
+                values.forEach(value => {
+                    newCombinations.push([
+                        ...combo,
+                        {
+                            type: attribute.type,
+                            displayName: attribute.displayName,
+                            value: value
+                        }
+                    ]);
+                });
+            });
+
+            combinations = newCombinations;
+        });
+
+        return combinations;
+    }
+
+    function generateVariantKey(combination) {
+        // Sort attributes by type for consistent key
+        const sortedCombination = [...combination].sort((a, b) => {
+            return a.type.localeCompare(b.type);
+        });
+
+        return sortedCombination.map(attr => `${attr.type}:${attr.value}`).join('|');
+    }
+
+    function generateVariantName(productName, combination) {
+        // Create attribute strings with type and value: "Color: Red", "Size: Large"
+        const attributeStrings = combination.map(attr => `${attr.displayName}: ${attr.value}`);
+        return `${productName} - ${attributeStrings.join(' - ')}`;
+    }
+
+    function generateSkuSuffix(combination) {
+        const parts = combination.map(attr => {
+            return attr.value.replace(/\s+/g, '').toUpperCase().substring(0, 3);
+        });
+        return parts.join('-');
+    }
+
+
+ function createNewVariantCard(combination, variantId) {
+    const container = document.getElementById('newVariantsContainer');
+
+    const productNameElement = document.getElementById('productName');
+    const productName = productNameElement ? productNameElement.value : 'Product';
+    const variantName = generateVariantName(productName, combination);
+    const skuSuffix = generateSkuSuffix(combination);
+    const currentDate = new Date();
+
+    // Convert to India time (UTC +5:30)
+    const indiaDate = new Date(currentDate.getTime() + (5.5 * 60 * 60 * 1000));
+
+    // Format to 12-hour with AM/PM for display
+    let hours = indiaDate.getUTCHours();
+    const minutes = indiaDate.getUTCMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+
+    const day = indiaDate.getUTCDate().toString().padStart(2, '0');
+    const month = (indiaDate.getUTCMonth() + 1).toString().padStart(2, '0');
+    const year = indiaDate.getUTCFullYear();
+
+    // ✅ Display format: 15/01/2024 8:30 PM
+    const formattedDate = `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+
+    // Aur hidden input values ke liye bhi India time
+    const indiaISOString = new Date(currentDate.getTime() + (5.5 * 60 * 60 * 1000)).toISOString();
+
+    // Generate unique index for new variant
+    const newIndex = variantCount + variantId;
+
+    const variantHtml = `
+        <div class="variant-card" id="new-variant-${variantId}">
+            <div class="variant-header">
+                <h4 class="variant-title">New Variant ${variantId}</h4>
+                <button type="button" class="btn-remove-variant" onclick="removeNewVariant(${variantId})">
+                    Remove
+                </button>
+            </div>
+
+            <div class="variant-attribute-info">
+                <strong>Attributes:</strong>
+                <div class="variant-attribute-tags">
+                    ${combination.map(attr =>
+                        `<span class="variant-attribute-tag">
+                            <span class="attr-type">${attr.displayName}:</span>
+                            <span class="attr-value">${attr.value}</span>
+                        </span>`
+                    ).join('')}
+                </div>
+            </div>
+
+            <!-- Store attributes as hidden inputs in array format -->
+            ${combination.map((attr, attrIndex) => `
+                <input type="hidden"
+                       name="variants[${newIndex}][attributes][${attrIndex}][type]"
+                       value="${attr.type}">
+                <input type="hidden"
+                       name="variants[${newIndex}][attributes][${attrIndex}][displayName]"
+                       value="${attr.displayName}">
+                <input type="hidden"
+                       name="variants[${newIndex}][attributes][${attrIndex}][value]"
+                       value="${attr.value}">
+            `).join('')}
+
+            <!-- Variant Name and Unit in same row -->
+            <div class="variant-form-grid">
+                <div class="form-group">
+                    <label class="form-label">Variant Name <span class="required">*</span></label>
+                    <input type="text"
+                           class="form-input"
+                           name="variants[${newIndex}][name]"
+                           value="${variantName}"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Unit <span class="required">*</span></label>
+                    <select class="form-select" name="variants[${newIndex}][unit]" required>
+                        <option value="">Select Unit</option>
+                        <option value="piece">Piece</option>
+                        <option value="set">Set</option>
+                        <option value="box">Box</option>
+                        <option value="meter">Meter</option>
+                        <option value="kg">Kilogram</option>
+                        <option value="liter">Liter</option>
+                        <option value="pack">Pack</option>
+                        <option value="dozen">Dozen</option>
+                        <option value="roll">Roll</option>
+                        <option value="sheet">Sheet</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- SKU and Barcode in same row -->
+            <div class="variant-form-grid">
+                <div class="form-group">
+                    <label class="form-label">SKU Code <span class="required">*</span></label>
+                    <input type="text"
+                           class="form-input"
+                           id="new_variant_sku_${variantId}"
+                           name="variants[${newIndex}][sku_code]"
+                           placeholder="e.g., SKU-${skuSuffix}"
+                           maxlength="16"
+                           required
+                           onkeyup="validateNewVariantSku(${variantId}, this.value)">
+                    <div class="sku-validation-message" id="new_variant_${variantId}_sku_message"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Barcode Symbology <span class="required">*</span></label>
+                    <select class="form-select" name="variants[${newIndex}][barcode_symbology]" required>
+                        <option value="CODE128" selected>CODE128</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="variant-section-title">Pricing</div>
+            <div class="variant-form-grid three-columns">
+                <div class="form-group">
+                    <label class="form-label">Cost Price (₹) <span class="required">*</span></label>
+                    <input type="number"
+                           step="0.01"
+                           class="form-input cost-price"
+                           id="new_variant_cost_price_${variantId}"
+                           name="variants[${newIndex}][cost_price]"
+                           placeholder="0.00"
+                           min="0"
+                           required
+                           onkeyup="validateNewVariantPrices(${variantId})">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Sale Price (₹) <span class="required">*</span></label>
+                    <input type="number"
+                           step="0.01"
+                           class="form-input sale-price"
+                           id="new_variant_sale_price_${variantId}"
+                           name="variants[${newIndex}][sale_price]"
+                           placeholder="0.00"
+                           min="0"
+                           required
+                           onkeyup="validateNewVariantPrices(${variantId})">
+                    <div class="price-message" id="new_sale_price_msg_${variantId}"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">MRP Price (₹) <span class="required">*</span></label>
+                    <input type="number"
+                           step="0.01"
+                           class="form-input mrp-price"
+                           id="new_variant_mrp_price_${variantId}"
+                           name="variants[${newIndex}][mrp_price]"
+                           placeholder="0.00"
+                           min="0"
+                           required
+                           onkeyup="validateNewVariantPrices(${variantId})">
+                    <div class="price-message" id="new_mrp_price_msg_${variantId}"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Dealer Price (₹) <span class="required">*</span></label>
+                    <input type="number"
+                           step="0.01"
+                           class="form-input"
+                           id="new_variant_dealer_price_${variantId}"
+                           name="variants[${newIndex}][dealer_price]"
+                           placeholder="0.00"
+                           min="0"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Distributor Price (₹) <span class="required">*</span></label>
+                    <input type="number"
+                           step="0.01"
+                           class="form-input"
+                           id="new_variant_distributor_price_${variantId}"
+                           name="variants[${newIndex}][distributor_price]"
+                           placeholder="0.00"
+                           min="0"
+                           required>
+                </div>
+            </div>
+
+            <div class="variant-section-title">Stock Management</div>
+            <div class="variant-form-grid">
+                <!-- ✅ FIXED: Opening Stock should be editable for NEW variants -->
+                <div class="form-group">
+                    <label class="form-label">Opening Stock <span class="required">*</span></label>
+                    <input type="number"
+                           class="form-input"
+                           id="new_variant_opening_stock_${variantId}"
+                           name="variants[${newIndex}][opening_stock]"
+                           placeholder="0"
+                           min="0"
+                           required
+                          >
+                    <div class="opening-stock-note">
+                        Initial stock for new variant
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Min Stock Alert <span class="required">*</span></label>
+                    <input type="number"
+                           class="form-input"
+                           id="new_variant_min_stock_${variantId}"
+                           name="variants[${newIndex}][min_stock_alert]"
+                           placeholder="0"
+                           min="0"
+                           required>
+                </div>
+            </div>
+
+
+
+            <div class="variant-section-title">Variant Images (Optional)</div>
+            <div class="variant-form-grid">
+                <div class="form-group">
+                    <label class="form-label">Variant Base Image</label>
+                    <div class="image-upload-wrapper">
+                        <input type="file"
+                               class="form-input-file"
+                               id="new_variant_base_${variantId}"
+                               name="variants[${newIndex}][base_image]"
+                               accept="image/*"
+                               onchange="previewNewVariantBaseImage(event, ${variantId})"
+                               hidden>
+                        <label for="new_variant_base_${variantId}" class="upload-label">
+                            <div class="upload-icon">📸</div>
+                            <div class="upload-text">Upload</div>
+                        </label>
+                    </div>
+                    <div class="image-preview-container" id="newVariantBasePreview-${variantId}"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Gallery Images</label>
+                    <div class="image-upload-wrapper">
+                        <input type="file"
+                               class="form-input-file"
+                               id="new_variant_gallery_${variantId}"
+                               name="variants[${newIndex}][gallery_images][]"
+                               accept="image/*"
+                               multiple
+                               onchange="previewNewVariantGalleryImages(event, ${variantId})"
+                               hidden>
+                        <label for="new_variant_gallery_${variantId}" class="upload-label">
+                            <div class="upload-icon">🖼️</div>
+                            <div class="upload-text">Upload</div>
+                        </label>
+                    </div>
+                    <div class="gallery-preview" id="newVariantGalleryPreview-${variantId}"></div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', variantHtml);
+    generatedVariants.push({id: variantId, combination: combination});
+}
+    function removeNewVariant(id) {
+        if (confirm('Remove this new variant?')) {
+            const variant = document.getElementById(`new-variant-${id}`);
+            if (variant) {
+                variant.remove();
+                generatedVariants = generatedVariants.filter(v => v.id !== id);
+                newVariantCount--;
+
+                // Hide new variants section if no new variants
+                if (newVariantCount === 0) {
+                    document.getElementById('newVariantsSection').style.display = 'none';
+                }
+
+                showAlert('New variant removed', 'success');
             }
         }
     }
 
-    function markGalleryImageForRemoval(index) {
-        const checkbox = document.getElementById('remove-gallery-' + index);
-        const previewItem = document.getElementById('current-gallery-' + index);
-        if (checkbox && previewItem) {
-            if (checkbox.checked) {
-                checkbox.checked = false;
-                previewItem.classList.remove('marked-for-removal');
-            } else {
-                checkbox.checked = true;
-                previewItem.classList.add('marked-for-removal');
-            }
-        }
-    }
+    // function removeExistingVariant(index) {
+    //     if (confirm('Remove this existing variant?')) {
+    //         const variant = document.getElementById(`existing-variant-${index}`);
+    //         if (variant) {
+    //             variant.remove();
+    //             showAlert('Existing variant will be removed on save', 'info');
+    //         }
+    //     }
+    // }
 
+    // ========== IMAGE HANDLING ==========
     function previewBaseImage(event) {
         const input = event.target;
         const container = document.getElementById('baseImagePreview');
-        if (container) {
-            container.innerHTML = '';
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
-                    div.innerHTML = `<img src="${e.target.result}" class="preview-image"><button type="button" class="remove-image" onclick="removeNewBaseImage()">×</button>`;
-                    container.appendChild(div);
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
+        container.innerHTML = '';
+
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image">
+                    <button type="button" class="remove-image" onclick="removeBaseImage()">×</button>
+                `;
+                container.appendChild(div);
+            };
+
+            reader.readAsDataURL(input.files[0]);
         }
     }
 
-    function removeNewBaseImage() {
-        const baseImageInput = document.getElementById('base_image');
-        const container = document.getElementById('baseImagePreview');
-        if (baseImageInput) baseImageInput.value = '';
-        if (container) container.innerHTML = '';
+    function removeBaseImage() {
+        document.getElementById('base_image').value = '';
+        document.getElementById('baseImagePreview').innerHTML = '';
     }
 
-    let newGalleryFiles = [];
     function previewGalleryImages(event) {
         const input = event.target;
         const container = document.getElementById('galleryPreview');
-        if (container) {
-            container.innerHTML = '';
-            newGalleryFiles = Array.from(input.files);
-            newGalleryFiles.forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
-                    div.innerHTML = `<img src="${e.target.result}" class="preview-image"><button type="button" class="remove-image" onclick="removeNewGalleryImage(${index})">×</button>`;
-                    container.appendChild(div);
-                }
-                reader.readAsDataURL(file);
-            });
-        }
+        container.innerHTML = '';
+
+        Array.from(input.files).forEach((file, index) => {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image">
+                    <button type="button" class="remove-image" onclick="removeGalleryImage(${index})">×</button>
+                `;
+                container.appendChild(div);
+            };
+
+            reader.readAsDataURL(file);
+        });
     }
 
-    function removeNewGalleryImage(index) {
-        newGalleryFiles.splice(index, 1);
+    function removeGalleryImage(index) {
+        const input = document.getElementById('gallery_images');
+        const files = Array.from(input.files);
+        files.splice(index, 1);
         const dataTransfer = new DataTransfer();
-        newGalleryFiles.forEach(file => dataTransfer.items.add(file));
-        const galleryInput = document.getElementById('gallery_images');
-        if (galleryInput) {
-            galleryInput.files = dataTransfer.files;
-            previewGalleryImages({ target: galleryInput });
-        }
+        files.forEach(file => dataTransfer.items.add(file));
+        input.files = dataTransfer.files;
+        previewGalleryImages({ target: input });
     }
 
-    function previewExistingVariantBaseImage(event, variantIndex) {
+    function previewVariantBaseImage(event, variantId) {
         const input = event.target;
-        const container = document.getElementById(`existingVariantBasePreview-${variantIndex}`);
-        if (container) {
-            container.innerHTML = '';
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
-                    div.innerHTML = `<img src="${e.target.result}" class="preview-image"><button type="button" class="remove-image" onclick="removeExistingVariantBaseImage(${variantIndex})">×</button>`;
-                    container.appendChild(div);
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
+        const container = document.getElementById(`variantBasePreview-${variantId}`);
+        container.innerHTML = '';
+
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image">
+                    <button type="button" class="remove-image" onclick="removeVariantBaseImage(${variantId})">×</button>
+                `;
+                container.appendChild(div);
+            };
+
+            reader.readAsDataURL(input.files[0]);
         }
     }
 
-    function removeExistingVariantBaseImage(variantIndex) {
-        const input = document.getElementById(`existing_variant_base_${variantIndex}`);
-        const container = document.getElementById(`existingVariantBasePreview-${variantIndex}`);
-        if (input) input.value = '';
-        if (container) container.innerHTML = '';
+    function removeVariantBaseImage(variantId) {
+        document.getElementById(`variant_base_${variantId}`).value = '';
+        document.getElementById(`variantBasePreview-${variantId}`).innerHTML = '';
     }
 
-    function previewExistingVariantGalleryImages(event, variantIndex) {
+    function previewVariantGalleryImages(event, variantId) {
         const input = event.target;
-        const container = document.getElementById(`existingVariantGalleryPreview-${variantIndex}`);
-        if (container) {
-            container.innerHTML = '';
-            const files = Array.from(input.files);
-            files.forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
-                    div.innerHTML = `<img src="${e.target.result}" class="preview-image"><button type="button" class="remove-image" onclick="removeExistingVariantGalleryImage(${variantIndex}, ${index})">×</button>`;
-                    container.appendChild(div);
-                }
-                reader.readAsDataURL(file);
-            });
-        }
+        const container = document.getElementById(`variantGalleryPreview-${variantId}`);
+        container.innerHTML = '';
+
+        Array.from(input.files).forEach((file, index) => {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image">
+                    <button type="button" class="remove-image" onclick="removeVariantGalleryImage(${variantId}, ${index})">×</button>
+                `;
+                container.appendChild(div);
+            };
+
+            reader.readAsDataURL(file);
+        });
     }
 
-    function removeExistingVariantGalleryImage(variantIndex, imageIndex) {
-        const input = document.getElementById(`existing_variant_gallery_${variantIndex}`);
+    function removeVariantGalleryImage(variantId, imageIndex) {
+        const input = document.getElementById(`variant_gallery_${variantId}`);
         const files = Array.from(input.files);
         files.splice(imageIndex, 1);
         const dataTransfer = new DataTransfer();
         files.forEach(file => dataTransfer.items.add(file));
-        if (input) {
-            input.files = dataTransfer.files;
-            previewExistingVariantGalleryImages({ target: input }, variantIndex);
+        input.files = dataTransfer.files;
+        previewVariantGalleryImages({ target: input }, variantId);
+    }
+
+    function removeCurrentBaseImage() {
+        if (confirm('Remove current main image?')) {
+            document.getElementById('remove_base_image').value = '1';
+            document.getElementById('currentBaseImagePreview').innerHTML = '';
+            showAlert('Main image will be removed on save', 'info');
         }
     }
 
-    // Load attributes
-    function loadAttributes() {
-        fetch('{{ route("admin.attributes.active") }}')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    renderAttributeSelector(data.attributes);
-                } else {
-                    showAlert('Failed to load attributes', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error loading attributes:', error);
-                renderAttributeSelector({});
-            });
-    }
+    function removeCurrentGalleryImage(index) {
+        if (confirm('Remove this gallery image?')) {
+            const input = document.getElementById('remove_gallery_images');
+            let currentValues = input.value ? input.value.split(',') : [];
+            currentValues.push(index);
+            input.value = currentValues.join(',');
 
-    function renderAttributeSelector(attributes) {
-        const container = document.getElementById('attributesContainer');
-        if (!container) return;
-
-        const hasColorTemp = attributes.color_temperature && attributes.color_temperature.length > 0;
-        const hasWatt = attributes.watt && attributes.watt.length > 0;
-        const hasShape = attributes.shape && attributes.shape.length > 0;
-
-        if (!hasColorTemp && !hasWatt && !hasShape) {
-            container.innerHTML = `
-                <div class="no-attributes-message">
-                    <p>⚠️ No attribute values found!</p>
-                    <p>Please create attribute values first to generate new variants.</p>
-                    <a href="{{ route('admin.attributes.create') }}" target="_blank">Create Attribute Values →</a>
-                </div>
-            `;
-            const generateBtn = document.getElementById('generateVariantsBtn');
-            if (generateBtn) generateBtn.disabled = true;
-            return;
-        }
-
-        let html = '<div class="attributes-grid">';
-
-        if (hasColorTemp) {
-            html += `
-                <div class="attribute-group">
-                    <div class="attribute-group-title">🌡️ Color Temperature</div>
-                    <div class="attribute-values">
-            `;
-            attributes.color_temperature.forEach(value => {
-                const checkboxId = `color_temp_${value.replace(/\s+/g, '_')}`;
-                html += `
-                    <div class="attribute-checkbox">
-                        <input type="checkbox" id="${checkboxId}" value="${value}" data-attribute-type="color_temperature" data-attribute-name="Color Temperature" onchange="updateSelectedAttributes()">
-                        <label for="${checkboxId}">${value}</label>
-                    </div>
-                `;
-            });
-            html += `</div></div>`;
-        }
-
-        if (hasWatt) {
-            html += `
-                <div class="attribute-group">
-                    <div class="attribute-group-title">⚡ Watt</div>
-                    <div class="attribute-values">
-            `;
-            attributes.watt.forEach(value => {
-                const checkboxId = `watt_${value.replace(/\s+/g, '_')}`;
-                html += `
-                    <div class="attribute-checkbox">
-                        <input type="checkbox" id="${checkboxId}" value="${value}" data-attribute-type="watt" data-attribute-name="Watt" onchange="updateSelectedAttributes()">
-                        <label for="${checkboxId}">${value}</label>
-                    </div>
-                `;
-            });
-            html += `</div></div>`;
-        }
-
-        if (hasShape) {
-            html += `
-                <div class="attribute-group">
-                    <div class="attribute-group-title">🔶 Shape</div>
-                    <div class="attribute-values">
-            `;
-            attributes.shape.forEach(value => {
-                const checkboxId = `shape_${value.replace(/\s+/g, '_')}`;
-                html += `
-                    <div class="attribute-checkbox">
-                        <input type="checkbox" id="${checkboxId}" value="${value}" data-attribute-type="shape" data-attribute-name="Shape" onchange="updateSelectedAttributes()">
-                        <label for="${checkboxId}">${value}</label>
-                    </div>
-                `;
-            });
-            html += `</div></div>`;
-        }
-
-        html += '</div>';
-        container.innerHTML = html;
-        const generateBtn = document.getElementById('generateVariantsBtn');
-        if (generateBtn) generateBtn.disabled = false;
-    }
-
-    function updateSelectedAttributes() {
-        selectedAttributes = {};
-        const checkboxes = document.querySelectorAll('#attributesContainer input[type="checkbox"]:checked');
-        checkboxes.forEach(checkbox => {
-            const attrType = checkbox.dataset.attributeType;
-            const attrName = checkbox.dataset.attributeName;
-            const value = checkbox.value;
-            if (!selectedAttributes[attrType]) {
-                selectedAttributes[attrType] = { name: attrName, values: [] };
+            const imageDiv = document.querySelector(`#currentGalleryPreview .preview-item:nth-child(${parseInt(index) + 1})`);
+            if (imageDiv) {
+                imageDiv.remove();
             }
-            selectedAttributes[attrType].values.push(value);
-        });
-        const hasSelections = Object.keys(selectedAttributes).length > 0;
-        const generateBtn = document.getElementById('generateVariantsBtn');
-        if (generateBtn) generateBtn.disabled = !hasSelections;
+
+            showAlert('Gallery image will be removed on save', 'info');
+        }
     }
 
-    // Check if a variant combination already exists
-    function isVariantExists(combination) {
-        const existingCombinations = existingVariants.map(variant => ({
-            color_temperature: variant.color_temperature || '',
-            watt: variant.watt || '',
-            shape: variant.shape || ''
-        }));
-
-        // Check if any existing variant has the same attributes (checking exact match first)
-        return existingCombinations.some(existing => {
-            return (
-                existing.color_temperature === (combination.color_temperature || '') &&
-                existing.watt === (combination.watt || '') &&
-                existing.shape === (combination.shape || '')
-            );
-        });
-    }
-
-    function generateNewVariants() {
-        const attributeTypes = ['color_temperature', 'watt', 'shape'];
-        const activeAttributes = {};
-        attributeTypes.forEach(type => {
-            if (selectedAttributes[type] && selectedAttributes[type].values.length > 0) {
-                activeAttributes[type] = selectedAttributes[type].values;
+    function removeCurrentVariantBaseImage(index) {
+        if (confirm('Remove current variant base image?')) {
+            document.getElementById(`remove_variant_base_image_${index}`).value = '1';
+            const preview = document.getElementById(`currentVariantBasePreview-${index}`);
+            if (preview) {
+                preview.innerHTML = '';
             }
-        });
-
-        if (Object.keys(activeAttributes).length === 0) {
-            showAlert('Please select at least one attribute value', 'error');
-            return;
-        }
-
-        const combinations = generateCombinations(activeAttributes);
-
-        // Filter out combinations that already exist
-        const newCombinations = combinations.filter(combination => !isVariantExists(combination));
-
-        if (newCombinations.length === 0) {
-            showAlert('All selected attribute combinations already exist as variants!', 'error');
-            return;
-        }
-
-        // Clear previous new variants
-        const container = document.getElementById('newVariantsContainer');
-        if (container) {
-            container.innerHTML = '';
-        }
-        newVariantCount = 0;
-
-        newCombinations.forEach(combination => {
-            createNewVariantFromCombination(combination);
-        });
-
-        const info = document.getElementById('newVariantsInfo');
-        const infoText = document.getElementById('newVariantsInfoText');
-        if (info && infoText) {
-            infoText.textContent = `✓ Generated ${newCombinations.length} new variant(s) from selected attributes`;
-            info.classList.add('show');
-        }
-        showAlert(`Successfully generated ${newCombinations.length} new variant(s)!`, 'success');
-        const newVariantsContainer = document.getElementById('newVariantsContainer');
-        if (newVariantsContainer) {
-            newVariantsContainer.scrollIntoView({ behavior: 'smooth' });
+            showAlert('Variant base image will be removed on save', 'info');
         }
     }
 
-    function generateCombinations(attributes) {
-        const attributeTypes = Object.keys(attributes);
-        if (attributeTypes.length === 0) return [];
-        let combinations = [{}];
-        attributeTypes.forEach(type => {
-            const values = attributes[type];
-            const newCombinations = [];
-            combinations.forEach(combo => {
-                values.forEach(value => {
-                    newCombinations.push({ ...combo, [type]: value });
-                });
-            });
-            combinations = newCombinations;
-        });
-        return combinations;
-    }
+    function removeCurrentVariantGalleryImage(variantIndex, imageIndex) {
+        if (confirm('Remove this variant gallery image?')) {
+            const input = document.getElementById(`remove_variant_gallery_images_${variantIndex}`);
+            let currentValues = input.value ? input.value.split(',') : [];
+            currentValues.push(imageIndex);
+            input.value = currentValues.join(',');
 
-    function createNewVariantFromCombination(combination) {
-        newVariantCount++;
-        const container = document.getElementById('newVariantsContainer');
-        if (!container) return;
-
-        // Get product name - FIXED: Use the correct selector
-        const productNameInput = document.querySelector('input[name="name"]');
-        const productName = productNameInput ? productNameInput.value || 'Product' : 'Product';
-
-        // Build attribute string
-        const colorTemp = combination.color_temperature || '';
-        const watt = combination.watt || '';
-        const shape = combination.shape || '';
-        const parts = [];
-        if (watt) parts.push(watt);
-        if (colorTemp) parts.push(colorTemp);
-        if (shape) parts.push(shape);
-        const attributeString = parts.join(' - ');
-
-        // Generate variant name: ProductName-AttributeString
-        const variantName = `${productName}-${attributeString}`;
-
-        const skuParts = [];
-        if (watt) skuParts.push(watt.replace(/\s+/g, ''));
-        if (colorTemp) skuParts.push(colorTemp.replace(/\s+/g, ''));
-        if (shape) skuParts.push(shape.replace(/\s+/g, ''));
-        const skuSuffix = skuParts.join('-').toUpperCase();
-
-        // Calculate index for new variant
-        const existingCount = document.querySelectorAll('.existing-variant').length;
-        const newVariantIndex = existingCount + newVariantCount - 1;
-
-        const variantHtml = `
-            <div class="new-variant-card" id="new-variant-${newVariantCount}">
-                <div class="variant-header">
-                    <h4 class="variant-title">New Variant #${newVariantCount}: ${attributeString}</h4>
-                    <button type="button" class="btn-remove-variant" onclick="removeNewVariant(${newVariantCount})">Remove Variant</button>
-                </div>
-                <div class="variant-attribute-info"><strong>Attribute Combination:</strong> ${attributeString}</div>
-                <input type="hidden" name="variants[${newVariantIndex}][is_new]" value="1">
-                <input type="hidden" name="variants[${newVariantIndex}][attributes]" value='${JSON.stringify(combination)}'>
-                <input type="hidden" name="variants[${newVariantIndex}][color_temperature]" value="${colorTemp}">
-                <input type="hidden" name="variants[${newVariantIndex}][watt]" value="${watt}">
-                <input type="hidden" name="variants[${newVariantIndex}][shape]" value="${shape}">
-
-                <div class="form-grid">
-                    <div class="form-group full-width">
-                        <label class="form-label">Variant Name <span class="required">*</span></label>
-                        <input type="text" class="form-input" name="variants[${newVariantIndex}][name]" value="${variantName}" required>
-                        <span class="form-hint">Auto-generated from product name and attributes</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Color Temperature</label>
-                        <input type="text" class="form-input" value="${colorTemp}" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Watt</label>
-                        <input type="text" class="form-input" value="${watt}" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Shape</label>
-                        <input type="text" class="form-input" value="${shape}" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Unit <span class="required">*</span></label>
-                        <input type="text" class="form-input" name="variants[${newVariantIndex}][unit]" placeholder="Piece, Box, Set" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">SKU Code <span class="required">*</span></label>
-                        <input
-                            type="text"
-                            class="form-input"
-                            id="new_variant_sku_${newVariantCount}"
-                            name="variants[${newVariantIndex}][sku_code]"
-                            placeholder="e.g., VAR-${skuSuffix}"
-                            maxlength="16"
-                            required
-                            onkeyup="validateSkuCode('new_variant_${newVariantCount}', this.value)">
-                        <div class="sku-validation-message" id="new_variant_${newVariantCount}_sku_message"></div>
-                        <span class="form-hint">Max 16 characters</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Barcode Symbology <span class="required">*</span></label>
-                        <select class="form-select" name="variants[${newVariantIndex}][barcode_symbology]" required>
-                            <option value="CODE128">Code 128</option>
-                            <option value="CODE39">Code 39</option>
-                            <option value="EAN13">EAN-13</option>
-                            <option value="EAN8">EAN-8</option>
-                            <option value="UPC">UPC</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="variant-section-title">Pricing</div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Cost Price (₹) <span class="required">*</span></label>
-                        <input type="number" step="0.01" class="form-input" id="new_variant_cost_price_${newVariantCount}" name="variants[${newVariantIndex}][cost_price]" placeholder="0.00" required oninput="validateNewVariantPricing(${newVariantCount})">
-                        <span class="form-hint">Base cost of the product</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">MRP Price (₹) <span class="required">*</span></label>
-                        <input type="number" step="0.01" class="form-input" id="new_variant_mrp_price_${newVariantCount}" name="variants[${newVariantIndex}][mrp_price]" placeholder="0.00" required oninput="validateNewVariantPricing(${newVariantCount})">
-                        <span class="form-hint error-hint" id="new_mrp_error_${newVariantCount}" style="display: none;">Must be greater than cost price</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Dealer Price (₹) <span class="required">*</span></label>
-                        <input type="number" step="0.01" class="form-input" id="new_variant_dealer_price_${newVariantCount}" name="variants[${newVariantIndex}][dealer_price]" placeholder="0.00" required oninput="validateNewVariantPricing(${newVariantCount})">
-                        <span class="form-hint error-hint" id="new_dealer_error_${newVariantCount}" style="display: none;">Must be greater than cost price</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Distributor Price (₹) <span class="required">*</span></label>
-                        <input type="number" step="0.01" class="form-input" id="new_variant_distributor_price_${newVariantCount}" name="variants[${newVariantIndex}][distributor_price]" placeholder="0.00" required oninput="validateNewVariantPricing(${newVariantCount})">
-                        <span class="form-hint error-hint" id="new_distributor_error_${newVariantCount}" style="display: none;">Must be greater than cost price</span>
-                    </div>
-                </div>
-                <div class="variant-section-title">Stock Management</div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Opening Stock <span class="required">*</span></label>
-                        <input type="number" class="form-input" id="new_variant_opening_stock_${newVariantCount}" name="variants[${newVariantIndex}][opening_stock]" value="0" required oninput="validateNewVariantStock(${newVariantCount})">
-                        <span class="form-hint">Initial stock for new variant</span>
-                        <span class="form-hint error-hint" id="new_opening_stock_error_${newVariantCount}" style="display: none;">Must be greater than or equal to min stock alert</span>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Min Stock Alert <span class="required">*</span></label>
-                        <input type="number" class="form-input" id="new_variant_min_stock_${newVariantCount}" name="variants[${newVariantIndex}][min_stock_alert]" value="10" required oninput="validateNewVariantStock(${newVariantCount})">
-                        <span class="form-hint">Alert when stock reaches this level</span>
-                    </div>
-                </div>
-                <div class="variant-section-title">Variant Images</div>
-                <div class="form-grid">
-                    <div class="form-group full-width">
-                        <label class="form-label">Variant Base Image</label>
-                        <div class="image-upload-wrapper">
-                            <input type="file" class="form-input-file" id="new_variant_base_${newVariantCount}" name="variants[${newVariantIndex}][base_image]" accept="image/*" onchange="previewNewVariantBaseImage(event, ${newVariantCount})" hidden>
-                            <label for="new_variant_base_${newVariantCount}" class="upload-label">
-                                <div class="upload-icon">📸</div>
-                                <div class="upload-text">Click to upload variant image</div>
-                                <div class="upload-hint">PNG, JPG up to 2MB</div>
-                            </label>
-                        </div>
-                        <div class="image-preview-container" id="newVariantBasePreview-${newVariantCount}"></div>
-                    </div>
-                    <div class="form-group full-width">
-                        <label class="form-label">Variant Gallery Images</label>
-                        <div class="image-upload-wrapper">
-                            <input type="file" class="form-input-file" id="new_variant_gallery_${newVariantCount}" name="variants[${newVariantIndex}][gallery_images][]" accept="image/*" multiple onchange="previewNewVariantGalleryImages(event, ${newVariantCount})" hidden>
-                            <label for="new_variant_gallery_${newVariantCount}" class="upload-label">
-                                <div class="upload-icon">🖼️</div>
-                                <div class="upload-text">Upload multiple variant images</div>
-                                <div class="upload-hint">Select multiple files</div>
-                            </label>
-                        </div>
-                        <div class="gallery-preview" id="newVariantGalleryPreview-${newVariantCount}"></div>
-                    </div>
-                </div>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', variantHtml);
-    }
-
-    function removeNewVariant(id) {
-        const variant = document.getElementById(`new-variant-${id}`);
-        if (variant) {
-            // Clear SKU validation state for this variant
-            delete skuValidationStates[`new_variant_${id}`];
-            delete skuValidationTimers[`new_variant_${id}`];
-
-            variant.remove();
-            const remaining = document.querySelectorAll('.new-variant-card').length;
-            const info = document.getElementById('newVariantsInfo');
-            const infoText = document.getElementById('newVariantsInfoText');
-            if (info && infoText) {
-                if (remaining === 0) {
-                    info.classList.remove('show');
-                } else {
-                    infoText.textContent = `✓ ${remaining} new variant(s) ready`;
+            const preview = document.getElementById(`currentVariantGalleryPreview-${variantIndex}`);
+            if (preview) {
+                const imageDiv = preview.querySelector(`.preview-item:nth-child(${parseInt(imageIndex) + 1})`);
+                if (imageDiv) {
+                    imageDiv.remove();
                 }
             }
+
+            showAlert('Variant gallery image will be removed on save', 'info');
         }
     }
 
     function previewNewVariantBaseImage(event, variantId) {
         const input = event.target;
         const container = document.getElementById(`newVariantBasePreview-${variantId}`);
-        if (container) {
-            container.innerHTML = '';
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
-                    div.innerHTML = `<img src="${e.target.result}" class="preview-image"><button type="button" class="remove-image" onclick="removeNewVariantBaseImage(${variantId})">×</button>`;
-                    container.appendChild(div);
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
+        container.innerHTML = '';
+
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image">
+                    <button type="button" class="remove-image" onclick="removeNewVariantBaseImage(${variantId})">×</button>
+                `;
+                container.appendChild(div);
+            };
+
+            reader.readAsDataURL(input.files[0]);
         }
     }
 
     function removeNewVariantBaseImage(variantId) {
-        const input = document.getElementById(`new_variant_base_${variantId}`);
-        const container = document.getElementById(`newVariantBasePreview-${variantId}`);
-        if (input) input.value = '';
-        if (container) container.innerHTML = '';
+        document.getElementById(`new_variant_base_${variantId}`).value = '';
+        document.getElementById(`newVariantBasePreview-${variantId}`).innerHTML = '';
     }
 
     function previewNewVariantGalleryImages(event, variantId) {
         const input = event.target;
         const container = document.getElementById(`newVariantGalleryPreview-${variantId}`);
-        if (container) {
-            container.innerHTML = '';
-            const files = Array.from(input.files);
-            files.forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
-                    div.innerHTML = `<img src="${e.target.result}" class="preview-image"><button type="button" class="remove-image" onclick="removeNewVariantGalleryImage(${variantId}, ${index})">×</button>`;
-                    container.appendChild(div);
-                }
-                reader.readAsDataURL(file);
-            });
-        }
+        container.innerHTML = '';
+
+        Array.from(input.files).forEach((file, index) => {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image">
+                    <button type="button" class="remove-image" onclick="removeNewVariantGalleryImage(${variantId}, ${index})">×</button>
+                `;
+                container.appendChild(div);
+            };
+
+            reader.readAsDataURL(file);
+        });
     }
 
     function removeNewVariantGalleryImage(variantId, imageIndex) {
@@ -1802,50 +2354,436 @@
         files.splice(imageIndex, 1);
         const dataTransfer = new DataTransfer();
         files.forEach(file => dataTransfer.items.add(file));
-        if (input) {
-            input.files = dataTransfer.files;
-            previewNewVariantGalleryImages({ target: input }, variantId);
-        }
+        input.files = dataTransfer.files;
+        previewNewVariantGalleryImages({ target: input }, variantId);
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        showTab(0);
-        loadAttributes();
+    // ========== PRICE VALIDATION ==========
+    function validatePrices(variantId) {
+        const costPrice = parseFloat(document.getElementById(`variant_cost_price_${variantId}`)?.value || 0);
+        const salePrice = parseFloat(document.getElementById(`variant_sale_price_${variantId}`)?.value || 0);
+        const mrpPrice = parseFloat(document.getElementById(`variant_mrp_price_${variantId}`)?.value || 0);
 
-        // Initialize SKU validation for existing values
-        const mainSkuField = document.getElementById('main_sku_code');
-        if (mainSkuField) {
-            const mainSku = mainSkuField.value;
-            if (mainSku) {
-                validateSkuCode('main', mainSku);
+        const salePriceMsg = document.getElementById(`sale_price_msg_${variantId}`);
+        const mrpPriceMsg = document.getElementById(`mrp_price_msg_${variantId}`);
+
+        const saleInput = document.getElementById(`variant_sale_price_${variantId}`);
+        const mrpInput = document.getElementById(`variant_mrp_price_${variantId}`);
+
+        // Reset
+        if (saleInput) saleInput.classList.remove('price-error', 'price-success');
+        if (mrpInput) mrpInput.classList.remove('price-error', 'price-success');
+        if (salePriceMsg) salePriceMsg.className = 'price-message';
+        if (mrpPriceMsg) mrpPriceMsg.className = 'price-message';
+
+        let isValid = true;
+
+        // Sale price must be greater than cost price
+        if (salePrice > 0 && salePrice <= costPrice) {
+            if (saleInput) saleInput.classList.add('price-error');
+            if (salePriceMsg) {
+                salePriceMsg.className = 'price-message error';
+                salePriceMsg.textContent = 'Sale price must be greater than cost price';
+            }
+            isValid = false;
+        } else if (salePrice > costPrice) {
+            if (saleInput) saleInput.classList.add('price-success');
+            if (salePriceMsg) {
+                salePriceMsg.className = 'price-message success';
+                salePriceMsg.textContent = '✓ Valid';
             }
         }
 
-        // Initialize existing variant SKU validation
-        const existingVariantCards = document.querySelectorAll('.existing-variant');
-        existingVariantCards.forEach((card) => {
-            const variantIndex = card.id.replace('existing-variant-', '');
-            const variantSkuField = document.getElementById(`existing_variant_sku_${variantIndex}`);
-            if (variantSkuField) {
-                const variantSku = variantSkuField.value;
-                if (variantSku) {
-                    validateSkuCode(`existing_variant_${variantIndex}`, variantSku);
+        // MRP must be greater than sale price
+        if (mrpPrice > 0 && mrpPrice <= salePrice) {
+            if (mrpInput) mrpInput.classList.add('price-error');
+            if (mrpPriceMsg) {
+                mrpPriceMsg.className = 'price-message error';
+                mrpPriceMsg.textContent = 'MRP must be greater than sale price';
+            }
+            isValid = false;
+        } else if (mrpPrice > salePrice) {
+            if (mrpInput) mrpInput.classList.add('price-success');
+            if (mrpPriceMsg) {
+                mrpPriceMsg.className = 'price-message success';
+                mrpPriceMsg.textContent = '✓ Valid';
+            }
+        }
+
+        return isValid;
+    }
+
+    function validateNewVariantPrices(variantId) {
+        const costPrice = parseFloat(document.getElementById(`new_variant_cost_price_${variantId}`)?.value || 0);
+        const salePrice = parseFloat(document.getElementById(`new_variant_sale_price_${variantId}`)?.value || 0);
+        const mrpPrice = parseFloat(document.getElementById(`new_variant_mrp_price_${variantId}`)?.value || 0);
+
+        const salePriceMsg = document.getElementById(`new_sale_price_msg_${variantId}`);
+        const mrpPriceMsg = document.getElementById(`new_mrp_price_msg_${variantId}`);
+
+        const saleInput = document.getElementById(`new_variant_sale_price_${variantId}`);
+        const mrpInput = document.getElementById(`new_variant_mrp_price_${variantId}`);
+
+        // Reset
+        if (saleInput) saleInput.classList.remove('price-error', 'price-success');
+        if (mrpInput) mrpInput.classList.remove('price-error', 'price-success');
+        if (salePriceMsg) salePriceMsg.className = 'price-message';
+        if (mrpPriceMsg) mrpPriceMsg.className = 'price-message';
+
+        let isValid = true;
+
+        // Sale price must be greater than cost price
+        if (salePrice > 0 && salePrice <= costPrice) {
+            if (saleInput) saleInput.classList.add('price-error');
+            if (salePriceMsg) {
+                salePriceMsg.className = 'price-message error';
+                salePriceMsg.textContent = 'Sale price must be greater than cost price';
+            }
+            isValid = false;
+        } else if (salePrice > costPrice) {
+            if (saleInput) saleInput.classList.add('price-success');
+            if (salePriceMsg) {
+                salePriceMsg.className = 'price-message success';
+                salePriceMsg.textContent = '✓ Valid';
+            }
+        }
+
+        // MRP must be greater than sale price
+        if (mrpPrice > 0 && mrpPrice <= salePrice) {
+            if (mrpInput) mrpInput.classList.add('price-error');
+            if (mrpPriceMsg) {
+                mrpPriceMsg.className = 'price-message error';
+                mrpPriceMsg.textContent = 'MRP must be greater than sale price';
+            }
+            isValid = false;
+        } else if (mrpPrice > salePrice) {
+            if (mrpInput) mrpInput.classList.add('price-success');
+            if (mrpPriceMsg) {
+                mrpPriceMsg.className = 'price-message success';
+                mrpPriceMsg.textContent = '✓ Valid';
+            }
+        }
+
+        return isValid;
+    }
+
+    // ========== SKU VALIDATION ==========
+    function validateVariantSku(fieldId, skuCode) {
+        validateSkuCommon(fieldId, skuCode, 'variant');
+    }
+
+    function validateNewVariantSku(fieldId, skuCode) {
+        validateSkuCommon(fieldId, skuCode, 'new_variant');
+    }
+
+    function validateSkuCommon(fieldId, skuCode, type = 'variant') {
+        if (!skuCode || skuCode.trim() === '') {
+            return;
+        }
+
+        const prefix = type === 'new_variant' ? 'new_' : '';
+        const inputField = document.getElementById(`${prefix}variant_sku_${fieldId}`);
+        const messageDiv = document.getElementById(`${prefix}variant_${fieldId}_sku_message`);
+
+        if (!inputField || !messageDiv) return;
+
+        inputField.classList.remove('error', 'success');
+        messageDiv.className = 'sku-validation-message';
+
+        // Check duplicate in form
+        const isDuplicate = checkSkuDuplicateInForm(fieldId, skuCode, type);
+        if (isDuplicate) {
+            inputField.classList.add('error');
+            messageDiv.className = 'sku-validation-message error';
+            messageDiv.textContent = 'SKU already used in another variant';
+            return;
+        }
+
+        messageDiv.className = 'sku-validation-message checking';
+        messageDiv.textContent = 'Checking...';
+
+        fetch('{{ route("admin.products.check-sku") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                sku_code: skuCode.trim(),
+                product_type: 'variant',
+                product_id: '{{ $variantProduct->_id }}'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.available) {
+                inputField.classList.add('success');
+                messageDiv.className = 'sku-validation-message success';
+                messageDiv.textContent = data.message || '✓ Available';
+            } else {
+                inputField.classList.add('error');
+                messageDiv.className = 'sku-validation-message error';
+                messageDiv.textContent = data.message || 'SKU already exists';
+            }
+        })
+        .catch(error => {
+            console.error('SKU validation error:', error);
+            messageDiv.textContent = 'Error checking SKU';
+        });
+    }
+
+    function checkSkuDuplicateInForm(currentFieldId, skuCode, type = 'variant') {
+        const trimmedSku = skuCode.trim().toUpperCase();
+
+        // Check all SKU inputs (existing and new variants)
+        const allSkuInputs = document.querySelectorAll('input[name*="[sku_code]"]');
+        for (let i = 0; i < allSkuInputs.length; i++) {
+            const input = allSkuInputs[i];
+            const inputId = input.id;
+
+            // Skip current input
+            if (type === 'variant' && inputId === `variant_sku_${currentFieldId}`) continue;
+            if (type === 'new_variant' && inputId === `new_variant_sku_${currentFieldId}`) continue;
+
+            const variantSku = input.value?.trim()?.toUpperCase();
+            if (variantSku && variantSku === trimmedSku) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // ========== FORM VALIDATION ==========
+    function validateCurrentTab() {
+        const currentTabElement = document.getElementById(tabs[currentTab]);
+        const requiredInputs = currentTabElement.querySelectorAll('[required]');
+        let isValid = true;
+
+        requiredInputs.forEach(input => {
+            input.classList.remove('error');
+            if (!input.value.trim()) {
+                input.classList.add('error');
+                isValid = false;
+            }
+        });
+
+        if (!isValid) {
+            showAlert('Fill all required fields', 'error');
+        }
+
+        return isValid;
+    }
+
+    function validateForm() {
+        let isValid = true;
+
+        // Check at least one variant (existing or new)
+        const existingVariants = document.querySelectorAll('#existingVariantsContainer .variant-card');
+        const newVariants = document.querySelectorAll('#newVariantsContainer .variant-card');
+
+        if (existingVariants.length === 0 && newVariants.length === 0) {
+            showAlert('At least one variant is required', 'error');
+            currentTab = 2;
+            showTab(2);
+            return false;
+        }
+
+        // Validate all prices
+        existingVariants.forEach(variantCard => {
+            const variantId = variantCard.id.match(/existing-variant-(\d+)/)?.[1];
+            if (variantId && !validatePrices(variantId)) {
+                isValid = false;
+            }
+        });
+
+        newVariants.forEach(variantCard => {
+            const variantId = variantCard.id.match(/new-variant-(\d+)/)?.[1];
+            if (variantId && !validateNewVariantPrices(variantId)) {
+                isValid = false;
+            }
+        });
+
+        if (!isValid) {
+            showAlert('Fix price validation errors', 'error');
+        }
+
+        return isValid;
+    }
+
+    // ========== FIX ATTRIBUTES FOR SUBMISSION ==========
+    function fixAttributesBeforeSubmit() {
+        // This function ensures attributes are submitted in the correct format
+        // For new variants, they're already in the correct format
+        // For existing variants, they should be converted from JSON string to array
+
+        const existingVariants = document.querySelectorAll('#existingVariantsContainer .variant-card');
+        existingVariants.forEach((card, index) => {
+            // Check if there's a JSON string input (old format)
+            const jsonInput = card.querySelector('input[name*="[attributes]"][value*="["]');
+            if (jsonInput) {
+                try {
+                    const attributes = JSON.parse(jsonInput.value);
+                    if (Array.isArray(attributes)) {
+                        // Remove the JSON input
+                        jsonInput.remove();
+
+                        // Create array inputs
+                        attributes.forEach((attr, attrIndex) => {
+                            const typeInput = document.createElement('input');
+                            typeInput.type = 'hidden';
+                            typeInput.name = `variants[${index}][attributes][${attrIndex}][type]`;
+                            typeInput.value = attr.type || '';
+                            card.appendChild(typeInput);
+
+                            const displayNameInput = document.createElement('input');
+                            displayNameInput.type = 'hidden';
+                            displayNameInput.name = `variants[${index}][attributes][${attrIndex}][displayName]`;
+                            displayNameInput.value = attr.displayName || attr.type || '';
+                            card.appendChild(displayNameInput);
+
+                            const valueInput = document.createElement('input');
+                            valueInput.type = 'hidden';
+                            valueInput.name = `variants[${index}][attributes][${attrIndex}][value]`;
+                            valueInput.value = attr.value || '';
+                            card.appendChild(valueInput);
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error parsing attributes:', e);
                 }
             }
         });
-    });
+    }
 
-    @if($errors->any())
-        @foreach($errors->all() as $error)
-            showAlert('{{ $error }}', 'error');
-        @endforeach
-    @endif
-    @if(session('success'))
-        showAlert('{{ session('success') }}', 'success');
-    @endif
-    @if(session('error'))
-        showAlert('{{ session('error') }}', 'error');
-    @endif
+    // ========== INITIALIZE ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        showTab(0);
+
+        // Tab buttons
+        document.querySelectorAll('.tab-btn').forEach((btn, index) => {
+            btn.addEventListener('click', () => {
+                if (validateCurrentTab() || currentTab === index) {
+                    currentTab = index;
+                    showTab(index);
+                }
+            });
+        });
+
+        // Next button
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (validateCurrentTab() && currentTab < tabs.length - 1) {
+                currentTab++;
+                showTab(currentTab);
+            }
+        });
+
+        // Back button
+        document.getElementById('backBtn').addEventListener('click', () => {
+            if (currentTab > 0) {
+                currentTab--;
+                showTab(currentTab);
+            }
+        });
+
+        // Form submit
+        document.getElementById('productForm').addEventListener('submit', function(e) {
+            // Fix attributes before validation
+            fixAttributesBeforeSubmit();
+
+            if (!validateForm()) {
+                e.preventDefault();
+                return;
+            }
+
+            const submitBtn = this.querySelector('#submitBtn');
+            submitBtn.innerHTML = '⏳ Updating...';
+            submitBtn.disabled = true;
+        });
+
+        // Update variant names when product name changes
+        document.getElementById('productName').addEventListener('input', function() {
+            const productName = this.value || 'Product';
+
+            // Update existing variants
+            const existingVariantCards = document.querySelectorAll('#existingVariantsContainer .variant-card');
+            existingVariantCards.forEach(card => {
+                const nameInput = card.querySelector('input[name*="[name]"]');
+                if (nameInput) {
+                    // Get attributes from hidden inputs
+                    const attributeInputs = card.querySelectorAll('input[name*="[attributes]"]');
+                    if (attributeInputs.length > 0) {
+                        const attributeStrings = [];
+                        // Get all attribute values
+                        const valueInputs = card.querySelectorAll('input[name*="[attributes]"][name*="[value]"]');
+                        const typeInputs = card.querySelectorAll('input[name*="[attributes]"][name*="[type]"]');
+                        const displayNameInputs = card.querySelectorAll('input[name*="[attributes]"][name*="[displayName]"]');
+
+                        for (let i = 0; i < valueInputs.length; i++) {
+                            const value = valueInputs[i].value;
+                            const displayName = displayNameInputs[i]?.value || typeInputs[i]?.value || 'Attribute';
+                            attributeStrings.push(`${displayName}: ${value}`);
+                        }
+
+                        if (attributeStrings.length > 0) {
+                            nameInput.value = `${productName} - ${attributeStrings.join(' - ')}`;
+                        }
+                    }
+                }
+            });
+
+            // Update new variants
+            const newVariantCards = document.querySelectorAll('#newVariantsContainer .variant-card');
+            newVariantCards.forEach(card => {
+                const nameInput = card.querySelector('input[name*="[name]"]');
+                if (nameInput) {
+                    // Get attributes from hidden inputs
+                    const valueInputs = card.querySelectorAll('input[name*="[attributes]"][name*="[value]"]');
+                    const displayNameInputs = card.querySelectorAll('input[name*="[attributes]"][name*="[displayName]"]');
+
+                    const attributeStrings = [];
+                    for (let i = 0; i < valueInputs.length; i++) {
+                        const value = valueInputs[i].value;
+                        const displayName = displayNameInputs[i]?.value || 'Attribute';
+                        attributeStrings.push(`${displayName}: ${value}`);
+                    }
+
+                    if (attributeStrings.length > 0) {
+                        nameInput.value = `${productName} - ${attributeStrings.join(' - ')}`;
+                    }
+                }
+            });
+        });
+
+        // Validate all existing variants on load
+        const existingVariantCards = document.querySelectorAll('#existingVariantsContainer .variant-card');
+        existingVariantCards.forEach(card => {
+            const variantId = card.id.match(/existing-variant-(\d+)/)?.[1];
+            if (variantId) {
+                // Trigger price validation
+                const costPrice = card.querySelector('.cost-price');
+                const salePrice = card.querySelector('.sale-price');
+                const mrpPrice = card.querySelector('.mrp-price');
+
+                if (costPrice && salePrice && mrpPrice) {
+                    validatePrices(variantId);
+                }
+
+                // Trigger SKU validation
+                const skuInput = card.querySelector('input[name*="[sku_code]"]');
+                if (skuInput && skuInput.value) {
+                    validateVariantSku(variantId, skuInput.value);
+                }
+            }
+        });
+
+        // Show errors if any
+        @if($errors->any())
+            @foreach($errors->all() as $error)
+                showAlert('{{ $error }}', 'error');
+            @endforeach
+        @endif
+    });
 </script>
 @endpush
 @endsection

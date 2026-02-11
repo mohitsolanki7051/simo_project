@@ -68,8 +68,30 @@
                             <span class="error-text">{{ $message }}</span>
                         @enderror
                     </div>
+
+                    <!-- ✅ MAIN WAREHOUSE CHECKBOX -->
+                    <div class="form-group full-width">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" name="is_main" id="is_main" value="1"
+                                {{ $isFirstWarehouse ? 'checked disabled' : (old('is_main') ? 'checked' : '') }}>
+                            <label for="is_main" class="checkbox-label">
+                                <span class="main-warning">⚠️ Set as Main Warehouse</span>
+                                <span class="form-hint">
+                                    @if($isFirstWarehouse)
+                                        This will be your first warehouse and will automatically be set as main warehouse.
+                                    @else
+                                        All new products will be added to main warehouse by default.
+                                    @endif
+                                </span>
+                            </label>
+                        </div>
+                        @error('is_main')
+                            <span class="error-text">{{ $message }}</span>
+                        @enderror
+                    </div>
                 </div>
             </div>
+
 
             <!-- Location Details -->
             <div class="form-section">

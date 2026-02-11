@@ -4,44 +4,30 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use MongoDB\Laravel\Eloquent\Model;
-use MongoDB\Laravel\Eloquent\SoftDeletes;
 
 class Category extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
+
+    protected $collection = 'categories';
 
     protected $fillable = [
         'name',
         'slug',
         'description',
         'image',
-        'parent_id',
-        'status',
-        'meta_title',
-        'meta_description',
-        'meta_keywords',
-        'sort_order'
-    ];
-
-    protected $casts = [
-        'sort_order' => 'integer',
-        'parent_id' => 'string'
+        'status'
     ];
 
     // Relationships
-    public function parent()
+    public function simpleProducts()
     {
-        return $this->belongsTo(Category::class, 'parent_id');
+        return $this->hasMany(SimpleProduct::class, 'category_id');
     }
 
-    public function children()
+    public function variantProducts()
     {
-        return $this->hasMany(Category::class, 'parent_id')->orderBy('sort_order', 'asc');
-    }
-
-    public function products()
-    {
-        return $this->hasMany(Product::class);
+        return $this->hasMany(VariantProduct::class, 'category_id');
     }
 
     // Scopes
@@ -50,60 +36,32 @@ class Category extends Model
         return $query->where('status', 'active');
     }
 
-    public function scopeMainCategories($query)
+    public function scopeInactive($query)
     {
-        return $query->whereNull('parent_id');
-    }
-
-    public function scopeWithChildren($query)
-    {
-        return $query->with(['children' => function($q) {
-            $q->orderBy('sort_order', 'asc');
-        }]);
-    }
-
-    public function scopeOrdered($query)
-    {
-        return $query->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
+        return $query->where('status', 'inactive');
     }
 
     // Accessors
-    public function getProductsCountAttribute()
+    public function getSimpleProductsCountAttribute()
     {
-        return $this->products()->count();
+        return SimpleProduct::where('category_id', $this->_id)->count();
     }
 
-    public function getChildrenCountAttribute()
+    public function getVariantProductsCountAttribute()
     {
-        return $this->children()->count();
+        return VariantProduct::where('category_id', $this->_id)->count();
     }
 
-    public function getFullPathAttribute()
+    public function getTotalProductsAttribute()
     {
-        $path = [$this->name];
-        $parent = $this->parent;
+        return $this->simple_products_count + $this->variant_products_count;
+    }
 
-        while ($parent) {
-            array_unshift($path, $parent->name);
-            $parent = $parent->parent;
+    public function getImageUrlAttribute()
+    {
+        if ($this->image) {
+            return Storage::url($this->image);
         }
-
-        return implode(' > ', $path);
-    }
-
-    // Methods
-    public function hasChildren()
-    {
-        return $this->children()->count() > 0;
-    }
-
-    public function hasProducts()
-    {
-        return $this->products()->count() > 0;
-    }
-
-    public function canBeDeleted()
-    {
-        return !$this->hasChildren() && !$this->hasProducts();
+        return asset('images/default-category.png');
     }
 }

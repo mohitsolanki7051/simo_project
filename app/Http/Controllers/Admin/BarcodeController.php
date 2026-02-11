@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
+use App\Models\SimpleProduct;
+use App\Models\VariantProduct;
 use App\Models\Warehouse;
+use App\Models\WarehouseStock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -15,195 +17,172 @@ class BarcodeController extends Controller
      */
     public function index()
     {
-        $warehouses = Warehouse::where('status', 'active')
-            ->orderBy('name', 'asc')
-            ->get();
+        $mainWarehouse = Warehouse::where('is_main', true)->first()
+            ?? Warehouse::where('status', 'active')->first();
 
-        return view('admin.barcode.index', compact('warehouses'));
+        return view('admin.barcode.index', compact('mainWarehouse'));
     }
 
     /**
-     * Search products by SKU or name (AJAX)
-     * ✅ UPDATED: Filter by warehouse
+     * Search products (Simple + Variant) from MAIN warehouse only
      */
     public function searchProducts(Request $request)
     {
         try {
-            $search = $request->input('search', '');
-            $warehouseId = $request->input('warehouse_id');
+            $search = trim($request->input('search', ''));
 
-            if (empty($search)) {
+            if ($search === '') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Search term is required'
                 ]);
             }
 
-            // ✅ UPDATED: Check if warehouse is selected
-            if (empty($warehouseId)) {
+            $mainWarehouse = Warehouse::where('is_main', true)->first();
+            if (!$mainWarehouse) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Please select a warehouse first'
+                    'message' => 'Main warehouse not found'
                 ]);
             }
 
-            // ✅ UPDATED: Search in main products WITH warehouse filter
-            $products = Product::where(function($query) use ($search) {
-                $query->where('name', 'like', '%' . $search . '%')
-                      ->orWhere('sku_code', 'like', '%' . $search . '%')
-                      ->orWhere('barcode', 'like', '%' . $search . '%');
-            })
-            ->where('warehouse_id', $warehouseId) // ✅ ADDED: Filter by warehouse
-            ->where('status', 'active')
-            ->limit(20)
-            ->get(['id', 'name', 'sku_code', 'barcode', 'barcode_symbology', 'brand', 'current_stock', 'base_image', 'price', 'variants', 'warehouse_id']);
-
             $results = [];
+            $warehouseId = $mainWarehouse->id;
 
-            // Add main products
-            foreach ($products as $product) {
-                $barcodeValue = !empty($product->barcode) ? $product->barcode : $product->sku_code;
+            /* =====================================================
+             | SIMPLE PRODUCTS
+             ===================================================== */
+            $simpleProducts = SimpleProduct::where('status', 'active')
+                ->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('sku_code', 'like', "%{$search}%")
+                      ->orWhere('barcode', 'like', "%{$search}%");
+                })
+                ->get();
+
+            foreach ($simpleProducts as $product) {
+                $stock = WarehouseStock::where('product_id', $product->id)
+                    ->where('product_type', 'simple')
+                    ->where('warehouse_id', $warehouseId)
+                    ->first();
+
+                if (!$stock) continue;
+
+                $barcodeValue = $product->barcode ?: $product->sku_code ?: $product->id;
 
                 $results[] = [
-                    'id' => $product->id,
-                    'type' => 'main',
+                    'id' => 'simple-' . $product->id,
+                    'type' => 'simple',
+                    'model_type' => 'simple',
+                    'name' => $product->name,
                     'sku_code' => $product->sku_code,
                     'barcode' => $barcodeValue,
-                    'barcode_symbology' => $product->barcode_symbology ?: 'CODE128',
-                    'name' => $product->name,
+                    'barcode_symbology' => $product->barcode_symbology ?? 'CODE128',
+                    'price' => (float) $product->sale_price,
                     'brand' => $product->brand,
-                    'price' => $product->price,
-                    'current_stock' => $product->current_stock,
+                    'current_stock' => $stock->quantity ?? 0,
                     'base_image' => $product->base_image ? asset('storage/' . $product->base_image) : null,
-                    'warehouse_id' => $product->warehouse_id, // ✅ ADDED
+                    'warehouse_id' => $warehouseId,
+                    'warehouse_name' => $mainWarehouse->name,
                 ];
+            }
 
-                // Add variants if they exist
-                if ($product->variants && is_array($product->variants)) {
-                    foreach ($product->variants as $index => $variant) {
-                        // Search in variant SKU or barcode
-                        if (stripos($variant['sku_code'] ?? '', $search) !== false ||
-                            stripos($variant['barcode'] ?? '', $search) !== false) {
+            /* =====================================================
+             | VARIANT PRODUCTS (DYNAMIC ATTRIBUTES)
+             ===================================================== */
+            $variantProducts = VariantProduct::where('status', 'active')->get();
 
-                            $variantName = $product->name;
-                            if (!empty($variant['watt'])) $variantName .= ' ' . $variant['watt'];
-                            if (!empty($variant['color_temperature'])) $variantName .= ' ' . $variant['color_temperature'];
-                            if (!empty($variant['shape'])) $variantName .= ' ' . $variant['shape'];
+            foreach ($variantProducts as $product) {
+                if (!is_array($product->variants)) continue;
 
-                            $variantBarcode = !empty($variant['barcode']) ? $variant['barcode'] : $variant['sku_code'];
+                foreach ($product->variants as $index => $variant) {
 
-                            $results[] = [
-                                'id' => $product->id . '-variant-' . $index,
-                                'type' => 'variant',
-                                'product_id' => $product->id,
-                                'variant_index' => $index,
-                                'sku_code' => $variant['sku_code'],
-                                'barcode' => $variantBarcode,
-                                'barcode_symbology' => $variant['barcode_symbology'] ?: 'CODE128',
-                                'name' => $variantName,
-                                'brand' => $product->brand,
-                                'price' => $variant['price'] ?? $product->price,
-                                'current_stock' => $variant['current_stock'] ?? 0,
-                                'base_image' => !empty($variant['base_image']) ? asset('storage/' . $variant['base_image']) : ($product->base_image ? asset('storage/' . $product->base_image) : null),
-                                'warehouse_id' => $product->warehouse_id, // ✅ ADDED
-                            ];
-                        }
-                    }
+                    $variantSku = $variant['sku_code'] ?? '';
+                    $variantBarcode = $variant['barcode'] ?? '';
+
+                    $productName = (string) ($product->name ?? '');
+$variantSku = (string) ($variant['sku_code'] ?? '');
+$variantBarcode = (string) ($variant['barcode'] ?? '');
+
+if (
+    stripos($productName, $search) === false &&
+    stripos($variantSku, $search) === false &&
+    stripos($variantBarcode, $search) === false
+) {
+    continue;
+}
+
+
+                    $variantId = $variant['_id'] ?? $index;
+
+                    $stock = WarehouseStock::where('product_id', $product->id)
+                        ->where('product_type', 'variant')
+                        ->where('variant_id', (string) $variantId)
+                        ->where('warehouse_id', $warehouseId)
+                        ->first();
+
+                    if (!$stock) continue;
+
+                    /* 🔥 Dynamic Variant Name */
+                   $variantName = (string) ($product->name ?? '');
+
+if (
+    isset($variant['attributes']) &&
+    is_array($variant['attributes']) &&
+    count($variant['attributes']) > 0
+) {
+    foreach ($variant['attributes'] as $key => $value) {
+        if (is_scalar($value) && $value !== '') {
+            $variantName .= ' ' . (string) $value;
+        }
+    }
+}
+
+                    $barcodeValue =
+                        $variantBarcode
+                        ?: $variantSku
+                        ?: ($product->id . '-' . $index);
+
+                    $results[] = [
+                        'id' => 'variant-' . $product->id . '-' . $index,
+                        'type' => 'variant',
+                        'model_type' => 'variant',
+                        'product_id' => $product->id,
+                        'variant_index' => $index,
+                        'name' => $variantName,
+                        'sku_code' => $variantSku,
+                        'barcode' => $barcodeValue,
+                        'barcode_symbology' => 'CODE128',
+                        'price' => (float) ($variant['sale_price'] ?? 0),
+                        'brand' => $product->brand,
+                        'current_stock' => $stock->quantity ?? 0,
+                        'base_image' =>
+                            !empty($variant['base_image'])
+                                ? asset('storage/' . $variant['base_image'])
+                                : ($product->base_image ? asset('storage/' . $product->base_image) : null),
+                        'warehouse_id' => $warehouseId,
+                        'warehouse_name' => $mainWarehouse->name,
+                    ];
                 }
             }
 
             return response()->json([
                 'success' => true,
-                'products' => $results
+                'products' => $results,
+                'warehouse_id' => $warehouseId,
+                'warehouse_name' => $mainWarehouse->name
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Product search failed: ' . $e->getMessage());
+            Log::error('Barcode search failed', [
+                'error' => $e->getMessage(),
+                'line' => $e->getLine()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Search failed'
             ], 500);
-        }
-    }
-
-    /**
-     * Get product details by ID (AJAX)
-     */
-    public function getProduct(Request $request)
-    {
-        try {
-            $id = $request->input('id');
-
-            // Check if it's a variant
-            if (strpos($id, '-variant-') !== false) {
-                $parts = explode('-variant-', $id);
-                $productId = $parts[0];
-                $variantIndex = $parts[1];
-
-                $product = Product::findOrFail($productId);
-                $variant = $product->variants[$variantIndex] ?? null;
-
-                if (!$variant) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Variant not found'
-                    ], 404);
-                }
-
-                $variantName = $product->name;
-                if (!empty($variant['watt'])) $variantName .= ' ' . $variant['watt'];
-                if (!empty($variant['color_temperature'])) $variantName .= ' ' . $variant['color_temperature'];
-                if (!empty($variant['shape'])) $variantName .= ' ' . $variant['shape'];
-
-                $variantBarcode = !empty($variant['barcode']) ? $variant['barcode'] : $variant['sku_code'];
-
-                return response()->json([
-                    'success' => true,
-                    'product' => [
-                        'id' => $id,
-                        'type' => 'variant',
-                        'product_id' => $product->id,
-                        'variant_index' => $variantIndex,
-                        'sku_code' => $variant['sku_code'],
-                        'barcode' => $variantBarcode,
-                        'barcode_symbology' => $variant['barcode_symbology'] ?: 'CODE128',
-                        'name' => $variantName,
-                        'brand' => $product->brand,
-                        'price' => $variant['price'] ?? $product->price,
-                        'current_stock' => $variant['current_stock'] ?? 0,
-                        'base_image' => !empty($variant['base_image']) ? asset('storage/' . $variant['base_image']) : ($product->base_image ? asset('storage/' . $product->base_image) : null),
-                        'warehouse_id' => $product->warehouse_id, // ✅ ADDED
-                    ]
-                ]);
-            } else {
-                // Main product
-                $product = Product::findOrFail($id);
-                $barcodeValue = !empty($product->barcode) ? $product->barcode : $product->sku_code;
-
-                return response()->json([
-                    'success' => true,
-                    'product' => [
-                        'id' => $product->id,
-                        'type' => 'main',
-                        'sku_code' => $product->sku_code,
-                        'barcode' => $barcodeValue,
-                        'barcode_symbology' => $product->barcode_symbology ?: 'CODE128',
-                        'name' => $product->name,
-                        'brand' => $product->brand,
-                        'price' => $product->price,
-                        'current_stock' => $product->current_stock,
-                        'base_image' => $product->base_image ? asset('storage/' . $product->base_image) : null,
-                        'warehouse_id' => $product->warehouse_id, // ✅ ADDED
-                    ]
-                ]);
-            }
-
-        } catch (\Exception $e) {
-            Log::error('Get product failed: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found'
-            ], 404);
         }
     }
 }

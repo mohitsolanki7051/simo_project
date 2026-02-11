@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
+use App\Models\SupplierLedger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -39,28 +40,58 @@ class SupplierController extends Controller
             'account_number' => 'nullable|string|max:50',
             'ifsc_code' => 'nullable|string|max:20',
             'payment_terms' => 'nullable|string|max:100',
-            'credit_limit' => 'nullable|numeric|min:0',
+            'opening_balance' => 'nullable|numeric|min:0',
+            'balance_type' => 'required_with:opening_balance|in:due,advance',
             'status' => 'required|in:active,inactive',
             'notes' => 'nullable|string',
         ]);
 
         try {
-            Supplier::create($validated);
+            $validated['supplier_code'] = Supplier::generateSupplierCode();
+
+            $openingBalance = $validated['opening_balance'] ?? 0;
+            $balanceType = $validated['balance_type'] ?? 'due';
+
+            if ($balanceType === 'due') {
+                $validated['current_balance'] = $openingBalance;
+            } else {
+                $validated['current_balance'] = -$openingBalance;
+            }
+
+            $supplier = Supplier::create($validated);
+
+            if ($openingBalance > 0) {
+                SupplierLedger::createOpeningEntry(
+                    $supplier->id,
+                    $openingBalance,
+                    $balanceType,
+                    now()
+                );
+            }
+
             return redirect()->route('admin.suppliers.index')
                 ->with('success', 'Supplier created successfully!');
         } catch (\Exception $e) {
             Log::error('Supplier creation failed: ' . $e->getMessage());
-            return back()->withInput()
-                ->with('error', 'Failed to create supplier. Please try again.');
+            return back()->withInput()->with('error', 'Failed to create supplier.');
         }
     }
 
     public function show($id)
     {
         $supplier = Supplier::findOrFail($id);
-        $purchaseOrders = $supplier->purchaseOrders()->latest()->take(10)->get();
+        $purchases = $supplier->purchases()->latest()->take(10)->get();
+        $payments = $supplier->payments()->latest()->take(10)->get();
+        $ledgerEntries = $supplier->ledgerEntries()->latest('date')->take(20)->get();
 
-        return view('admin.suppliers.show', compact('supplier', 'purchaseOrders'));
+        $stats = [
+            'total_purchases' => $supplier->getTotalPurchases(),
+            'total_payments' => $supplier->getTotalPayments(),
+            'current_balance' => $supplier->current_balance,
+            'total_due' => $supplier->getDueAmount(),
+        ];
+
+        return view('admin.suppliers.show', compact('supplier', 'purchases', 'payments', 'ledgerEntries', 'stats'));
     }
 
     public function edit($id)
@@ -90,7 +121,6 @@ class SupplierController extends Controller
             'account_number' => 'nullable|string|max:50',
             'ifsc_code' => 'nullable|string|max:20',
             'payment_terms' => 'nullable|string|max:100',
-            'credit_limit' => 'nullable|numeric|min:0',
             'status' => 'required|in:active,inactive',
             'notes' => 'nullable|string',
         ]);
@@ -101,8 +131,7 @@ class SupplierController extends Controller
                 ->with('success', 'Supplier updated successfully!');
         } catch (\Exception $e) {
             Log::error('Supplier update failed: ' . $e->getMessage());
-            return back()->withInput()
-                ->with('error', 'Failed to update supplier. Please try again.');
+            return back()->withInput()->with('error', 'Failed to update supplier.');
         }
     }
 
@@ -111,19 +140,40 @@ class SupplierController extends Controller
         try {
             $supplier = Supplier::findOrFail($id);
 
-            // Check if supplier has purchase orders
-            if ($supplier->purchaseOrders()->count() > 0) {
-                return back()->with('error', 'Cannot delete supplier with existing purchase orders.');
+            if ($supplier->purchases()->count() > 0) {
+                if (request()->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot delete supplier with existing purchases.'
+                    ], 400);
+                }
+                return back()->with('error', 'Cannot delete supplier with existing purchases.');
             }
 
+            $supplier->ledgerEntries()->delete();
             $supplier->delete();
+
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Supplier deleted successfully!'
+                ]);
+            }
 
             return redirect()->route('admin.suppliers.index')
                 ->with('success', 'Supplier deleted successfully!');
 
         } catch (\Exception $e) {
             Log::error('Supplier deletion failed: ' . $e->getMessage());
-            return back()->with('error', 'Failed to delete supplier. Please try again.');
+
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete supplier.'
+                ], 500);
+            }
+
+            return back()->with('error', 'Failed to delete supplier.');
         }
     }
 
@@ -163,7 +213,8 @@ class SupplierController extends Controller
 
             foreach ($request->supplier_ids as $id) {
                 $supplier = Supplier::find($id);
-                if ($supplier && $supplier->purchaseOrders()->count() === 0) {
+                if ($supplier && $supplier->purchases()->count() === 0) {
+                    $supplier->ledgerEntries()->delete();
                     $supplier->delete();
                     $deleted++;
                 } else {
@@ -173,7 +224,7 @@ class SupplierController extends Controller
 
             $message = "Deleted {$deleted} supplier(s)";
             if ($errors > 0) {
-                $message .= ". {$errors} supplier(s) could not be deleted (may have purchase orders).";
+                $message .= ". {$errors} supplier(s) could not be deleted.";
             }
 
             return response()->json([
@@ -188,9 +239,32 @@ class SupplierController extends Controller
             ], 500);
         }
     }
+
     public function getActiveSuppliers()
-{
-    $suppliers = Supplier::active()->orderBy('name', 'asc')->get();
-    return response()->json($suppliers);
-}
+    {
+        $suppliers = Supplier::active()->orderBy('name', 'asc')->get();
+        return response()->json($suppliers);
+    }
+
+    public function ledger($id, Request $request)
+    {
+        $supplier = Supplier::findOrFail($id);
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        $ledgerEntries = SupplierLedger::getSupplierLedgerReport($id, $startDate, $endDate);
+
+        $openingBalance = 0;
+        if ($startDate) {
+            $openingBalance = SupplierLedger::getSupplierBalance($id, date('Y-m-d', strtotime($startDate . ' -1 day')));
+        }
+
+        $stats = [
+            'total_purchases' => $supplier->getTotalPurchases(),
+            'total_payments' => $supplier->getTotalPayments(),
+        ];
+
+        return view('admin.suppliers.ledger', compact('supplier', 'ledgerEntries', 'openingBalance', 'startDate', 'endDate', 'stats'));
+    }
 }
