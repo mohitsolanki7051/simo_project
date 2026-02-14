@@ -7,7 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Admin;
-
+use App\Models\Otp;
+use App\Mail\OtpMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 class AuthController extends Controller
 {
     public function showLogin()
@@ -26,24 +29,39 @@ class AuthController extends Controller
         return view('admin.auth.register');
     }
 
-    public function register(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:admins',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
+   public function register(Request $request)
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|string|email|max:255|unique:admins',
+        'password' => 'required|string|min:8|confirmed',
+        'otp' => 'required|digits:6'
+    ]);
 
-        $admin = Admin::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+    // verify OTP
+    $otpRecord = \App\Models\Otp::where('email', $request->email)
+        ->where('otp', (int)$request->otp)
+        ->where('expires_at', '>=', now())
+        ->latest()
+        ->first();
 
-        Auth::guard('admin')->login($admin);
-
-        return redirect()->route('admin.dashboard')->with('success', 'Registration successful!');
+    if (!$otpRecord) {
+        return back()->withErrors([
+            'otp' => 'Invalid or expired OTP'
+        ])->withInput();
     }
+    $otpRecord->delete();
+    $admin = \App\Models\Admin::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'password' => Hash::make($request->password),
+    ]);
+
+    Auth::guard('admin')->login($admin);
+
+    return redirect()->route('admin.dashboard')->with('success', 'Registration successful!');
+}
+
 
     public function login(Request $request)
     {
@@ -79,4 +97,38 @@ class AuthController extends Controller
             'user' => $admin // Pass user to view
         ]);
     }
+public function sendOtp(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email'
+    ]);
+
+    // check email already exists
+    if (Admin::where('email', $request->email)->exists()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Email already registered'
+        ]);
+    }
+
+    $otp = rand(100000, 999999);
+
+    // delete old otp for same email
+    Otp::where('email', $request->email)->delete();
+
+    Otp::create([
+        'email' => $request->email,
+        'otp' => $otp,
+        'expires_at' => now()->addMinutes(5)
+    ]);
+
+    Mail::to($request->email)->send(new OtpMail($otp));
+
+    return response()->json([
+        'success' => true,
+        'message' => 'OTP sent successfully'
+    ]);
+}
+
+
 }

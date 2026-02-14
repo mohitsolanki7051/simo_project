@@ -126,11 +126,19 @@
                     </td>
                     <td class="td-actions">
                         <div class="action-icons">
+                            <!-- View Ledger -->
+                            <a href="{{ route('admin.customers.ledger', $customer->id) }}"
+                            class="icon-btn icon-view" title="View Ledger">
+                                📒
+                            </a>
+
+                            <!-- Edit -->
                             <a href="{{ route('admin.customers.edit', $customer->id) }}"
-                               class="icon-btn icon-edit" title="Edit">
+                            class="icon-btn icon-edit" title="Edit">
                                 ✏️
                             </a>
                         </div>
+
                     </td>
                 </tr>
                 @empty

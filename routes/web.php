@@ -23,6 +23,7 @@ Route::get('/', function () {
     }
     return redirect()->route('admin.login');
 });
+Route::post('/admin/send-otp', [AuthController::class, 'sendOtp'])->name('admin.send.otp');
 
 // Admin Authentication Routes
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -122,6 +123,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/customers/addresses/{addressId}/default', [CustomerController::class, 'setDefaultAddress'])->name('customers.addresses.default');
         Route::get('/customers/{id}/addresses/{type}', [CustomerController::class, 'getAddresses'])->name('customers.addresses.list');
         Route::post('/customers/bulk-update-status', [CustomerController::class, 'bulkUpdateStatus'])->name('customers.bulkUpdateStatus');
+        Route::get('/customers/{id}/ledger', [CustomerController::class, 'ledger'])
+            ->name('customers.ledger');
 
 
        // Sales main

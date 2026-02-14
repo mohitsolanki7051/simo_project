@@ -79,271 +79,289 @@ class SalesInvoiceController extends Controller
         return view('admin.sales.create', compact('invoiceNumber', 'customers', 'warehouses', 'mainWarehouse', 'invoiceSetting'));
     }
 
-    /**
-     * Store a newly created sales invoice.
-     */
-    public function store(Request $request)
-    {
-         if ($request->has('items') && is_string($request->items)) {
-            $request->merge([
-                'items' => json_decode($request->items, true)
-            ]);
-        }
-        $request->validate([
-            'customer_id' => 'required|exists:customers,_id',
-            'warehouse_id' => 'required|exists:warehouses,_id',
-            'invoice_date' => 'required|date',
-            'payment_terms' => 'nullable|string',
-            'due_date' => 'nullable|date',
-            'po_number' => 'nullable|string',
-            'vehicle_no' => 'nullable|string',
-            'colours' => 'nullable|string',
-            'notes' => 'nullable|string',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required',
-            'items.*.product_type' => 'required|in:simple,variant',
-            'items.*.variant_id' => 'nullable',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.warranty_type' => 'nullable|in:none,month,year',
-            'items.*.warranty_period' => 'nullable|integer|min:0',
-            'items.*.price' => 'required|numeric|min:0',
-            'items.*.discount' => 'nullable|numeric|min:0',
-            'items.*.tax_percent' => 'nullable|numeric|min:0|max:100',
-            'payment_method' => 'nullable|string',
-            'amount_paid' => 'nullable|numeric|min:0',
-            'extra_discount' => 'nullable|numeric|min:0',
-            'extra_charge' => 'nullable|numeric|min:0',
-            'charge_name' => 'nullable|string',
-            'auto_round_off' => 'nullable|boolean',
+public function store(Request $request)
+{
+    // Decode items JSON if needed
+    if ($request->has('items') && is_string($request->items)) {
+        $request->merge([
+            'items' => json_decode($request->items, true)
+        ]);
+    }
 
+    // Validation
+    $request->validate([
+        'customer_id' => 'required|exists:customers,_id',
+        'warehouse_id' => 'required|exists:warehouses,_id',
+        'invoice_date' => 'required|date',
+        'items' => 'required|array|min:1',
+        'items.*.product_id' => 'required',
+        'items.*.product_type' => 'required|in:simple,variant',
+        'items.*.variant_id' => 'nullable',
+        'items.*.quantity' => 'required|numeric|min:0.01',
+        'items.*.price' => 'required|numeric|min:0',
+        'items.*.mrp_price' => 'required|numeric|min:0',
+        'items.*.discount' => 'nullable|numeric|min:0|max:100',
+        'items.*.tax_percent' => 'nullable|numeric|min:0|max:100',
+        'extra_discount' => 'nullable|numeric|min:0',
+        'extra_charge' => 'nullable|numeric|min:0',
+        'amount_paid' => 'nullable|numeric|min:0',
+    ]);
+
+    try {
+
+
+        /* ================= GET CUSTOMER ADDRESSES ================= */
+        $customer = Customer::with('addresses')->findOrFail($request->customer_id);
+
+        $billingAddress = $customer->addresses
+            ->where('type', 'billing')
+            ->where('is_default', true)
+            ->first();
+
+        $shippingAddress = $customer->addresses
+            ->where('type', 'shipping')
+            ->where('is_default', true)
+            ->first();
+
+        /* ================= TOTAL CALCULATION ================= */
+        $totalMRP = 0;
+        $totalDiscountAmount = 0;
+        $subtotal = 0;
+        $taxTotal = 0;
+
+        foreach ($request->items as $item) {
+            $qty = (float) $item['quantity'];
+            $mrpPrice = (float) $item['mrp_price'];
+            $salePrice = (float) $item['price'];
+            $discountPercent = (float) ($item['discount'] ?? 0);
+            $taxPercent = (float) ($item['tax_percent'] ?? 0);
+
+            // MRP Total
+            $itemMRPTotal = $qty * $mrpPrice;
+            $totalMRP += $itemMRPTotal;
+
+            // Discount amount (on MRP)
+            $itemDiscountAmount = ($itemMRPTotal * $discountPercent) / 100;
+            $totalDiscountAmount += $itemDiscountAmount;
+
+            // Sale price total
+            $itemSaleTotal = $qty * $salePrice;
+            $subtotal += $itemSaleTotal;
+
+            // Tax (on sale price)
+            $itemTax = ($itemSaleTotal * $taxPercent) / 100;
+            $taxTotal += $itemTax;
+        }
+
+        // Extra discount
+        $extraDiscount = (float) ($request->extra_discount ?? 0);
+
+        // Extra charge
+        $extraCharge = (float) ($request->extra_charge ?? 0);
+
+        // Grand total = subtotal + tax - extra discount + extra charge
+        $grandTotal = $subtotal + $taxTotal - $extraDiscount + $extraCharge;
+
+        // Round off
+        $roundOff = 0;
+        if ($request->auto_round_off) {
+            $rounded = round($grandTotal);
+            $roundOff = $rounded - $grandTotal;
+            $grandTotal = $rounded;
+        }
+
+        // Payment calculation
+        $amountPaid = (float) ($request->amount_paid ?? 0);
+        $balance = $grandTotal - $amountPaid;
+
+        if ($amountPaid <= 0) {
+            $paymentStatus = 'unpaid';
+        } elseif ($balance <= 0.01) {
+            $paymentStatus = 'paid';
+            $balance = 0;
+        } else {
+            $paymentStatus = 'partial';
+        }
+        $subtotalWithTax = $subtotal + $taxTotal;
+
+        /* ================= CREATE INVOICE ================= */
+        $invoice = SalesInvoice::create([
+            'invoice_number' => $request->invoice_number,
+            'invoice_date' => $request->invoice_date,
+            'customer_id' => $request->customer_id,
+            'warehouse_id' => $request->warehouse_id,
+
+            // Addresses
+            'billing_address' => $billingAddress ? $billingAddress->full_address : $request->billing_address,
+            'shipping_address' => $shippingAddress ? $shippingAddress->full_address : $request->shipping_address,
+
+            // Invoice details
+            'payment_terms' => $request->payment_terms,
+            'due_date' => $request->due_date,
+            'po_number' => $request->po_number,
+            'vehicle_no' => $request->vehicle_no,
+            'colours' => $request->colours,
+
+            // Financial totals
+            'total_mrp' => $totalMRP,
+            'subtotal' => $subtotalWithTax,
+            'discount_total' => $totalDiscountAmount,
+            'tax_total' => $taxTotal,
+            'extra_discount' => $extraDiscount,
+            'extra_charge' => $extraCharge,
+            'charge_name' => $request->charge_name,
+            'round_off' => $roundOff,
+            'grand_total' => $grandTotal,
+
+            // Payment info
+            'total_paid' => $amountPaid,
+            'balance_amount' => $balance,
+            'payment_status' => $paymentStatus,
+
+            'status' => 'confirmed',
+            'notes' => $request->notes,
+            'created_by' => Auth::guard('admin')->id(),
         ]);
 
+        /* ================= INVOICE ITEMS + STOCK ================= */
+        foreach ($request->items as $item) {
+            $qty = (float) $item['quantity'];
+            $mrpPrice = (float) $item['mrp_price'];
+            $salePrice = (float) $item['price'];
+            $discountPercent = (float) ($item['discount'] ?? 0);
+            $taxPercent = (float) ($item['tax_percent'] ?? 0);
 
-        try {
-            // Calculate totals
-            $subtotal = 0;
-            $discountTotal = 0;
-            $taxTotal = 0;
-
-            foreach ($request->items as $item) {
-                $quantity = floatval($item['quantity']);
-                $price = floatval($item['price']);
-                $discount = floatval($item['discount'] ?? 0);
-                $taxPercent = floatval($item['tax_percent'] ?? 0);
-
-                $itemTotal = $quantity * $price;
-                $itemDiscount = ($itemTotal * $discount) / 100;
-                $itemSubtotal = $itemTotal - $itemDiscount;
-                $itemTax = ($itemSubtotal * $taxPercent) / 100;
-
-                $subtotal += $itemSubtotal;
-                $discountTotal += $itemDiscount;
-                $taxTotal += $itemTax;
-            }
-
-            $extraDiscount = floatval($request->extra_discount ?? 0);
-            $extraCharge   = floatval($request->extra_charge ?? 0);
-
-            $grandTotal = $subtotal + $taxTotal;
-            $grandTotal -= $extraDiscount;
-
-            // Apply extra charge
-            $grandTotal += $extraCharge;
-
-            // Auto round off
-            if ($request->auto_round_off) {
-                $roundedTotal = round($grandTotal);
-                $roundOff = $roundedTotal - $grandTotal;
-                $grandTotal = $roundedTotal;
+            // Get product details
+            if ($item['product_type'] === 'simple') {
+                $product = SimpleProduct::find($item['product_id']);
+                $productName = $product->name ?? 'Unknown Product';
+                $sku = $product->sku_code ?? '';
+                $barcode = $product->barcode ?? '';
+                $unit = $product->unit ?? 'PCS';
+                $hsnSac = $product->hsn_code ?? '';
+                $variantName = null;
             } else {
-                $roundOff = 0;
+                $product = VariantProduct::find($item['product_id']);
+                $productName = $product->name ?? 'Unknown Product';
+                $hsnSac = $product->hsn_code ?? '';
+
+                // Get variant details
+                $variants = $product->variants ?? [];
+                $variant = collect($variants)->first(function($v) use ($item) {
+                    $vId = isset($v['_id']) ? (string)$v['_id'] : null;
+                    return $vId === $item['variant_id'];
+                });
+
+                $variantName = $variant['name'] ?? null;
+                $sku = $variant['sku_code'] ?? '';
+                $barcode = $variant['barcode'] ?? '';
+                $unit = $variant['unit'] ?? 'PCS';
             }
-            $amountPaid = floatval($request->amount_paid ?? 0);
-            $balanceAmount = $grandTotal - $amountPaid;
 
-            // Determine payment status
-            if ($amountPaid <= 0) {
-                $paymentStatus = 'unpaid';
-            } elseif ($amountPaid >= $grandTotal) {
-                $paymentStatus = 'paid';
-            } else {
-                $paymentStatus = 'partial';
-            }
+            // Calculate item totals
+            $itemMRPTotal = $qty * $mrpPrice;
+            $itemDiscountAmount = ($itemMRPTotal * $discountPercent) / 100;
+            $itemSaleTotal = $qty * $salePrice;
+            $itemTax = ($itemSaleTotal * $taxPercent) / 100;
+            $itemFinal = $itemSaleTotal + $itemTax;
 
-            // Create sales invoice
-            $invoice = SalesInvoice::create([
-                'invoice_number' => $request->invoice_number,
-                'invoice_date' => $request->invoice_date,
-                'customer_id' => $request->customer_id,
-                'warehouse_id' => $request->warehouse_id,
-                'billing_address' => $request->billing_address,
-                'shipping_address' => $request->shipping_address,
-                'subtotal' => $subtotal,
-                'discount_total' => $discountTotal,
-                'tax_total' => $taxTotal,
-                'extra_discount' => $extraDiscount,
-                'extra_charge' => $extraCharge,
-                'charge_name' => $request->charge_name,
-                'round_off' => $roundOff,
-                'grand_total' => $grandTotal,
-                'total_paid' => $amountPaid,
-                'balance_amount' => $balanceAmount,
-                'payment_status' => $paymentStatus,
-                'status' => 'confirmed',
-                'notes' => $request->notes,
-                'created_by' => Auth::guard('admin')->id(),
-                'payment_terms' => $request->payment_terms,
-                'due_date' => $request->due_date,
-                'po_number' => $request->po_number,
-                'vehicle_no' => $request->vehicle_no,
-                'colours' => $request->colours,
-            ]);
+            // Warranty calculation
+            $warrantyType = $item['warranty_type'] ?? 'none';
+            $warrantyPeriod = (int) ($item['warranty_period'] ?? 0);
+            $warrantyStart = null;
+            $warrantyEnd = null;
 
-            // Create invoice items and update stock
-            foreach ($request->items as $item) {
-                $quantity = floatval($item['quantity']);
-                $price = floatval($item['price']);
-                $discount = floatval($item['discount'] ?? 0);
-                $taxPercent = floatval($item['tax_percent'] ?? 0);
-
-                $itemTotal = $quantity * $price;
-                $itemDiscount = ($itemTotal * $discount) / 100;
-                $itemSubtotal = $itemTotal - $itemDiscount;
-                $itemTax = ($itemSubtotal * $taxPercent) / 100;
-                $itemFinalTotal = $itemSubtotal + $itemTax;
-
-                // Get product details
-                $productName = '';
-                $variantName = '';
-                $sku = '';
-                $barcode = '';
-                $hsnSac = '';
-
-                if ($item['product_type'] === 'simple') {
-                    $product = SimpleProduct::find($item['product_id']);
-                    if ($product) {
-                        $productName = $product->name;
-                        $sku = $product->sku_code;
-                        $barcode = $product->barcode;
-                        $hsnSac = $product->hsn_code;
-                    }
-                } else {
-                    $product = VariantProduct::find($item['product_id']);
-                    if ($product && isset($item['variant_id'])) {
-                        $productName = $product->name;
-                        foreach ($product->variants as $variant) {
-                            if ((string)$variant['_id'] === $item['variant_id']) {
-                                $variantName = $variant['name'] ?? '';
-                                $sku = $variant['sku_code'] ?? '';
-                                $barcode = $variant['barcode'] ?? '';
-                                $hsnSac = $product->hsn_code;
-                                break;
-                            }
-                        }
-                    }
-                }
-                $warrantyType   = $item['warranty_type'] ?? 'none';
-                $warrantyPeriod = (int) ($item['warranty_period'] ?? 0);
-
+            if ($warrantyType !== 'none' && $warrantyPeriod > 0) {
                 $warrantyStart = $request->invoice_date;
-                $warrantyEnd   = $this->calculateWarrantyEnd(
-                    $warrantyStart,
-                    $warrantyType,
-                    $warrantyPeriod
-                );
-
-
-                // Create invoice item
-                SalesInvoiceItem::create([
-                    'sales_invoice_id' => $invoice->_id,
-                    'product_id' => $item['product_id'],
-                    'variant_id' => $item['variant_id'] ?? null,
-                    'product_name' => $productName,
-                    'variant_name' => $variantName,
-                    'sku' => $sku,
-                    'barcode' => $barcode,
-                    'hsn_sac' => $hsnSac,
-                    'quantity' => $quantity,
-                    'unit' => 'PCS',
-                    'price' => $price,
-                    'discount' => $discount,
-                    'tax_percent' => $taxPercent,
-                    'tax_amount' => $itemTax,
-                    'total' => $itemFinalTotal,
-                    'warranty_type'   => $warrantyType,
-                    'warranty_period'=> $warrantyPeriod,
-                    'warranty_start' => $warrantyStart,
-                    'warranty_end'   => $warrantyEnd,
-                ]);
-
-                // Update warehouse stock
-                $warehouseStock = WarehouseStock::where('warehouse_id', $request->warehouse_id)
-                    ->where('product_id', $item['product_id'])
-                    ->where('product_type', $item['product_type'])
-                    ->when($item['product_type'] === 'variant', function ($query) use ($item) {
-                        return $query->where('variant_id', $item['variant_id']);
-                    })
-                    ->first();
-
-                if ($warehouseStock) {
-                    $newQuantity = $warehouseStock->quantity - $quantity;
-                    if ($newQuantity < 0) {
-                        throw new \Exception("Insufficient stock for product: {$productName}");
-                    }
-
-                    $warehouseStock->update(['quantity' => $newQuantity]);
-                } else {
-                    throw new \Exception("Product not found in warehouse stock");
-                }
-
-                // Create warehouse movement
-                WarehouseMovement::create([
-                    'warehouse_id' => $request->warehouse_id,
-                    'product_id' => $item['product_id'],
-                    'product_type' => $item['product_type'],
-                    'variant_id' => $item['variant_id'] ?? null,
-                    'type' => WarehouseMovement::TYPE_SALE,
-                    'quantity' => -$quantity, // Negative for sales
-                    'reference_id' => $invoice->_id,
-                    'remarks' => "Sales Invoice: {$invoice->invoice_number}"
-                ]);
+                $warrantyEnd = $this->calculateWarrantyEnd($warrantyStart, $warrantyType, $warrantyPeriod);
             }
 
-            // Create payment if any
-            if ($amountPaid > 0) {
-                SalesPayment::create([
-                    'sales_invoice_id' => $invoice->_id,
-                    'amount' => $amountPaid,
-                    'payment_method' => $request->payment_method ?? 'cash',
-                    'payment_date' => now(),
-                    'status' => 'completed',
-                    'reference_no' => 'INV-' . $invoice->invoice_number . '-001'
-                ]);
-            }
-
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Sales invoice created successfully',
-                'invoice_id' => $invoice->_id
+            // Create item
+            SalesInvoiceItem::create([
+                'sales_invoice_id' => $invoice->_id,
+                'product_id' => $item['product_id'],
+                'variant_id' => $item['variant_id'] ?? null,
+                'product_name' => $productName,
+                'variant_name' => $variantName,
+                'sku' => $sku,
+                'barcode' => $barcode,
+                'hsn_sac' => $hsnSac,
+                'quantity' => $qty,
+                'unit' => $unit,
+                'mrp_price' => $mrpPrice,
+                'price' => $salePrice,
+                'discount' => $discountPercent,
+                'tax_percent' => $taxPercent,
+                'tax_amount' => $itemTax,
+                'total' => $itemFinal,
+                'warranty_type' => $warrantyType,
+                'warranty_period' => $warrantyPeriod,
+                'warranty_start' => $warrantyStart,
+                'warranty_end' => $warrantyEnd,
             ]);
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create invoice: ' . $e->getMessage()
-            ], 500);
-        }
-    }
+            // Reduce stock
+            $stock = WarehouseStock::where('warehouse_id', $request->warehouse_id)
+                ->where('product_id', $item['product_id'])
+                ->where('product_type', $item['product_type'])
+                ->when($item['product_type'] === 'variant', function ($q) use ($item) {
+                    return $q->where('variant_id', $item['variant_id']);
+                })
+                ->first();
 
-    /**
-     * Display the specified sales invoice.
-     */
-    public function show($id)
-    {
-        $invoice = SalesInvoice::with(['customer', 'warehouse', 'items', 'payments'])->findOrFail($id);
-        return view('admin.sales.show', compact('invoice'));
+            if (!$stock || $stock->quantity < $qty) {
+                throw new \Exception("Insufficient stock for {$productName}");
+            }
+
+            $stock->update([
+                'quantity' => $stock->quantity - $qty
+            ]);
+
+            // Create warehouse movement
+            WarehouseMovement::create([
+                'warehouse_id' => $request->warehouse_id,
+                'product_id' => $item['product_id'],
+                'product_type' => $item['product_type'],
+                'variant_id' => $item['variant_id'] ?? null,
+                'type' => WarehouseMovement::TYPE_SALE,
+                'quantity' => -$qty,
+                'reference_id' => $invoice->_id,
+                'remarks' => "Sales Invoice: {$invoice->invoice_number}",
+            ]);
+        }
+
+        /* ================= PAYMENT ================= */
+        if ($amountPaid > 0) {
+            SalesPayment::create([
+                'sales_invoice_id' => $invoice->_id,
+                'amount' => $amountPaid,
+                'payment_method' => $request->payment_method ?? 'cash',
+                'payment_date' => now(),
+                'status' => 'completed',
+                'reference_no' => $request->reference_no,
+                'notes' => "Payment for invoice {$invoice->invoice_number}"
+            ]);
+        }
+
+
+
+        return response()->json([
+            'success' => true,
+            'invoice_id' => $invoice->_id,
+            'message' => 'Invoice created successfully'
+        ]);
+
+    } catch (\Exception $e) {
+
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
+
+// Helper function for warranty calculation
 private function calculateWarrantyEnd($start, $type, $period)
 {
     if ($type === 'none' || $period <= 0) {
@@ -356,6 +374,17 @@ private function calculateWarrantyEnd($start, $type, $period)
         ? $date->addYears($period)
         : $date->addMonths($period);
 }
+
+
+    /**
+     * Display the specified sales invoice.
+     */
+    public function show($id)
+    {
+        $invoice = SalesInvoice::with(['customer', 'warehouse', 'items', 'payments'])->findOrFail($id);
+        return view('admin.sales.show', compact('invoice'));
+    }
+
 
    public function getMainWarehouseProducts(Request $request)
 {

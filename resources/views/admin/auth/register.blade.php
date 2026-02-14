@@ -3,644 +3,709 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Register | E-Commerce Dashboard</title>
+    <title>Admin Register | E‑Commerce Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Reset & Base Styles */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
         }
 
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', sans-serif;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 15px;
         }
 
-        /* Container - Smaller */
-        .register-container {
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Wrapper – same structure */
+        .register-wrapper {
+            display: flex;
             width: 100%;
-            max-width: 420px; /* Reduced from 480px */
-            min-width: 300px;
+            flex-direction: row-reverse;
+            height: 100vh;
         }
 
-        /* Card - Reduced padding */
-        .register-card {
-            background: white;
-            border-radius: 20px; /* Reduced */
-            padding: clamp(25px, 4vw, 36px); /* Reduced */
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-            animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Animation */
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px) scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        /* Logo Section - Smaller */
-        .logo-section {
-            text-align: center;
-            margin-bottom: clamp(25px, 3vw, 35px);
-        }
-
-        .logo-icon {
-            width: clamp(50px, 6vw, 65px);
-            height: clamp(50px, 6vw, 65px);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 16px;
+        /* LEFT – same layout */
+        .register-left {
+            width: 60%;
+            background: linear-gradient(to bottom right, #ffffff, #f9fafb);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: clamp(24px, 3vw, 30px);
-            color: white;
-            margin: 0 auto clamp(10px, 1.5vw, 14px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            padding: 60px;
         }
 
-        .logo-text {
-            font-size: clamp(20px, 2.5vw, 24px);
-            font-weight: 700;
-            color: #1a202c;
-            letter-spacing: -0.5px;
-            margin-bottom: 4px;
+        .register-card {
+            width: 100%;
+            max-width: 600px;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
         }
 
-        .logo-subtitle {
-            font-size: clamp(12px, 1.3vw, 14px);
-            color: #718096;
-            font-weight: 500;
+        /* Brand / logo */
+        .brand {
+            text-align: center;
+            margin-bottom: 30px;
         }
 
-        /* Alert Messages - Smaller */
-        .alert {
-            padding: clamp(10px, 1.5vw, 14px);
-            border-radius: 10px;
-            margin-bottom: clamp(20px, 2.5vw, 28px);
-            font-size: clamp(12px, 1.3vw, 14px);
-            animation: fadeIn 0.3s ease;
+        .brand img {
+            width: 160px;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .alert-error {
-            background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
-            color: #9b2c2c;
-            border-left: 4px solid #fc8181;
-        }
-
-        .alert-success {
-            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
-            color: #276749;
-            border-left: 4px solid #68d391;
-        }
-
-        /* Form Styles - More compact */
-        .form-grid {
-            display: grid;
-            gap: clamp(14px, 1.8vw, 18px);
-            margin-bottom: clamp(20px, 2.5vw, 28px);
-        }
-
-        .form-group {
-            position: relative;
-        }
-
+        /* Form labels – modern, clean */
         .form-label {
-            display: block;
-            font-size: clamp(12px, 1.4vw, 14px);
-            font-weight: 600;
-            color: #4a5568;
+            font-size: 13px;
+            color: #1f2937;
             margin-bottom: 6px;
+            display: block;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        /* Input group */
+        .input-group {
+            position: relative;
+            margin-bottom: 8px;
         }
 
         .form-input {
             width: 100%;
-            padding: clamp(11px, 1.8vw, 14px);
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: clamp(13px, 1.6vw, 15px);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: #f8fafc;
+            padding: 14px 18px;
+            border-radius: 14px;
+            border: 1.5px solid #e5e7eb;
+            font-size: 14px;
+            background: #f9fafb;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
         }
 
         .form-input:focus {
+            border-color: #f97316;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.08);
             outline: none;
-            border-color: #667eea;
-            background: white;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
-            transform: translateY(-1px);
         }
 
-        .form-input.error {
-            border-color: #fc8181;
-            background: #fff5f5;
+        /* special row for email + send otp button */
+        .email-otp-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            margin-bottom: 16px;
         }
 
-        .form-input.success {
-            border-color: #68d391;
-            background: #f0fff4;
+        .email-field-wrapper {
+            flex: 1;
         }
 
+        .btn-send-otp {
+            background: linear-gradient(135deg, #f97316, #fb923c);
+            border: none;
+            border-radius: 14px;
+            padding: 14px 22px;
+            font-weight: 600;
+            font-size: 14px;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s ease;
+            height: 52px;
+            min-width: 130px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 6px 14px rgba(249,115,22,0.2);
+            border: 1px solid rgba(255,255,255,0.2);
+            font-family: 'Inter', sans-serif;
+            margin-bottom: 10px
+        }
+
+        .btn-send-otp:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 20px rgba(249,115,22,0.3);
+        }
+
+        .btn-send-otp:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            background: #d1d5db;
+            background: linear-gradient(135deg, #9ca3af, #9ca3af);
+        }
+
+        /* password row – two columns */
+        .row {
+            display: flex;
+            gap: 18px;
+            margin-top: 18px;
+            margin-bottom: 16px;
+        }
+
+        .col {
+            flex: 1;
+        }
+
+        /* error & success messages – exactly under each field */
         .error-message {
-            color: #e53e3e;
-            font-size: clamp(11px, 1.2vw, 13px);
-            margin-top: 5px;
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 4px;
+            margin-bottom: 6px;
             display: flex;
             align-items: center;
-            gap: 5px;
-            animation: slideDown 0.3s ease;
+            gap: 4px;
+            font-weight: 500;
+            padding-left: 2px;
         }
 
         .success-message {
-            color: #276749;
-            font-size: clamp(11px, 1.2vw, 13px);
-            margin-top: 5px;
+            color: #0b8c5c;
+            font-size: 13px;
+            margin-top: 8px;
+            margin-bottom: 4px;
+            font-weight: 500;
+            background: #ecfdf5;
+            padding: 10px 14px;
+            border-radius: 12px;
+            border-left: 4px solid #10b981;
+        }
+
+        /* OTP field container – smooth reveal */
+        #otpField {
+            margin-bottom: 12px;
+            animation: fadeSlide 0.2s ease;
+        }
+
+        @keyframes fadeSlide {
+            0% { opacity: 0; transform: translateY(-6px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* main action buttons: create account & login */
+        .action-buttons {
             display: flex;
-            align-items: center;
-            gap: 5px;
-            animation: slideDown 0.3s ease;
+            gap: 16px;
+            margin-top: 28px;
+            margin-bottom: 8px;
         }
 
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-8px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Password Strength Indicator - Smaller */
-        .password-strength {
-            margin-top: 6px;
-            height: 3px;
-            background: #e2e8f0;
-            border-radius: 2px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .strength-bar {
-            height: 100%;
-            width: 0%;
-            border-radius: 2px;
-            transition: all 0.3s ease;
-        }
-
-        .strength-weak {
-            width: 25%;
-            background: #fc8181;
-        }
-        .strength-fair {
-            width: 50%;
-            background: #f6ad55;
-        }
-        .strength-good {
-            width: 75%;
-            background: #68d391;
-        }
-        .strength-strong {
-            width: 100%;
-            background: #276749;
-        }
-
-        .strength-text {
-            font-size: clamp(10px, 1.1vw, 12px);
-            margin-top: 4px;
-            color: #718096;
-        }
-
-        /* Button - Smaller */
-        .btn {
-            width: 100%;
-            padding: clamp(12px, 1.8vw, 16px);
+        .btn-create {
+            flex: 1;
+            padding: 15px 10px;
             border: none;
-            border-radius: 10px;
-            font-size: clamp(14px, 1.8vw, 16px);
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            letter-spacing: 0.3px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            background: linear-gradient(135deg, #f97316, #fb923c);
             color: white;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 8px 18px rgba(249,115,22,0.25);
+            border: 1px solid rgba(255,255,255,0.2);
+            font-family: 'Inter', sans-serif;
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        .btn-create:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 24px rgba(249,115,22,0.35);
         }
 
-        .btn-primary:active {
-            transform: translateY(0);
-        }
-
-        /* Link Section - Smaller */
-        .login-link {
-            text-align: center;
-            margin-top: clamp(20px, 2.5vw, 28px);
-            padding-top: clamp(16px, 2.5vw, 22px);
-            border-top: 1px solid #e2e8f0;
-            font-size: clamp(12px, 1.4vw, 14px);
-            color: #718096;
-        }
-
-        .login-link a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.2s ease;
-        }
-
-        .login-link a:hover {
-            color: #764ba2;
-            text-decoration: underline;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 640px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .register-card {
-                padding: clamp(20px, 5vw, 28px);
-            }
-
-            .form-input {
-                padding: 12px;
-            }
-
-            .btn {
-                padding: 14px;
-            }
-        }
-
-        @media (max-width: 360px) {
-            body {
-                padding: 10px;
-            }
-
-            .register-card {
-                padding: 18px;
-                border-radius: 18px;
-            }
-
-            .logo-icon {
-                width: 48px;
-                height: 48px;
-                font-size: 22px;
-            }
-        }
-
-        /* Loading State */
-        .btn.loading {
-            opacity: 0.8;
+        .btn-create:disabled {
+            opacity: 0.55;
+            background: #d1d5db;
+            background: linear-gradient(135deg, #9ca3af, #b0b7c2);
+            box-shadow: none;
+            transform: none;
             cursor: not-allowed;
         }
 
-        .btn.loading::before {
-            content: '';
+        .btn-login-alt {
+            flex: 1;
+            padding: 15px 10px;
+            border-radius: 16px;
+            border: 2px solid #f97316;
+            background: white;
+            color: #f97316;
+            font-weight: 700;
+            font-size: 15px;
+            text-align: center;
             display: inline-block;
-            width: 14px;
-            height: 14px;
-            margin-right: 8px;
+            text-decoration: none;
+            transition: 0.2s;
+            letter-spacing: 0.2px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-login-alt:hover {
+            background: #f97316;
+            color: white;
+            border-color: #f97316;
+        }
+
+        /* no extra ornaments, clean design */
+        .divider {
+            display: none; /* removed, not needed */
+        }
+
+        /* right side – unchanged */
+        .register-right {
+            width: 65%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: radial-gradient(circle at 30% 50%, #fff8f0, #fffefc);
+        }
+
+        .register-right::before {
+            content: '';
+            position: absolute;
+            width: 650px;
+            height: 650px;
+            background: radial-gradient(circle, rgba(255,245,240,1) 0%, rgba(255,249,242,0.6) 40%, transparent 75%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        .register-right::after {
+            content: '';
+            position: absolute;
+            bottom: -120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 350px;
+            background: radial-gradient(circle, rgba(255,255,255,0.9), transparent 70%);
+            filter: blur(60px);
+            z-index: 0;
+        }
+
+        .register-right img {
+            position: relative;
+            z-index: 2;
+            width: 65%;
+            max-width: 400px;
+            filter: drop-shadow(0 30px 50px rgba(0,0,0,0.12));
+        }
+
+        /* loading state for send otp */
+        .btn-send-otp.loading {
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-send-otp.loading::after {
+            content: '';
+            width: 16px;
+            height: 16px;
             border: 2px solid white;
             border-radius: 50%;
             border-top-color: transparent;
-            animation: spin 0.8s linear infinite;
+            animation: spin 0.7s linear infinite;
         }
 
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
 
-        /* Password Toggle */
-        .password-toggle {
-            position: absolute;
-            right: 12px;
-            top: 20%;
-            background: none;
-            border: none;
-            color: #718096;
-            cursor: pointer;
-            font-size: 16px;
-            padding: 4px;
-            transition: color 0.2s ease;
-            z-index: 10;
+        /* responsive */
+        @media(max-width:992px) {
+            .register-left { width: 100%; }
+            .register-right { display: none; }
         }
 
-        .password-toggle:hover {
-            color: #667eea;
+        @media(max-width:640px) {
+            .row { flex-direction: column; gap: 6px; }
+            .email-otp-row { flex-direction: column; align-items: stretch; }
+            .btn-send-otp { width: 100%; }
+            .action-buttons { flex-direction: column; }
+        }
+
+        /* extra polish */
+        .field-hint {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 2px;
+        }
+
+        input::placeholder {
+            color: #9ca3af;
+            font-weight: 400;
+            font-size: 13.5px;
         }
     </style>
 </head>
 <body>
-    <div class="register-container">
-        <div class="register-card">
-            <div class="logo-section">
-                <div class="logo-icon">👤</div>
-                <h1 class="logo-text">Create Account</h1>
-                <p class="logo-subtitle">Join our admin panel</p>
+    <div class="register-wrapper">
+        <!-- LEFT SIDE (register form) -->
+        <div class="register-left">
+            <div class="register-card">
+                <!-- Brand logo (same) -->
+                <div class="brand">
+                    <img src="{{ asset('storage/logos/logo.png') }}" alt="Logo">
+                </div>
+
+                <form id="registerForm" method="POST" action="{{ route('admin.register.post') }}">
+                    @csrf
+
+                    <!-- 1. FULL NAME (standalone) -->
+                    <label class="form-label">Full name</label>
+                    <div class="input-group">
+                        <input type="text" name="name" id="name" class="form-input" placeholder="e.g., Alex Morgan" required>
+                    </div>
+                    <div class="error-message" id="nameError"></div>
+
+                    <!-- 2. EMAIL + SEND OTP BUTTON (small row) -->
+                    <div style="margin-top: 20px;">
+                        <label class="form-label">Email address</label>
+                        <div class="email-otp-row">
+                            <div class="email-field-wrapper">
+                                <input type="email" name="email" id="email" class="form-input" placeholder="admin@example.com" required style="height:52px;">
+                                <div class="error-message" id="emailError"></div>
+                            </div>
+                            <!-- Send OTP button – small, enabled only when email valid -->
+                            <button type="button" id="sendOtpBtn" class="btn-send-otp" disabled>Send OTP</button>
+                        </div>
+                    </div>
+
+                    <!-- OTP field (hidden until OTP sent) -->
+                    <div id="otpField" style="display: none;">
+                        <label class="form-label" style="margin-bottom: 2px;">OTP code</label>
+                        <div class="input-group">
+                            <input type="text" name="otp" id="otp" class="form-input" placeholder="6-digit code">
+                        </div>
+                        <div class="error-message" id="otpError"></div>
+                    </div>
+
+                    <!-- OTP success / status message (green) -->
+                    <div id="otpMessage" class="success-message" style="display: none;"></div>
+
+                    <!-- 3. PASSWORD ROW (two columns) -->
+                    <div class="row">
+                        <div class="col">
+                            <label class="form-label">Password</label>
+                            <div class="input-group">
+                                <input type="password" name="password" id="password" class="form-input" placeholder="Min. 8 characters" required>
+                            </div>
+                            <div class="error-message" id="passwordError"></div>
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Confirm password</label>
+                            <div class="input-group">
+                                <input type="password" name="password_confirmation" id="password_confirmation" class="form-input" placeholder="Re-enter password" required>
+                            </div>
+                            <div class="error-message" id="confirmPasswordError"></div>
+                        </div>
+                    </div>
+
+                    <!-- 4. ACTION BUTTONS: CREATE ACCOUNT & EXISTING ACCOUNT LOGIN -->
+                    <div class="action-buttons">
+                        <!-- Create account button – disabled until OTP sent & verified flow -->
+                        <a href="{{ route('admin.login') }}" class="btn-login-alt">Existing account? Login</a>
+                        <button type="button" id="createAccountBtn" class="btn-create" disabled>Create account</button>
+
+                    </div>
+
+                </form>
             </div>
+        </div>
 
-            @if($errors->any())
-                <div class="alert alert-error">
-                    <ul style="margin-left: 20px;">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            @if(session('success'))
-                <div class="alert alert-success">
-                    {{ session('success') }}
-                </div>
-            @endif
-
-            <form id="registerForm" method="POST" action="{{ route('admin.register.post') }}">
-                @csrf
-
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label" for="name">Full Name</label>
-                        <input type="text"
-                               id="name"
-                               name="name"
-                               class="form-input @error('name') error @enderror"
-                               placeholder="John Doe"
-                               value="{{ old('name') }}"
-                               required
-                               autocomplete="name"
-                               autofocus>
-                        @error('name')
-                            <div class="error-message">⚠️ {{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="email">Email Address</label>
-                        <input type="email"
-                               id="email"
-                               name="email"
-                               class="form-input @error('email') error @enderror"
-                               placeholder="admin@example.com"
-                               value="{{ old('email') }}"
-                               required
-                               autocomplete="email">
-                        @error('email')
-                            <div class="error-message">⚠️ {{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="password">Password</label>
-                        <div style="position: relative;">
-                            <input type="password"
-                                   id="password"
-                                   name="password"
-                                   class="form-input @error('password') error @enderror"
-                                   placeholder="Minimum 8 characters"
-                                   required
-                                   autocomplete="new-password"
-                                   minlength="8">
-                            <button type="button" class="password-toggle" onclick="togglePassword('password')">👁️</button>
-                        </div>
-                        <div class="password-strength">
-                            <div class="strength-bar" id="strengthBar"></div>
-                        </div>
-                        <div class="strength-text" id="strengthText">Password strength</div>
-                        @error('password')
-                            <div class="error-message">⚠️ {{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="password_confirmation">Confirm Password</label>
-                        <div style="position: relative;">
-                            <input type="password"
-                                   id="password_confirmation"
-                                   name="password_confirmation"
-                                   class="form-input"
-                                   placeholder="Confirm your password"
-                                   required
-                                   autocomplete="new-password"
-                                   minlength="8">
-                            <button type="button" class="password-toggle" onclick="togglePassword('password_confirmation')">👁️</button>
-                        </div>
-                        <div class="success-message" id="passwordMatchMessage" style="display: none;">✓ Passwords match</div>
-                        <div class="error-message" id="passwordMismatchMessage" style="display: none;">⚠️ Passwords do not match</div>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary" id="submitBtn">
-                    Create Account
-                </button>
-            </form>
-
-            <div class="login-link">
-                Already have an account? <a href="{{ route('admin.login') }}">Login here</a>
-            </div>
+        <!-- RIGHT SIDE (illustration – same) -->
+        <div class="register-right">
+            <img src="{{ asset('storage/admin-login/admin-login.png') }}" alt="Admin dashboard illustration">
         </div>
     </div>
 
     <script>
-        // Password visibility toggle
-        function togglePassword(fieldId) {
-            const field = document.getElementById(fieldId);
-            const toggleBtn = field.nextElementSibling;
+        (function() {
+            "use strict";
 
-            if (field.type === 'password') {
-                field.type = 'text';
-                toggleBtn.textContent = '🙈';
-            } else {
-                field.type = 'password';
-                toggleBtn.textContent = '👁️';
-            }
-        }
-        // Auto-hide alerts after 5 seconds
-        document.addEventListener('DOMContentLoaded', function() {
-            const alerts = document.querySelectorAll('.alert');
+            // DOM elements
+            const emailInput = document.getElementById('email');
+            const sendOtpBtn = document.getElementById('sendOtpBtn');
+            const otpField = document.getElementById('otpField');
+            const otpMessageDiv = document.getElementById('otpMessage');
+            const createAccountBtn = document.getElementById('createAccountBtn');
+            const registerForm = document.getElementById('registerForm');
 
-            alerts.forEach(alert => {
-                setTimeout(() => {
-                    alert.style.transition = 'opacity 0.5s ease';
-                    alert.style.opacity = '0';
-
-                    setTimeout(() => {
-                        alert.remove();
-                    }, 500);
-                }, 5000); // 5 seconds
-            });
-        });
-
-        // Password strength checker
-        function checkPasswordStrength(password) {
-            let strength = 0;
-            const strengthBar = document.getElementById('strengthBar');
-            const strengthText = document.getElementById('strengthText');
-
-            // Length check
-            if (password.length >= 8) strength += 25;
-            if (password.length >= 12) strength += 25;
-
-            // Character variety checks
-            if (/[A-Z]/.test(password)) strength += 25;
-            if (/[0-9]/.test(password)) strength += 15;
-            if (/[^A-Za-z0-9]/.test(password)) strength += 10;
-
-            // Update strength bar
-            strengthBar.className = 'strength-bar';
-            if (password.length === 0) {
-                strengthBar.style.width = '0%';
-                strengthText.textContent = 'Password strength';
-                return;
-            }
-
-            if (strength < 50) {
-                strengthBar.classList.add('strength-weak');
-                strengthText.textContent = 'Weak password';
-                strengthText.style.color = '#e53e3e';
-            } else if (strength < 75) {
-                strengthBar.classList.add('strength-fair');
-                strengthText.textContent = 'Fair password';
-                strengthText.style.color = '#f6ad55';
-            } else if (strength < 90) {
-                strengthBar.classList.add('strength-good');
-                strengthText.textContent = 'Good password';
-                strengthText.style.color = '#68d391';
-            } else {
-                strengthBar.classList.add('strength-strong');
-                strengthText.textContent = 'Strong password';
-                strengthText.style.color = '#276749';
-            }
-        }
-
-        // Password match checker
-        function checkPasswordMatch() {
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('password_confirmation').value;
-            const matchMessage = document.getElementById('passwordMatchMessage');
-            const mismatchMessage = document.getElementById('passwordMismatchMessage');
-            const confirmField = document.getElementById('password_confirmation');
-
-            if (confirmPassword.length === 0) {
-                matchMessage.style.display = 'none';
-                mismatchMessage.style.display = 'none';
-                confirmField.classList.remove('error', 'success');
-                return;
-            }
-
-            if (password === confirmPassword) {
-                matchMessage.style.display = 'flex';
-                mismatchMessage.style.display = 'none';
-                confirmField.classList.remove('error');
-                confirmField.classList.add('success');
-            } else {
-                matchMessage.style.display = 'none';
-                mismatchMessage.style.display = 'flex';
-                confirmField.classList.remove('success');
-                confirmField.classList.add('error');
-            }
-        }
-
-        // Event listeners
-        document.getElementById('password').addEventListener('input', function(e) {
-            checkPasswordStrength(e.target.value);
-            checkPasswordMatch();
-        });
-
-        document.getElementById('password_confirmation').addEventListener('input', checkPasswordMatch);
-
-        // Email validation
-        document.getElementById('email').addEventListener('blur', function() {
-            const email = this.value;
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-            if (email && !emailRegex.test(email)) {
-                this.classList.add('error');
-            } else {
-                this.classList.remove('error');
-            }
-        });
-
-        // Form submission
-        document.getElementById('registerForm').addEventListener('submit', function(e) {
-            const submitBtn = document.getElementById('submitBtn');
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('password_confirmation').value;
-            const email = document.getElementById('email').value;
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-            // Email validation
-            if (email && !emailRegex.test(email)) {
-                e.preventDefault();
-                alert('Please enter a valid email address.');
-                return;
-            }
-
-            // Password match validation
-            if (password !== confirmPassword) {
-                e.preventDefault();
-                alert('Passwords do not match!');
-                return;
-            }
-
-            // Password length validation
-            if (password.length < 8) {
-                e.preventDefault();
-                alert('Password must be at least 8 characters long.');
-                return;
-            }
-
-            // Add loading state
-            submitBtn.classList.add('loading');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = 'Creating account...';
-        });
-
-        // Auto-focus name field
-        document.addEventListener('DOMContentLoaded', function() {
             const nameInput = document.getElementById('name');
-            if (nameInput && !nameInput.value) {
-                nameInput.focus();
-            }
-        });
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('password_confirmation');
 
-        // Enter key to submit form
-        document.getElementById('registerForm').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('submitBtn').click();
+            // Error containers
+            const nameError = document.getElementById('nameError');
+            const emailError = document.getElementById('emailError');
+            const passwordError = document.getElementById('passwordError');
+            const confirmPasswordError = document.getElementById('confirmPasswordError');
+            const otpError = document.getElementById('otpError');
+
+            // State
+            let otpSent = false;        // becomes true after successful OTP send
+            let otpVerified = false;    // we trust OTP field presence (backend will check)
+
+            // ---------- UTILITIES ----------
+            function validateEmail(email) {
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
             }
-        });
+
+            function validatePassword(password) {
+                return password.length >= 8;
+            }
+
+            // Clear all dynamic error messages (optional per field)
+            function clearFieldErrors() {
+                nameError.innerText = '';
+                emailError.innerText = '';
+                passwordError.innerText = '';
+                confirmPasswordError.innerText = '';
+                otpError.innerText = '';
+            }
+
+            // ---------- ENABLE / DISABLE SEND OTP (based ONLY on email) ----------
+            function toggleSendOtpButton() {
+                const emailValid = validateEmail(emailInput.value.trim());
+                sendOtpBtn.disabled = !emailValid;
+            }
+
+            // Enable/disable create account button:
+            // Required: OTP sent + all fields non-empty + password >=8 + passwords match + name + email filled
+            function toggleCreateAccountButton() {
+                if (!otpSent) {
+                    createAccountBtn.disabled = true;
+                    return;
+                }
+
+                const nameFilled = nameInput.value.trim() !== '';
+                const emailFilled = validateEmail(emailInput.value.trim());
+                const otpFilled = document.getElementById('otp')?.value.trim() !== '';
+                const passwordValid = validatePassword(passwordInput.value);
+                const passwordsMatch = passwordInput.value === confirmPasswordInput.value;
+
+                if (nameFilled && emailFilled && otpFilled && passwordValid && passwordsMatch) {
+                    createAccountBtn.disabled = false;
+                } else {
+                    createAccountBtn.disabled = true;
+                }
+            }
+
+            // ---------- REAL-TIME VALIDATION & ERROR MESSAGES (under each field) ----------
+            // Full name validation (just presence)
+            nameInput.addEventListener('input', function() {
+                if (nameInput.value.trim() === '') {
+                    nameError.innerText = 'Full name is required';
+                } else {
+                    nameError.innerText = '';
+                }
+                toggleCreateAccountButton();
+            });
+
+            // Email validation (format)
+            emailInput.addEventListener('input', function() {
+                const email = emailInput.value.trim();
+                if (email === '') {
+                    emailError.innerText = 'Email is required';
+                } else if (!validateEmail(email)) {
+                    emailError.innerText = 'Enter a valid email address';
+                } else {
+                    emailError.innerText = '';
+                }
+                toggleSendOtpButton();
+                toggleCreateAccountButton();
+            });
+
+            // Password validation (min 8)
+            passwordInput.addEventListener('input', function() {
+                const pwd = passwordInput.value;
+                if (pwd === '') {
+                    passwordError.innerText = 'Password is required';
+                } else if (!validatePassword(pwd)) {
+                    passwordError.innerText = 'At least 8 characters';
+                } else {
+                    passwordError.innerText = '';
+                }
+                toggleCreateAccountButton();
+            });
+
+            // Confirm password match
+            confirmPasswordInput.addEventListener('input', function() {
+                const pwd = passwordInput.value;
+                const confirm = confirmPasswordInput.value;
+                if (confirm === '') {
+                    confirmPasswordError.innerText = 'Please confirm your password';
+                } else if (pwd !== confirm) {
+                    confirmPasswordError.innerText = 'Passwords do not match';
+                } else {
+                    confirmPasswordError.innerText = '';
+                }
+                toggleCreateAccountButton();
+            });
+
+            // OTP field presence validation (simple)
+            const otpInput = document.getElementById('otp');
+            if (otpInput) {
+                otpInput.addEventListener('input', function() {
+                    if (otpInput.value.trim() === '') {
+                        otpError.innerText = 'OTP is required';
+                    } else {
+                        otpError.innerText = '';
+                    }
+                    toggleCreateAccountButton();
+                });
+            }
+
+            // ---------- SEND OTP BUTTON CLICK ----------
+            sendOtpBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                const email = emailInput.value.trim();
+
+                // final email validation
+                if (!validateEmail(email)) {
+                    emailError.innerText = 'Valid email required to send OTP';
+                    return;
+                }
+
+                // Disable button, show loading
+                sendOtpBtn.disabled = true;
+                sendOtpBtn.classList.add('loading');
+                sendOtpBtn.innerText = 'Sending';
+
+                // Clear previous OTP messages
+                otpMessageDiv.style.display = 'none';
+                otpMessageDiv.innerText = '';
+
+                // Simulate fetch (YOUR EXISTING BACKEND ROUTE)
+                fetch("{{ route('admin.send.otp') }}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": "{{ csrf_token() }}"
+                    },
+                    body: JSON.stringify({ email: email })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    sendOtpBtn.classList.remove('loading');
+
+                    if (data.success) {
+                        // show OTP field, success message
+                        otpField.style.display = 'block';
+                        otpMessageDiv.style.display = 'block';
+                        otpMessageDiv.innerText = '✅ OTP sent to ' + email;
+                        otpSent = true;
+
+                        // Re-enable send OTP button – now it will be enabled again because email is still valid.
+                        // But we want it clickable again (if needed). So enable it.
+                        sendOtpBtn.disabled = false;  // will be toggled by email validity anyway
+                        sendOtpBtn.innerText = 'Send OTP';   // reset text
+
+                        // OTP sent successfully → trigger create account button check
+                        toggleCreateAccountButton();
+                    } else {
+                        // error from backend
+                        otpMessageDiv.style.display = 'block';
+                        otpMessageDiv.innerText = '❌ ' + (data.message || 'Failed to send OTP');
+                        sendOtpBtn.disabled = false;   // enable to retry
+                        sendOtpBtn.innerText = 'Send OTP';
+                        otpSent = false;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    sendOtpBtn.classList.remove('loading');
+                    otpMessageDiv.style.display = 'block';
+                    otpMessageDiv.innerText = '❌ Network error. Try again.';
+                    sendOtpBtn.disabled = false;
+                    sendOtpBtn.innerText = 'Send OTP';
+                    otpSent = false;
+                });
+            });
+
+            // ---------- CREATE ACCOUNT BUTTON ----------
+            createAccountBtn.addEventListener('click', function() {
+                // front-end final validation before submit
+                clearFieldErrors();
+
+                let isValid = true;
+
+                // name
+                if (nameInput.value.trim() === '') {
+                    nameError.innerText = 'Full name is required';
+                    isValid = false;
+                }
+
+                // email
+                if (!validateEmail(emailInput.value.trim())) {
+                    emailError.innerText = 'Valid email required';
+                    isValid = false;
+                }
+
+                // otp
+                if (!otpSent) {
+                    otpError.innerText = 'Please request OTP first';
+                    isValid = false;
+                } else if (document.getElementById('otp').value.trim() === '') {
+                    otpError.innerText = 'OTP cannot be empty';
+                    isValid = false;
+                }
+
+                // password
+                if (!validatePassword(passwordInput.value)) {
+                    passwordError.innerText = 'Minimum 8 characters';
+                    isValid = false;
+                }
+
+                // confirm
+                if (passwordInput.value !== confirmPasswordInput.value) {
+                    confirmPasswordError.innerText = 'Passwords do not match';
+                    isValid = false;
+                }
+
+                if (isValid) {
+                    // submit the form
+                    registerForm.submit();
+                }
+            });
+
+            // initial toggle states
+            toggleSendOtpButton();
+            toggleCreateAccountButton();
+
+            // also listen on otp input for create btn state
+            if (otpInput) {
+                otpInput.addEventListener('input', toggleCreateAccountButton);
+            }
+
+            // ensure password confirmation re-checks on password change
+            passwordInput.addEventListener('input', function() {
+                if (confirmPasswordInput.value !== '') {
+                    if (passwordInput.value !== confirmPasswordInput.value) {
+                        confirmPasswordError.innerText = 'Passwords do not match';
+                    } else {
+                        confirmPasswordError.innerText = '';
+                    }
+                }
+                toggleCreateAccountButton();
+            });
+
+            // if user changes name/email after OTP sent, still validate create button
+            nameInput.addEventListener('input', toggleCreateAccountButton);
+            emailInput.addEventListener('input', toggleCreateAccountButton);
+        })();
     </script>
+
+
 </body>
 </html>

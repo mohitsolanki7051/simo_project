@@ -16,27 +16,32 @@ class SalesInvoice extends Model
         'invoice_date',
         'customer_id',
         'warehouse_id',
+        // addresses
         'billing_address',
         'shipping_address',
-        'subtotal',
-        'discount_total',
-        'tax_total',
-        'grand_total',
-        'payment_status',
-        'status',
-        'notes',
-        'created_by',
+        // invoice meta
         'payment_terms',
         'due_date',
         'po_number',
         'vehicle_no',
         'colours',
+        'notes',
+        // totals
+        'total_mrp',
+        'subtotal',
+        'discount_total',
+        'tax_total',
+        'extra_discount',
+        'extra_discount_type',
+        'extra_charge',
+        'charge_name',
         'round_off',
+        'grand_total',
         'total_paid',
         'balance_amount',
-        'extra_discount',
-        'extra_charge',
-        'charge_name'
+        'payment_status',
+        'status',
+        'created_by',
     ];
 
     protected $casts = [

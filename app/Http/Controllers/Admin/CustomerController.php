@@ -5,8 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
+use App\Models\SalesInvoice;
+use App\Models\SalesPayment;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
+use MongoDB\BSON\ObjectId;
 
 class CustomerController extends Controller
 {
@@ -463,4 +467,124 @@ class CustomerController extends Controller
             ], 500);
         }
     }
+
+    public function ledger($id)
+    {
+        $customer = Customer::findOrFail($id);
+
+        // ================================
+        // 1. SALES (Debit)
+        // ================================
+        $sales = SalesInvoice::where('customer_id', $id)
+            ->get()
+            ->map(function ($invoice) {
+                return [
+                    'date' => $invoice->invoice_date,
+                    'type' => 'Sale',
+                    'ref'  => $invoice->invoice_number,
+                    'invoice_id' => $invoice->_id,
+                    'debit' => (float) $invoice->grand_total,
+                    'credit' => 0,
+                ];
+            });
+
+        // ================================
+        // 2. PAYMENTS (Credit)
+        // ================================
+    // Get invoice ids as string properly
+    $invoiceIds = SalesInvoice::where('customer_id', $id)
+        ->get()
+        ->map(function ($invoice) {
+            return (string) $invoice->_id;
+        })
+        ->toArray();
+
+    $payments = SalesPayment::whereIn('sales_invoice_id', $invoiceIds)
+        ->where('status', 'completed')
+        ->get()
+        ->map(function ($payment) {
+            return [
+                'date' => $payment->payment_date,
+                'type' => 'Payment',
+                'ref'  => $payment->reference_no ?? '-',
+                'debit' => 0,
+                'credit' => (float) $payment->amount,
+            ];
+        });
+
+        // ================================
+        // 3. ADVANCE PAYMENTS (invoice_id = null)
+        // ================================
+        $advance = SalesPayment::whereNull('sales_invoice_id')
+        ->where('status', 'completed')
+        ->where('customer_id', $id) // IMPORTANT
+        ->get()
+        ->map(function ($payment) {
+            return [
+                'date' => $payment->payment_date,
+                'type' => 'Advance',
+                'ref'  => $payment->reference_no ?? 'ADV',
+                'debit' => 0,
+                'credit' => (float) $payment->amount,
+            ];
+        });
+
+        // ================================
+        // 4. DISCOUNT (from invoice)
+        // ================================
+        $discounts = SalesInvoice::where('customer_id', $id)
+            ->where('extra_discount', '>', 0)
+            ->get()
+            ->map(function ($invoice) {
+                return [
+                    'date' => $invoice->invoice_date,
+                    'type' => 'Discount',
+                    'ref'  => $invoice->invoice_number,
+                    'debit' => 0,
+                    'credit' => (float) $invoice->extra_discount,
+                ];
+            });
+
+        // ================================
+        // 5. EXTRA CHARGES
+        // ================================
+        $charges = SalesInvoice::where('customer_id', $id)
+            ->where('extra_charge', '>', 0)
+            ->get()
+            ->map(function ($invoice) {
+                return [
+                    'date' => $invoice->invoice_date,
+                    'type' => $invoice->charge_name ?? 'Charge',
+                    'ref'  => $invoice->invoice_number,
+                    'debit' => (float) $invoice->extra_charge,
+                    'credit' => 0,
+                ];
+            });
+
+        // ================================
+        // MERGE ALL
+        // ================================
+        $ledger = collect()
+            ->merge($sales)
+            ->merge($payments)
+            ->merge($advance)
+            ->merge($discounts)
+            ->merge($charges)
+            ->sortBy('date')
+            ->values();
+
+        // ================================
+        // RUNNING BALANCE
+        // ================================
+        $balance = 0;
+        $ledger = $ledger->map(function ($row) use (&$balance) {
+            $balance += $row['debit'];
+            $balance -= $row['credit'];
+            $row['balance'] = $balance;
+            return $row;
+        });
+
+        return view('admin.customers.ledger', compact('customer','ledger'));
+    }
+
 }

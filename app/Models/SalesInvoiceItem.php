@@ -15,18 +15,23 @@ class SalesInvoiceItem extends Model
         'sales_invoice_id',
         'product_id',
         'variant_id',
+
         'product_name',
         'variant_name',
         'sku',
         'barcode',
         'hsn_sac',
+
         'quantity',
         'unit',
+
+        'mrp_price',
         'price',
         'discount',
         'tax_percent',
         'tax_amount',
         'total',
+        
         'warranty_type',
         'warranty_period',
         'warranty_start',

@@ -25,13 +25,11 @@
         <form id="salesInvoiceForm" class="invoice-form">
             @csrf
             <input type="hidden" name="invoice_number" value="{{ $invoiceNumber }}">
-            <!-- Add these hidden fields that were missing -->
             <input type="hidden" name="warehouse_id" value="{{ $mainWarehouse->_id }}">
             <input type="hidden" name="tax_amount" id="taxAmountInput" value="0">
             <input type="hidden" name="discount_amount" id="discountAmountInput" value="0">
 
             <div class="form-row">
-                <!-- Left Column -->
                 <div class="form-col-main">
                     <div class="two-col-row">
                         <div class="col-50">
@@ -52,7 +50,6 @@
                                 </div>
 
                                 <div class="section-body">
-                                    <!-- Selected Customer Details -->
                                     <div id="selectedCustomerDetails" class="selected-customer-details" style="display: none;">
                                         <div class="customer-header">
                                             <h4 id="customerNameDisplay">Customer Name</h4>
@@ -90,14 +87,12 @@
 
                                         <input type="hidden" name="customer_id" id="customerIdInput">
 
-                                        <!-- Address Section -->
                                         <div class="address-section">
                                             <div class="address-header">
                                                 <h5>Address Details</h5>
                                             </div>
 
                                             <div class="address-grid">
-                                                <!-- Billing Address -->
                                                 <div class="address-card">
                                                     <div class="address-card-header">
                                                         <span class="address-type">Billing Address</span>
@@ -108,7 +103,6 @@
                                                     <input type="hidden" name="billing_address" id="billingAddressInput">
                                                 </div>
 
-                                                <!-- Shipping Address -->
                                                 <div class="address-card">
                                                     <div class="address-card-header">
                                                         <span class="address-type">Shipping Address</span>
@@ -141,22 +135,12 @@
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">Sales Invoice No.</label>
-                                            <input type="text"
-                                                class="form-control"
-                                                value="{{ $invoiceNumber }}"
-                                                readonly
-                                                tabindex="-1">
+                                            <input type="text" class="form-control" value="{{ $invoiceNumber }}" readonly tabindex="-1">
                                         </div>
 
                                         <div class="form-group col-6">
                                             <label class="form-label required">Invoice Date</label>
-                                            <input type="date"
-                                                name="invoice_date"
-                                                id="invoiceDate"
-                                                class="form-control"
-                                                value="{{ date('Y-m-d') }}"
-                                                required
-                                                onchange="updateDueDateFromTerms()">
+                                            <input type="date" name="invoice_date" id="invoiceDate" class="form-control" value="{{ date('Y-m-d') }}" required onchange="updateDueDateFromTerms()">
                                         </div>
                                     </div>
 
@@ -164,14 +148,7 @@
                                         <div class="form-group col-6">
                                             <label class="form-label">Payment Terms</label>
                                             <div class="payment-terms-days">
-                                                <input type="number"
-                                                    name="payment_terms_days"
-                                                    id="paymentTermsDays"
-                                                    class="form-control"
-                                                    placeholder="0"
-                                                    min="0"
-                                                    step="1"
-                                                    onchange="updateDueDateFromTerms()">
+                                                <input type="number" name="payment_terms_days" id="paymentTermsDays" class="form-control" placeholder="0" min="0" step="1" onchange="updateDueDateFromTerms()">
                                                 <span>days</span>
                                                 <input type="hidden" name="payment_terms" id="paymentTermsInput">
                                             </div>
@@ -179,28 +156,18 @@
 
                                         <div class="form-group col-6">
                                             <label class="form-label">Due Date</label>
-                                            <input type="date"
-                                                name="due_date"
-                                                id="dueDate"
-                                                class="form-control"
-                                                onchange="updatePaymentTermsFromDueDate()">
+                                            <input type="date" name="due_date" id="dueDate" class="form-control" onchange="updatePaymentTermsFromDueDate()">
                                         </div>
                                     </div>
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">PO Number</label>
-                                            <input type="text"
-                                                name="po_number"
-                                                class="form-control"
-                                                placeholder="Optional">
+                                            <input type="text" name="po_number" class="form-control" placeholder="Optional">
                                         </div>
 
                                         <div class="form-group col-6">
                                             <label class="form-label">Vehicle No.</label>
-                                            <input type="text"
-                                                name="vehicle_no"
-                                                class="form-control"
-                                                placeholder="Optional">
+                                            <input type="text" name="vehicle_no" class="form-control" placeholder="Optional">
                                         </div>
                                     </div>
                                     <div class="form-row">
@@ -231,7 +198,7 @@
 
                         <div class="section-body">
                             <div class="items-table-container">
-                                <table class="items-table">
+                                <table class="items-table" id="mainItemsTable">
                                     <thead>
                                         <tr>
                                             <th class="th-item">Item</th>
@@ -239,43 +206,39 @@
                                             <th class="th-unit">Unit</th>
                                             <th class="th-qtys">Qty</th>
                                             <th class="th-warranty">Warranty</th>
-                                            <th class="th-price">Price</th>
+                                            <th class="th-mrp">MRP (₹)</th>
                                             <th class="th-discount">Disc %</th>
+                                            <th class="th-sale-price">Sale Price (₹)</th>
                                             <th class="th-tax">Tax %</th>
-                                            <th class="th-amount">Amount</th>
+                                            <th class="th-amount">Final Amt (₹)</th>
                                             <th class="th-action">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="itemsTableBody">
-                                        <tr class="empty-row">
-                                            <td colspan="10">
-                                                <div class="empty-items">
-                                                    <div class="empty-icon">🛒</div>
-                                                    <p>No items added yet</p>
-                                                    <button type="button" class="btn-add-first-item" onclick="openAddItemModal()">
-                                                        + Add First Item
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
                                     </tbody>
+                                    <tfoot id="itemsTableFooter" style="background-color: #f0f0f0; font-weight: 600; border-top: 2px solid #333;">
+                                        <tr>
+                                            <td colspan="5" style="text-align: right; padding: 10px; font-size: 12px;">
+                                                <strong>SUBTOTAL:</strong>
+                                            </td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerMRP">₹ 0.00</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerDiscount">₹ 0.00</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerSalePrice">₹ 0.00</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerTax">₹ 0.00</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerFinalAmount">₹ 0.00</td>
+                                            <td style="padding: 10px;"></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>
                     </div>
 
-
-
-                    <!-- Summary and Payment Sections (Bottom Layout) -->
+                    <!-- Summary and Payment Sections -->
                     <div class="form-col-sidebar">
                         <div class="invoice-bottom-layout">
-
-
-
-                            <!-- ROW 2 -->
                             <div class="invoice-row">
-
-                                <!-- LEFT : BANK DETAILS -->
+                                <!-- LEFT: Invoice Summary -->
                                 <div class="invoice-col">
                                     <div class="summary-section">
                                         <div class="summary-header">
@@ -285,48 +248,50 @@
 
                                         <div class="summary-body">
                                             <div class="summary-row">
-                                                <span class="summary-label">Subtotal</span>
-                                                <span class="summary-value">₹ <span id="subtotal">0.00</span></span>
+                                                <span class="summary-label">Total MRP</span>
+                                                <span class="summary-value">₹ <span id="totalMRP">0.00</span></span>
                                             </div>
                                             <div class="summary-row">
-                                                <span class="summary-label">Discount</span>
-                                                <span class="summary-value">₹ <span id="discountTotal">0.00</span></span>
+                                                <span class="summary-label">Total Discount</span>
+                                                <span class="summary-value">- ₹ <span id="totalDiscount">0.00</span></span>
                                             </div>
+                                            <div class="summary-row">
+                                                <span class="summary-label">Total Tax</span>
+                                                <span class="summary-value">₹ <span id="totalTax">0.00</span></span>
+                                            </div>
+                                            <div class="summary-divider"></div>
+                                            <div class="summary-row">
+                                                <span class="summary-label" style="font-weight: 600;">Subtotal</span>
+                                                <span class="summary-value">₹ <span id="subtotal">0.00</span></span>
+                                            </div>
+                                            <div class="summary-divider"></div>
+
                                             <div class="summary-row">
                                                 <span class="summary-label">
                                                     <a href="javascript:void(0)" onclick="toggleExtraDiscount()">+ Add Discount</a>
                                                 </span>
                                             </div>
-
                                             <div id="extraDiscountRow" style="display:none;" class="summary-row">
-                                                <input type="number" id="extraDiscount" placeholder="Enter discount amount"
-                                                    oninput="calculateTotals()" class="summary-input">
+                                                <input type="number" id="extraDiscount" placeholder="Enter discount amount" oninput="calculateTotals()" class="summary-input">
                                             </div>
+
                                             <div class="summary-row">
                                                 <span class="summary-label">
                                                     <a href="javascript:void(0)" onclick="toggleExtraDiscountPercent()">+ Add Discount %</a>
                                                 </span>
                                             </div>
-
                                             <div id="extraDiscountPercentRow" style="display:none;" class="summary-row">
-                                                <input type="number" id="extraDiscountPercent"
-                                                    placeholder="Enter discount %"
-                                                    oninput="calculateTotals()"
-                                                    class="summary-input">
+                                                <input type="number" id="extraDiscountPercent" placeholder="Enter discount %" oninput="calculateTotals()" class="summary-input">
                                             </div>
-
 
                                             <div class="summary-row">
                                                 <span class="summary-label">
                                                     <a href="javascript:void(0)" onclick="toggleExtraCharge()">+ Add Another Charge</a>
                                                 </span>
                                             </div>
-
                                             <div id="extraChargeRow" style="display:none;" class="summary-row">
-                                                <input type="text" placeholder="Charge Name" id="chargeName"
-                                                    class="summary-input">
-                                                <input type="number" placeholder="₹" id="extraCharge"
-                                                    oninput="calculateTotals()" class="summary-input-small">
+                                                <input type="text" placeholder="Charge Name" id="chargeName" class="summary-input">
+                                                <input type="number" placeholder="₹" id="extraCharge" oninput="calculateTotals()" class="summary-input-small">
                                             </div>
 
                                             <div class="summary-row">
@@ -336,10 +301,6 @@
                                                 </label>
                                             </div>
 
-                                            <div class="summary-row">
-                                                <span class="summary-label">Tax</span>
-                                                <span class="summary-value">₹ <span id="taxTotal">0.00</span></span>
-                                            </div>
                                             <div class="summary-row total-row">
                                                 <span class="summary-label">Grand Total</span>
                                                 <span class="summary-value">₹ <span id="grandTotal">0.00</span></span>
@@ -348,7 +309,7 @@
                                     </div>
                                 </div>
 
-                                <!-- RIGHT : PAYMENT DETAILS -->
+                                <!-- RIGHT: Payment Details -->
                                 <div class="invoice-col">
                                     <div class="payment-section-container">
                                         <h4>Payment Details</h4>
@@ -369,19 +330,13 @@
 
                                         <div class="form-group">
                                             <label class="form-label">Amount Paid</label>
-                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control"
-                                                value="0" step="0.01" min="0"
-                                                oninput="calculateBalance()">
+                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" value="0" step="0.01" min="0" oninput="calculateBalance()">
                                         </div>
                                         <div class="form-group">
-                                            <button type="button"
-                                                onclick="markFullyPaid()"
-                                                class="btn-mark-paid"
-                                                style="width:auto; padding:4px 8px; font-size:10px;">
+                                            <button type="button" onclick="markFullyPaid()" class="btn-mark-paid" style="width:auto; padding:4px 8px; font-size:10px;">
                                                 Mark as Fully Paid
                                             </button>
                                         </div>
-
 
                                         <div class="form-group">
                                             <label class="form-label">Balance Amount</label>
@@ -391,13 +346,9 @@
                                         </div>
                                     </div>
                                 </div>
-
                             </div>
-
                         </div>
                     </div>
-
-
 
                     <!-- Submit Button -->
                     <div style="display:flex; justify-content:flex-end;">
@@ -406,8 +357,6 @@
                             Save Sales Invoice
                         </button>
                     </div>
-
-
                 </div>
             </div>
         </form>
@@ -428,13 +377,11 @@
         </div>
 
         <div class="modal-body">
-            <!-- Search and Create Header -->
             <div class="customer-modal-header">
                 <div class="search-container">
                     <div class="search-box">
                         <span class="search-icon">🔍</span>
-                        <input type="text" id="searchCustomer" class="search-input"
-                               placeholder="Search customers by name, phone or email...">
+                        <input type="text" id="searchCustomer" class="search-input" placeholder="Search customers by name, phone or email...">
                     </div>
                 </div>
                 <button type="button" class="btn-create-new-customer" onclick="openCreateCustomerModal()">
@@ -443,7 +390,6 @@
                 </button>
             </div>
 
-            <!-- Customers Table -->
             <div class="customers-table-container">
                 <table class="customers-table">
                     <thead>
@@ -498,7 +444,6 @@
         <form id="createCustomerForm">
             @csrf
             <div class="modal-body">
-                <!-- Basic Info -->
                 <div class="form-section-small">
                     <h5>Basic Information</h5>
                     <div class="form-row">
@@ -545,7 +490,6 @@
                     </div>
                 </div>
 
-                <!-- Tax Details -->
                 <div class="form-section-small">
                     <h5>Tax Information</h5>
                     <div class="form-row">
@@ -560,7 +504,6 @@
                     </div>
                 </div>
 
-                <!-- Billing Address -->
                 <div class="form-section-small">
                     <div class="section-header-small">
                         <h5>Billing Address</h5>
@@ -598,7 +541,6 @@
                     </div>
                 </div>
 
-                <!-- Shipping Address -->
                 <div class="form-section-small">
                     <h5>Shipping Address</h5>
 
@@ -630,7 +572,6 @@
                     </div>
                 </div>
 
-                <!-- Notes -->
                 <div class="form-section-small">
                     <h5>Additional Information</h5>
                     <div class="form-group">
@@ -678,7 +619,8 @@
                         <tr>
                             <th class="th-name">Item Name</th>
                             <th class="th-code">Item Code</th>
-                            <th class="th-price">Sales Price</th>
+                            <th class="th-mrp">MRP Price</th>
+                            <th class="th-price">Sale Price</th>
                             <th class="th-stock">Current Stock</th>
                             <th class="th-qty">Quantity</th>
                             <th class="th-action">Action</th>
@@ -694,19 +636,17 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button type="button" class="btn-modal btn-primary"
-                onclick="addSelectedProducts()">
+            <button type="button" class="btn-modal btn-primary" onclick="addSelectedProducts()">
                 Done
             </button>
-
         </div>
     </div>
 </div>
 
-
 @push('styles')
-    <style>
-        /* Main Container */
+<style>
+/* [KEEP ALL YOUR EXISTING CSS - Copy from original file] */
+/* Main Container */
 .products-container {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 11px;
@@ -1176,47 +1116,61 @@
     overflow-x: auto;
     width: 100%;
     margin-top: 10px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
 }
 
 .items-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 10px;
-    min-width: 800px;
+    min-width: 1000px;
 }
 
 .items-table th {
     background: #f8f9fa;
-    padding: 8px 10px;
-    text-align: left;
+    padding: 10px 8px;
+    text-align: center;
     font-weight: 600;
     color: #333;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 2px solid #ddd;
     white-space: nowrap;
     font-size: 11px;
 }
 
 .items-table td {
-    padding: 8px 10px;
+    padding: 8px;
     border-bottom: 1px solid #eee;
     vertical-align: middle;
+    text-align: center;
+    font-size: 10px;
+}
+
+.items-table td.item-name {
+    text-align: left;
+    font-weight: 500;
 }
 
 .items-table tr:hover {
     background-color: #f9f9f9;
 }
 
+.items-table tbody tr {
+    transition: background-color 0.2s;
+}
+
 /* Column widths */
-.th-item { width: 180px; }
-.th-hsn { width: 50px; }
-.th-qtys { width: 60px; }
-.th-unit { width: 55px; }
-.th-warranty { width: 120px; }
-.th-price { width: 80px; }
-.th-discount { width: 70px; }
-.th-tax { width: 60px; }
-.th-amount { width: 70px; }
-.th-action { width: 70px; }
+.th-item { width: 200px; min-width: 150px; text-align: left !important; }
+.th-hsn { width: 80px; }
+.th-qtys { width: 70px; }
+.th-unit { width: 60px; }
+.th-warranty { width: 140px; }
+.th-sale-price { width: 90px; }
+.th-mrp { width: 90px; }
+.th-discount { width: 80px; }
+.th-tax { width: 75px; }
+.th-amount { width: 90px; }
+.th-action { width: 65px; }
 
 /* Table Inputs */
 .items-table input[type="number"] {
@@ -1235,23 +1189,28 @@
 
 /* Delete Button */
 .btn-delete {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border: none;
-    background: #f8d7da;
-    color: #721c24;
-    border-radius: 3px;
+    background: #fee;
+    color: #c33;
+    border-radius: 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
     transition: all 0.2s;
     margin: 0 auto;
 }
 
 .btn-delete:hover {
-    background: #f5c6cb;
+    background: #fcc;
+    color: #a00;
+}
+
+.btn-delete svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* Empty Items */
@@ -1364,12 +1323,31 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 7px;
+    margin-bottom: 10px;
 }
 
 .summary-label {
     font-size: 11px;
     color: #555;
+}
+
+.summary-label a {
+    color: #fa8725;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 10px;
+    padding: 4px 8px;
+    background: #fff3e6;
+    border-radius: 3px;
+    border: 1px dashed #fa8725;
+    transition: all 0.2s;
+    display: inline-block;
+}
+
+.summary-label a:hover {
+    background: #fa8725;
+    color: white;
+    border-style: solid;
 }
 
 .summary-value {
@@ -1386,14 +1364,20 @@
 
 .total-row {
     margin-top: 10px;
-    padding-top: 7px;
-    border-top: 1px solid #ddd;
+    padding-top: 10px;
+    border-top: 2px solid #333;
 }
 
 .total-row .summary-label {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 700;
     color: #333;
+}
+
+.total-row .summary-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fa8725;
 }
 /* ================== 50-50 TOP LAYOUT ================== */
 
@@ -1429,11 +1413,6 @@
     gap: 3px;
     transition: all 0.2s;
     text-decoration: none;
-}
-.total-row .summary-value {
-    font-size: 14px;
-    font-weight: 700;
-    color: #333;
 }
 
 /* Payment Section */
@@ -1880,12 +1859,9 @@
 }
 
 /* Products table column widths */
-.th-name { width: 200px; }
 .th-code { width: 90px; }
-.th-price { width: 90px; }
 .th-stock { width: 90px; }
 .th-qty { width: 70px; }
-.th-action { width: 70px; }
 
 /* Quantity Input */
 .products-table input[type="number"] {
@@ -2099,83 +2075,83 @@
         font-size: 9px;
     }
 }
-    </style>
+</style>
 @endpush
 
 @push('scripts')
-    <script>
-        function showFieldError(input, message) {
-            $(input).addClass('error-field');
+<script>
+// ===================== 🔥 COMPLETE CORRECTED JAVASCRIPT =====================
 
-            if (!$(input).next('.field-error').length) {
-                $(input).after(`<div class="field-error">${message}</div>`);
-            }
+function showFieldError(input, message) {
+    $(input).addClass('error-field');
+    if (!$(input).next('.field-error').length) {
+        $(input).after(`<div class="field-error">${message}</div>`);
+    }
+}
+
+function clearFieldError(input) {
+    $(input).removeClass('error-field');
+    $(input).next('.field-error').remove();
+}
+
+let items = [];
+
+// ===================== CUSTOMER MODAL FUNCTIONS =====================
+
+function openSelectCustomerModal() {
+    $('#selectCustomerModal').css('display', 'flex');
+    loadCustomers();
+}
+
+function closeSelectCustomerModal() {
+    $('#selectCustomerModal').hide();
+    $('#searchCustomer').val('');
+}
+
+function openCreateCustomerModal() {
+    closeSelectCustomerModal();
+    $('#createCustomerModal').css('display', 'flex');
+}
+
+function closeCreateCustomerModal() {
+    $('#createCustomerModal').hide();
+    $('#createCustomerForm')[0].reset();
+}
+
+function toggleExtraDiscount() {
+    $('#extraDiscountRow').toggle();
+}
+
+function toggleExtraDiscountPercent() {
+    $('#extraDiscountPercentRow').toggle();
+}
+
+function toggleExtraCharge() {
+    $('#extraChargeRow').toggle();
+}
+
+function loadCustomers(search = '') {
+    const tbody = $('#customersTableBody');
+    const loading = $('#customersLoading');
+    const noData = $('#noCustomers');
+
+    tbody.empty();
+    loading.show();
+    noData.hide();
+
+    $.get('{{ route('admin.sales.customers.list') }}', {
+        search: search
+    }, function(response) {
+        loading.hide();
+
+        if (response.customers.length === 0) {
+            noData.show();
+            return;
         }
 
-        function clearFieldError(input) {
-            $(input).removeClass('error-field');
-            $(input).next('.field-error').remove();
-        }
-
-        let items = [];
-
-        // ===================== CUSTOMER MODAL FUNCTIONS =====================
-
-        function openSelectCustomerModal() {
-            $('#selectCustomerModal').css('display', 'flex');
-            loadCustomers();
-        }
-
-        function closeSelectCustomerModal() {
-            $('#selectCustomerModal').hide();
-            $('#searchCustomer').val('');
-        }
-
-        function openCreateCustomerModal() {
-            closeSelectCustomerModal();
-            $('#createCustomerModal').css('display', 'flex');
-        }
-
-        function closeCreateCustomerModal() {
-            $('#createCustomerModal').hide();
-            $('#createCustomerForm')[0].reset();
-        }
-        function toggleExtraDiscount() {
-            $('#extraDiscountRow').toggle();
-        }
-        function toggleExtraDiscountPercent() {
-            $('#extraDiscountPercentRow').toggle();
-        }
-
-        function toggleExtraCharge() {
-            $('#extraChargeRow').toggle();
-        }
-
-
-        // Load customers for selection
-        function loadCustomers(search = '') {
-            const tbody = $('#customersTableBody');
-            const loading = $('#customersLoading');
-            const noData = $('#noCustomers');
-
-            tbody.empty();
-            loading.show();
-            noData.hide();
-
-            $.get('{{ route('admin.sales.customers.list') }}', {
-                search: search
-            }, function(response) {
-                loading.hide();
-
-                if (response.customers.length === 0) {
-                    noData.show();
-                    return;
-                }
-
-                response.customers.forEach(customer => {
-                    const statusClass = customer.status === 'active' ? 'status-active' : 'status-inactive';
-
-                    const row = `
+        response.customers.forEach(customer => {
+            const statusClass = customer.status === 'active' ? 'status-active' : 'status-inactive';
+            const row = `
                 <tr data-customer-id="${customer.id}">
                     <td class="customer-name">${customer.name}</td>
                     <td class="customer-phone">${customer.phone || '-'}</td>
@@ -2183,205 +2159,184 @@
                     <td class="customer-company">${customer.company_name || '-'}</td>
                     <td class="customer-type">${customer.customer_type}</td>
                     <td class="customer-status">
-                        <span class="status-badge ${statusClass}">
-                            ${customer.status}
-                        </span>
+                        <span class="status-badge ${statusClass}">${customer.status}</span>
                     </td>
                     <td class="customer-action">
-                        <button type="button" class="btn-select-customer-row"
-                                onclick="selectCustomer('${customer.id}')">
-                            Select
-                        </button>
+                        <button type="button" class="btn-select-customer-row" onclick="selectCustomer('${customer.id}')">Select</button>
                     </td>
                 </tr>
             `;
-                    tbody.append(row);
-                });
-            }).fail(function() {
-                loading.hide();
-                showAlert('Failed to load customers', 'error');
-            });
+            tbody.append(row);
+        });
+    }).fail(function() {
+        loading.hide();
+        showAlert('Failed to load customers', 'error');
+    });
+}
+
+function selectCustomer(customerId) {
+    $.get('{{ route('admin.sales.get-customer-details', ':id') }}'.replace(':id', customerId), function(res) {
+        if (!res.success) return;
+
+        const c = res.customer;
+        $('#selectCustomerBtn').hide();
+        $('#selectedCustomerDetails').show();
+        $('#customerNameDisplay').text(c.name);
+        $('#customerPhone').text(c.phone || '-');
+        $('#customerEmail').text(c.email || '-');
+        $('#customerGst').text(c.gst_number || '-');
+        $('#customerType').text(c.customer_type || '-');
+        $('#customerCompany').text(c.company_name || '-');
+        $('#customerIdInput').val(c.id);
+
+        window.selectedCustomer = c;
+
+        if (c.billing_address) {
+            $('#billingAddressText').text(c.billing_address);
+            $('#billingAddressInput').val(c.billing_address);
         }
 
-        // Select customer from list
-        function selectCustomer(customerId) {
-            $.get('{{ route('admin.sales.get-customer-details', ':id') }}'.replace(':id', customerId), function(res) {
-                if (!res.success) return;
-
-                const c = res.customer;
-                // Hide the select customer button
-                $('#selectCustomerBtn').hide();
-
-                $('#selectedCustomerDetails').show();
-                $('#customerNameDisplay').text(c.name);
-                $('#customerPhone').text(c.phone || '-');
-                $('#customerEmail').text(c.email || '-');
-                $('#customerGst').text(c.gst_number || '-');
-                $('#customerType').text(c.customer_type || '-');
-                $('#customerCompany').text(c.company_name || '-');
-
-                $('#customerIdInput').val(c.id);
-
-                window.selectedCustomer = c;
-
-                // Set addresses in hidden fields and display
-                if (c.billing_address) {
-                    $('#billingAddressText').text(c.billing_address);
-                    $('#billingAddressInput').val(c.billing_address);
-                }
-
-                if (c.shipping_address) {
-                    $('#shippingAddressText').text(c.shipping_address);
-                    $('#shippingAddressInput').val(c.shipping_address);
-                } else {
-                    $('#shippingAddressText').text(c.billing_address || 'No shipping address available');
-                    $('#shippingAddressInput').val(c.billing_address || '');
-                }
-
-                closeSelectCustomerModal();
-                showAlert('Customer selected', 'success');
-            });
+        if (c.shipping_address) {
+            $('#shippingAddressText').text(c.shipping_address);
+            $('#shippingAddressInput').val(c.shipping_address);
+        } else {
+            $('#shippingAddressText').text(c.billing_address || 'No shipping address available');
+            $('#shippingAddressInput').val(c.billing_address || '');
         }
 
-        function showChangeCustomerButton() {
-            if ($('#customerIdInput').val()) {
-                $('.btn-select-customer').hide();
-            }
+        closeSelectCustomerModal();
+        showAlert('Customer selected', 'success');
+    });
+}
+
+// ===================== PAYMENT TERMS =====================
+
+function updateDueDateFromTerms() {
+    const invoiceDate = $('#invoiceDate').val();
+    const days = parseInt($('#paymentTermsDays').val()) || 0;
+
+    if (!invoiceDate || days <= 0) return;
+
+    const date = new Date(invoiceDate);
+    date.setDate(date.getDate() + days);
+
+    const dueDate = date.toISOString().split('T')[0];
+    $('#dueDate').val(dueDate);
+    $('#paymentTermsInput').val(`Due in ${days} days`);
+}
+
+function updatePaymentTermsFromDueDate() {
+    const invoiceDate = $('#invoiceDate').val();
+    const dueDate = $('#dueDate').val();
+
+    if (!invoiceDate || !dueDate) return;
+
+    const start = new Date(invoiceDate);
+    const end = new Date(dueDate);
+
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    $('#paymentTermsDays').val(diffDays);
+    $('#paymentTermsInput').val(`Due in ${diffDays} days`);
+}
+
+// ===================== ITEM MODAL =====================
+
+function openAddItemModal() {
+    $('#addItemModal').css('display', 'flex');
+    $('#searchProduct').val('');
+    loadProducts();
+}
+
+function closeAddItemModal() {
+    $('#addItemModal').hide();
+    $('#searchProduct').val('');
+    loadProducts();
+}
+
+function markFullyPaid() {
+    const grandTotal = parseFloat($('#grandTotal').text()) || 0;
+    $('#amountPaid').val(grandTotal.toFixed(2));
+    calculateBalance();
+}
+
+function addSelectedProducts() {
+    $('#productsTableBody tr').each(function() {
+        const checkbox = $(this).find('.select-product');
+        if (!checkbox.is(':checked')) return;
+
+        const input = $(this).find('.qty-input');
+        const qty = parseFloat(input.val()) || 0;
+        const maxStock = parseFloat(input.data('stock'));
+
+        if (qty <= 0) return;
+        if (qty > maxStock) {
+            showAlert(`Only ${maxStock} items available`, 'error');
+            return;
         }
 
-        // ===================== PAYMENT TERMS AND DUE DATE CALCULATION =====================
+        const salePrice = parseFloat(input.data('price')) || 0;
+        const mrpPrice = parseFloat(input.data('mrp')) || 0;
 
-        function updateDueDateFromTerms() {
-            const invoiceDate = $('#invoiceDate').val();
-            const days = parseInt($('#paymentTermsDays').val()) || 0;
-
-            if (!invoiceDate || days <= 0) return;
-
-            const date = new Date(invoiceDate);
-            date.setDate(date.getDate() + days);
-
-            const dueDate = date.toISOString().split('T')[0];
-            $('#dueDate').val(dueDate);
-
-            // Update hidden payment terms field
-            $('#paymentTermsInput').val(`Due in ${days} days`);
+        let autoDiscount = 0;
+        if (mrpPrice > 0 && mrpPrice > salePrice) {
+            autoDiscount = ((mrpPrice - salePrice) / mrpPrice) * 100;
         }
 
-        function updatePaymentTermsFromDueDate() {
-            const invoiceDate = $('#invoiceDate').val();
-            const dueDate = $('#dueDate').val();
+        const item = {
+            product_id: input.data('product-id'),
+            variant_id: input.data('variant-id'),
+            product_type: input.data('type'),
+            name: input.data('name'),
+            sku: input.data('sku'),
+            hsn_sac: input.data('hsn'),
+            mrp_price: mrpPrice,
+            price: salePrice,
+            quantity: qty,
+            discount: parseFloat(autoDiscount.toFixed(2)),
+            tax_percent: parseFloat(input.data('tax')) || 0,
+            unit: input.data('unit') || 'PCS',
+            warranty_type: input.data('warranty-type') || 'none',
+            warranty_period: parseInt(input.data('warranty-period')) || 0
+        };
 
-            if (!invoiceDate || !dueDate) return;
+        addItemToInvoice(item);
+    });
 
-            const start = new Date(invoiceDate);
-            const end = new Date(dueDate);
+    closeAddItemModal();
+}
 
-            const diffTime = Math.abs(end - start);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+function loadProducts(search = '') {
+    const tbody = $('#productsTableBody');
+    const loading = $('#productsLoading');
 
-            $('#paymentTermsDays').val(diffDays);
-            $('#paymentTermsInput').val(`Due in ${diffDays} days`);
-        }
+    tbody.empty();
+    loading.show();
 
-        // ===================== ITEM MODAL FUNCTIONS =====================
+    $.get('{{ route('admin.sales.get-main-warehouse-products') }}', {
+        search: search
+    }, function(response) {
+        loading.hide();
 
-        function openAddItemModal() {
-            $('#addItemModal').css('display', 'flex');
-            $('#searchProduct').val('');
-            loadProducts();
-        }
-
-        function closeAddItemModal() {
-            $('#addItemModal').hide();
-            $('#searchProduct').val('');
-            loadProducts();
-        }
-        function markFullyPaid() {
-            const grandTotal = parseFloat($('#grandTotal').text()) || 0;
-            $('#amountPaid').val(grandTotal.toFixed(2));
-            calculateBalance();
-        }
-        function addSelectedProducts() {
-
-            $('#productsTableBody tr').each(function() {
-
-                const checkbox = $(this).find('.select-product');
-
-                if (!checkbox.is(':checked')) return;
-
-                const input = $(this).find('.qty-input');
-
-                const qty = parseFloat(input.val()) || 0;
-                const maxStock = parseFloat(input.data('stock'));
-
-                if (qty <= 0) return;
-                if (qty > maxStock) {
-                    showAlert(`Only ${maxStock} items available`, 'error');
-                    return;
-                }
-                const salePrice = parseFloat(input.data('price')) || 0;
-                const mrpPrice = parseFloat(input.data('mrp')) || 0;
-
-                let autoDiscount = 0;
-
-                if (mrpPrice > 0 && mrpPrice > salePrice) {
-                    autoDiscount = ((mrpPrice - salePrice) / mrpPrice) * 100;
-                }
-
-
-                const item = {
-                    product_id: input.data('product-id'),
-                    variant_id: input.data('variant-id'),
-                    product_type: input.data('type'),
-                    name: input.data('name'),
-                    sku: input.data('sku'),
-                    hsn_sac: input.data('hsn'),
-                    price: parseFloat(input.data('price')),
-                    quantity: qty,
-                    discount: autoDiscount.toFixed(2),
-                    tax_percent: parseFloat(input.data('tax')) || 0,
-                    unit: input.data('unit') || 'PCS',
-                    warranty_type: input.data('warranty-type') || 'none',
-                    warranty_period: parseInt(input.data('warranty-period')) || 0
-                };
-
-                addItemToInvoice(item);
-            });
-
-            closeAddItemModal();
-        }
-
-
-
-        function loadProducts(search = '') {
-            const tbody = $('#productsTableBody');
-            const loading = $('#productsLoading');
-
-            tbody.empty();
-            loading.show();
-
-            $.get('{{ route('admin.sales.get-main-warehouse-products') }}', {
-                search: search
-            }, function(response) {
-                loading.hide();
-
-                if (response.products.length === 0) {
-                    tbody.html(`
+        if (response.products.length === 0) {
+            tbody.html(`
                 <tr>
-                    <td colspan="6" class="text-center" style="padding: 40px 20px;">
+                    <td colspan="7" class="text-center" style="padding: 40px 20px;">
                         <div style="font-size: 32px; opacity: 0.3; margin-bottom: 10px;">📦</div>
                         <p style="font-size: 11px; color: #6b7280;">No products found</p>
                     </td>
                 </tr>
             `);
-                    return;
-                }
+            return;
+        }
 
-                response.products.forEach(product => {
-                    const row = `
+        response.products.forEach(product => {
+            const row = `
                 <tr>
                     <td class="product-name">${product.name}</td>
                     <td class="product-code">${product.sku || '-'}</td>
+                    <td class="product-mrp">₹ ${parseFloat(product.mrp_price || 0).toFixed(2)}</td>
                     <td class="product-price">₹ ${parseFloat(product.sale_price).toFixed(2)}</td>
                     <td class="product-stock">${product.current_stock} ${product.unit}</td>
                     <td class="product-qty">
@@ -2394,123 +2349,99 @@
                                data-variant-id="${product.variant_id || ''}"
                                data-type="${product.type}"
                                data-price="${product.sale_price}"
-                               data-mrp="${product.mrp_price}"
+                               data-mrp="${product.mrp_price || 0}"
                                data-stock="${product.current_stock}"
                                data-name="${product.name}"
                                data-sku="${product.sku}"
                                data-hsn="${product.hsn_code || ''}"
                                data-tax="${product.tax_percent || 0}"
                                data-unit="${product.unit}"
-                                data-warranty-type="${product.warranty_type}"
-                                data-warranty-period="${product.warranty_period}">
+                               data-warranty-type="${product.warranty_type}"
+                               data-warranty-period="${product.warranty_period}">
                     </td>
                     <td>
                         <input type="checkbox" class="select-product">
                     </td>
-
                 </tr>
             `;
-                    tbody.append(row);
-                });
-            }).fail(function() {
-                loading.hide();
-                tbody.html(`
+            tbody.append(row);
+        });
+    }).fail(function() {
+        loading.hide();
+        tbody.html(`
             <tr>
-                <td colspan="6" class="text-center" style="padding: 40px 20px; color: #ef4444;">
+                <td colspan="7" class="text-center" style="padding: 40px 20px; color: #ef4444;">
                     Failed to load products
                 </td>
             </tr>
         `);
-            });
+    });
+}
+
+// ===================== ITEM MANAGEMENT =====================
+
+function addItemToInvoice(item) {
+    const existingIndex = items.findIndex(i =>
+        i.product_id === item.product_id &&
+        i.variant_id === item.variant_id
+    );
+
+    if (existingIndex > -1) {
+        items[existingIndex].quantity += item.quantity;
+        showAlert(`Updated quantity for ${item.name}`, 'info');
+    } else {
+        items.push(item);
+        showAlert(`Added ${item.name} to invoice`, 'success');
+    }
+
+    renderItemsTable();
+}
+
+function updateItem(index, field, value) {
+    if (items[index]) {
+        items[index][field] = parseFloat(value) || 0;
+
+        // 🔥 When discount changes, recalculate sale price from MRP
+        if (field === 'discount') {
+            const mrp = parseFloat(items[index].mrp_price || 0);
+            const discountPercent = parseFloat(value || 0);
+
+            if (mrp > 0 && discountPercent >= 0 && discountPercent <= 100) {
+                const discountAmount = (mrp * discountPercent) / 100;
+                items[index].price = mrp - discountAmount;
+            }
         }
 
-        function addProductToInvoice(button) {
-            const input = $(button).closest('tr').find('.qty-input');
-            const qty = parseInt(input.val());
-            const maxStock = parseInt(input.data('stock'));
+        // 🔥 When sale price changes, recalculate discount from MRP
+        if (field === 'price') {
+            const mrp = parseFloat(items[index].mrp_price || 0);
+            const sale = parseFloat(value || 0);
 
-            if (qty < 1) {
-                showAlert('Quantity must be at least 1', 'error');
-                return;
-            }
-
-            if (qty > maxStock) {
-                showAlert(`Only ${maxStock} items available in stock`, 'error');
-                return;
-            }
-
-            const item = {
-                product_id: input.data('product-id'),
-                variant_id: input.data('variant-id'),
-                product_type: input.data('type'),
-                name: input.data('name'),
-                sku: input.data('sku'),
-                hsn_sac: input.data('hsn'),
-                price: parseFloat(input.data('price')),
-                quantity: qty,
-                discount: 0,
-                tax_percent: 0,
-                unit: input.data('unit') || 'PCS',
-                 warranty_type: input.data('warranty-type') || 'none',
-                 warranty_period: parseInt(input.data('warranty-period')) || 0
-            };
-
-            addItemToInvoice(item);
-            closeAddItemModal();
-        }
-
-        // ===================== ITEM MANAGEMENT FUNCTIONS =====================
-
-        function addItemToInvoice(item) {
-            const existingIndex = items.findIndex(i =>
-                i.product_id === item.product_id &&
-                i.variant_id === item.variant_id
-            );
-
-            if (existingIndex > -1) {
-                items[existingIndex].quantity += item.quantity;
-                showAlert(`Updated quantity for ${item.name}`, 'info');
+            if (mrp > 0 && sale <= mrp) {
+                items[index].discount = ((mrp - sale) / mrp) * 100;
             } else {
-                items.push(item);
-                showAlert(`Added ${item.name} to invoice`, 'success');
-            }
-
-            renderItemsTable();
-            calculateTotals();
-        }
-
-        function removeItem(index) {
-            const itemName = items[index].name;
-            items.splice(index, 1);
-            renderItemsTable();
-            calculateTotals();
-            showAlert(`Removed ${itemName} from invoice`, 'info');
-        }
-
-        function updateItem(index, field, value) {
-            if (items[index]) {
-                items[index][field] = parseFloat(value) || 0;
-
-                const item = items[index];
-                const itemTotal = item.quantity * item.price;
-                const discountAmount = (itemTotal * item.discount) / 100;
-                const subtotal = itemTotal - discountAmount;
-                item.tax_amount = (subtotal * item.tax_percent) / 100;
-
-                renderItemsTable();
-                calculateTotals();
+                items[index].discount = 0;
             }
         }
 
+        renderItemsTable();
+    }
+}
 
-        function renderItemsTable() {
-            const tbody = $('#itemsTableBody');
-            tbody.empty();
+function removeItem(index) {
+    items.splice(index, 1);
+    renderItemsTable();
+}
 
-            if (items.length === 0) {
-                tbody.html(`
+// ===================== 🔥 CORRECTED RENDER ITEMS TABLE =====================
+function renderItemsTable() {
+    const tbody = $('#itemsTableBody');
+    tbody.empty();
+
+    if (items.length === 0) {
+        tbody.html(`
             <tr class="empty-row">
-                <td colspan="10">
+                <td colspan="11">
                     <div class="empty-items">
                         <div class="empty-icon">🛒</div>
                         <p>No items added yet</p>
@@ -2521,450 +2452,408 @@
                 </td>
             </tr>
         `);
-                return;
-            }
+        $('#itemsTableFooter').hide();
 
-            items.forEach((item, index) => {
-                const itemTotal = item.quantity * item.price;
-                const discountAmount = (itemTotal * item.discount) / 100;
-                const subtotal = itemTotal - discountAmount;
-                const taxAmount = (subtotal * item.tax_percent) / 100;
-                const total = subtotal + taxAmount;
+        // Reset summary
+        $('#totalMRP').text('0.00');
+        $('#totalDiscount').text('0.00');
+        $('#totalTax').text('0.00');
+        $('#subtotal').text('0.00');
+        $('#grandTotal').text('0.00');
+        calculateBalance();
+        return;
+    }
 
-                const row = `
+    $('#itemsTableFooter').show();
+
+    // Initialize footer totals
+    let footerMRP = 0;
+    let footerDiscountAmount = 0;
+    let footerSalePrice = 0;
+    let footerTaxAmount = 0;
+    let footerFinalAmount = 0;
+
+    items.forEach((item, index) => {
+        const mrpPrice = parseFloat(item.mrp_price || 0);
+        const salePrice = parseFloat(item.price || 0);
+        const quantity = parseFloat(item.quantity || 1);
+        const discountPercent = parseFloat(item.discount || 0);
+        const taxPercent = parseFloat(item.tax_percent || 0);
+
+        // 🔥 Calculations
+        const mrpTotal = quantity * mrpPrice;
+        const discountAmount = (mrpTotal * discountPercent) / 100;
+        const salePriceTotal = quantity * salePrice;
+        const taxAmount = (salePriceTotal * taxPercent) / 100;
+        const finalTotal = salePriceTotal + taxAmount;
+
+        // Add to footer totals
+        footerMRP += mrpTotal;
+        footerDiscountAmount += discountAmount;
+        footerSalePrice += salePriceTotal;
+        footerTaxAmount += taxAmount;
+        footerFinalAmount += finalTotal;
+
+        // 🔥 Render row: Warranty → MRP (readonly) → Discount % (EDITABLE) → Sale Price (editable) → Tax → Final
+        const row = `
             <tr>
-                <td class="item-name">
-
-                    ${item.name}
-                </td>
+                <td class="item-name">${item.name}</td>
                 <td class="item-hsn">${item.hsn_sac || '-'}</td>
                 <td class="item-unit">${item.unit || 'PCS'}</td>
                 <td class="item-qty">
-                    <input type="number"
-                           class="qty-edit"
-                           min="1"
-                           value="${item.quantity}"
-                           onchange="updateItem(${index}, 'quantity', this.value)">
+                    <input type="number" class="qty-edit" min="1" value="${quantity}"
+                        onchange="updateItem(${index}, 'quantity', this.value)">
                 </td>
                 <td class="item-warranty">
                     <div class="warranty-wrapper">
-                        <input type="number"
-                            min="0"
-                            value="${item.warranty_period}"
-                            onchange="updateWarrantyPeriod(${index}, this.value)"
-                            class="warranty-input">
-
-                        <select onchange="updateWarrantyType(${index}, this.value)"
-                            class="warranty-select">
-                            <option value="none" ${item.warranty_type==='none'?'selected':''}>None</option>
-                            <option value="month" ${item.warranty_type==='month'?'selected':''}>Month(s)</option>
-                            <option value="year" ${item.warranty_type==='year'?'selected':''}>Year(s)</option>
+                        <input type="number" min="0" value="${item.warranty_period || 0}"
+                            onchange="updateWarrantyPeriod(${index}, this.value)" class="warranty-input">
+                        <select onchange="updateWarrantyType(${index}, this.value)" class="warranty-select">
+                            <option value="none" ${item.warranty_type === 'none' ? 'selected' : ''}>None</option>
+                            <option value="month" ${item.warranty_type === 'month' ? 'selected' : ''}>Month(s)</option>
+                            <option value="year" ${item.warranty_type === 'year' ? 'selected' : ''}>Year(s)</option>
                         </select>
                     </div>
                 </td>
-
-
-                <td class="item-price">
-                    <input type="number"
-                           class="price-edit"
-                           min="0"
-                           step="0.01"
-                           value="${item.price}"
-                           onchange="updateItem(${index}, 'price', this.value)">
-                </td>
+                <td class="item-mrp" style="background: #f9f9f9;">₹ ${mrpPrice.toFixed(2)}</td>
                 <td class="item-discount">
-                    <input type="number"
-                           class="discount-edit"
-                           min="0"
-                           max="100"
-                           value="${item.discount}"
-                           onchange="updateItem(${index}, 'discount', this.value)">
+                    <input type="number" class="discount-edit" min="0" max="100" step="0.01" value="${discountPercent.toFixed(2)}"
+                        onchange="updateItem(${index}, 'discount', this.value)">
+                </td>
+                <td class="item-sale-price">
+                    <input type="number" class="sale-price-edit" min="0" step="0.01" value="${salePrice.toFixed(2)}"
+                        onchange="updateItem(${index}, 'price', this.value)">
                 </td>
                 <td class="item-tax">
-                    <input type="number"
-                           class="tax-edit"
-                           min="0"
-                           max="100"
-                           value="${item.tax_percent}"
-                           onchange="updateItem(${index}, 'tax_percent', this.value)">
+                    <input type="number" class="tax-edit" min="0" max="100" step="0.01" value="${taxPercent.toFixed(2)}"
+                        onchange="updateItem(${index}, 'tax_percent', this.value)">
                 </td>
-                <td class="item-amount">₹ ${total.toFixed(2)}</td>
+                <td class="item-amount">₹ ${finalTotal.toFixed(2)}</td>
                 <td class="item-action">
                     <button type="button" class="btn-delete" onclick="removeItem(${index})" title="Remove item">
-                        🗑️
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+                        </svg>
                     </button>
                 </td>
             </tr>
         `;
-                tbody.append(row);
-            });
-        }
+        tbody.append(row);
+    });
 
-        function updateWarrantyType(index, value) {
-            items[index].warranty_type = value;
-        }
+    // 🔥 Calculate footer percentages
+    const footerDiscountPercent = footerMRP > 0 ? (footerDiscountAmount / footerMRP) * 100 : 0;
+    const footerTaxPercent = footerSalePrice > 0 ? (footerTaxAmount / footerSalePrice) * 100 : 0;
 
-        function updateWarrantyPeriod(index, value) {
-            items[index].warranty_period = parseInt(value) || 0;
-        }
+    // 🔥 Update footer: MRP → Discount % → Sale Price → Tax % → Final Amount
+    $('#footerMRP').text('₹ ' + footerMRP.toFixed(2));
+    $('#footerDiscount').text(footerDiscountPercent.toFixed(2) + '%');
+    $('#footerSalePrice').text('₹ ' + footerSalePrice.toFixed(2));
+    $('#footerTax').text(footerTaxPercent.toFixed(2) + '%');
+    $('#footerFinalAmount').text('₹ ' + footerFinalAmount.toFixed(2));
 
-        function calculateTotals() {
-            let subtotal = 0;
-            let discountTotal = 0;
-            let taxTotal = 0;
+    // 🔥 Pass to invoice summary
+    calculateInvoiceSummary(footerMRP, footerDiscountAmount, footerTaxAmount, footerFinalAmount);
+}
 
-            items.forEach(item => {
-                const itemTotal = item.quantity * item.price;
-                const discountAmount = (itemTotal * item.discount) / 100;
-                const subtotalItem = itemTotal - discountAmount;
-                const taxAmount = (subtotalItem * item.tax_percent) / 100;
+// ===================== 🔥 CORRECTED INVOICE SUMMARY =====================
+function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotalFinal) {
+    // Extra discount (fixed amount)
+    let extraDiscount = parseFloat($('#extraDiscount').val()) || 0;
 
-                subtotal += subtotalItem;
-                discountTotal += discountAmount;
-                taxTotal += taxAmount;
-            });
+    // Extra discount (percentage)
+    const discountPercent = parseFloat($('#extraDiscountPercent').val()) || 0;
+    if (discountPercent > 0) {
+        extraDiscount = (subtotalFinal * discountPercent) / 100;
+    }
 
-            let grandTotal = subtotal + taxTotal;
+    // 🔥 Grand total calculation
+    let grandTotal = subtotalFinal;
+    grandTotal -= extraDiscount;
 
-            // Extra Discount
-           let extraDiscount = parseFloat($('#extraDiscount').val()) || 0;
+    // Extra charge
+    const extraCharge = parseFloat($('#extraCharge').val()) || 0;
+    grandTotal += extraCharge;
 
-            const discountPercent = parseFloat($('#extraDiscountPercent').val()) || 0;
+    // Auto round off
+    if ($('#autoRoundOff').is(':checked')) {
+        grandTotal = Math.round(grandTotal);
+    }
 
-            if (discountPercent > 0) {
-                extraDiscount = (subtotal * discountPercent) / 100;
+    // 🔥 Update invoice summary: Total MRP → Total Discount → Total Tax → Subtotal → Grand Total
+    $('#totalMRP').text(totalMRP.toFixed(2));
+    $('#totalDiscount').text(totalDiscount.toFixed(2));
+    $('#totalTax').text(totalTax.toFixed(2));
+    $('#subtotal').text(subtotalFinal.toFixed(2));
+    $('#grandTotal').text(grandTotal.toFixed(2));
+
+    // Update hidden inputs
+    $('#taxAmountInput').val(totalTax.toFixed(2));
+    $('#discountAmountInput').val((totalDiscount + extraDiscount).toFixed(2));
+
+    calculateBalance();
+}
+
+function updateWarrantyType(index, value) {
+    items[index].warranty_type = value;
+}
+
+function updateWarrantyPeriod(index, value) {
+    items[index].warranty_period = parseInt(value) || 0;
+}
+
+function calculateTotals() {
+    renderItemsTable();
+}
+
+function calculateBalance() {
+    const grandTotal = parseFloat($('#grandTotal').text().replace(/,/g, '')) || 0;
+    const amountPaid = parseFloat($('#amountPaid').val()) || 0;
+    const balance = grandTotal - amountPaid;
+    $('#balanceAmount').text(balance.toFixed(2));
+}
+
+function validateForm() {
+    if (!$('#customerIdInput').val()) {
+        showAlert('Please select a customer', 'error');
+        return false;
+    }
+
+    if (items.length === 0) {
+        showAlert('Please add at least one item', 'error');
+        return false;
+    }
+
+    return true;
+}
+
+function showAlert(message, type = 'success') {
+    const container = document.getElementById('alertContainer');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.innerHTML = `<span>${message}</span>`;
+    container.appendChild(alert);
+    setTimeout(() => alert.remove(), 5000);
+}
+
+// ===================== DOCUMENT READY =====================
+
+$(document).ready(function() {
+    window.selectedCustomer = null;
+    loadProducts();
+
+    $('#searchProduct').on('input', function () {
+        const value = this.value.toLowerCase();
+        $('#productsTableBody tr').each(function () {
+            const name = $(this).find('.product-name').text().toLowerCase();
+            const code = $(this).find('.product-code').text().toLowerCase();
+            if (name.includes(value) || code.includes(value)) {
+                $(this).show();
+            } else {
+                $(this).hide();
             }
-
-            grandTotal -= extraDiscount;
-
-            // Extra Charge
-            const extraCharge = parseFloat($('#extraCharge').val()) || 0;
-            grandTotal += extraCharge;
-
-            // Auto Round Off
-            if ($('#autoRoundOff').is(':checked')) {
-                grandTotal = Math.round(grandTotal);
-            }
-
-            $('#subtotal').text(subtotal.toFixed(2));
-            $('#discountTotal').text(discountTotal.toFixed(2));
-            $('#taxTotal').text(taxTotal.toFixed(2));
-            $('#grandTotal').text(grandTotal.toFixed(2));
-
-            calculateBalance();
-        }
-
-        function calculateBalance() {
-            const grandTotal = parseFloat($('#grandTotal').text().replace(/,/g, '')) || 0;
-            const amountPaid = parseFloat($('#amountPaid').val()) || 0;
-            const balance = grandTotal - amountPaid;
-
-            $('#balanceAmount').text(balance.toFixed(2));
-        }
-
-        function validateForm() {
-            if (!$('#customerIdInput').val()) {
-                showAlert('Please select a customer', 'error');
-                return false;
-            }
-
-            if (items.length === 0) {
-                showAlert('Please add at least one item', 'error');
-                return false;
-            }
-
-            return true;
-        }
-
-        function showAlert(message, type = 'success') {
-            const container = document.getElementById('alertContainer');
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.innerHTML = `<span>${message}</span>`;
-            container.appendChild(alert);
-            setTimeout(() => alert.remove(), 5000);
-        }
-        function debounce(func, delay = 400) {
-            let timer;
-            return function (...args) {
-                clearTimeout(timer);
-                timer = setTimeout(() => func.apply(this, args), delay);
-            };
-        }
-
-        // ===================== DOCUMENT READY =====================
-
-        $(document).ready(function() {
-            window.selectedCustomer = null;
-
-            // Initial load
-            loadProducts();
-            $('#searchProduct').on('input', function () {
-                const value = this.value.toLowerCase();
-
-                $('#productsTableBody tr').each(function () {
-                    const name = $(this).find('.product-name').text().toLowerCase();
-                    const code = $(this).find('.product-code').text().toLowerCase();
-
-                    if (name.includes(value) || code.includes(value)) {
-                        $(this).show();
-                    } else {
-                        $(this).hide();
-                    }
-                });
-            });
-
-            $('#searchCustomer').on('input', function () {
-                const value = this.value.toLowerCase();
-
-                $('#customersTableBody tr').each(function () {
-                    const name = $(this).find('.customer-name').text().toLowerCase();
-                    const phone = $(this).find('.customer-phone').text().toLowerCase();
-                    const email = $(this).find('.customer-email').text().toLowerCase();
-                    const company = $(this).find('.customer-company').text().toLowerCase();
-
-                    if (
-                        name.includes(value) ||
-                        phone.includes(value) ||
-                        email.includes(value) ||
-                        company.includes(value)
-                    ) {
-                        $(this).show();
-                    } else {
-                        $(this).hide();
-                    }
-                });
-            });
-
-
-
-
-
-            // Payment terms and due date listeners
-            $('#invoiceDate').on('change', function() {
-                updateDueDateFromTerms();
-            });
-
-            $('#paymentTermsDays').on('change', function() {
-                updateDueDateFromTerms();
-            });
-
-            $('#dueDate').on('change', function() {
-                updatePaymentTermsFromDueDate();
-            });
-
-            // Balance calculation
-            $('#amountPaid').on('input', function() {
-                calculateBalance();
-            });
-
-            // Validation
-            $('input[name="phone"]').on('input', function() {
-                const value = this.value.replace(/\D/g, '');
-                this.value = value;
-
-                if (value.length !== 10) {
-                    showFieldError(this, 'Phone number must be 10 digits');
-                } else {
-                    clearFieldError(this);
-                }
-            });
-
-            $('input[name="billing_pincode"], input[name="shipping_pincode"]').on('input', function() {
-                const value = this.value.replace(/\D/g, '');
-                this.value = value;
-
-                if (value && value.length !== 6) {
-                    showFieldError(this, 'Pincode must be 6 digits');
-                } else {
-                    clearFieldError(this);
-                }
-            });
-
-            $('input[name="email"]').on('blur', function() {
-                const value = this.value;
-
-                if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-                    showFieldError(this, 'Invalid email format');
-                } else {
-                    clearFieldError(this);
-                }
-            });
-
-            $('input[name="pan_number"]').on('input', function() {
-                this.value = this.value.toUpperCase();
-
-                if (this.value && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(this.value)) {
-                    showFieldError(this, 'Invalid PAN format (ABCDE1234F)');
-                } else {
-                    clearFieldError(this);
-                }
-            });
-
-            $('input[name="gst_number"]').on('input', function() {
-                this.value = this.value.toUpperCase();
-
-                if (this.value && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(this.value)) {
-                    showFieldError(this, 'Invalid GST number');
-                } else {
-                    clearFieldError(this);
-                }
-            });
-
-            // Same as billing address functionality
-           function copyBillingToShipping() {
-                const form = $('#createCustomerForm');
-
-                form.find('input[name="shipping_address"]').val(
-                    form.find('input[name="billing_address"]').val()
-                );
-
-                form.find('input[name="shipping_city"]').val(
-                    form.find('input[name="billing_city"]').val()
-                );
-
-                form.find('input[name="shipping_state"]').val(
-                    form.find('input[name="billing_state"]').val()
-                );
-
-                form.find('input[name="shipping_pincode"]').val(
-                    form.find('input[name="billing_pincode"]').val()
-                );
-
-                form.find('input[name="shipping_country"]').val(
-                    form.find('input[name="billing_country"]').val()
-                );
-            }
-
-            $('#sameBillingShipping').on('change', function() {
-                if (this.checked) {
-                    copyBillingToShipping();
-                }
-            });
-
-            $('input[name="billing_address"], input[name="billing_city"], input[name="billing_state"], input[name="billing_pincode"], input[name="billing_country"]')
-                .on('input', function() {
-                    if ($('#sameBillingShipping').is(':checked')) {
-                        copyBillingToShipping();
-                    }
-                });
-
-            // Create customer form submission
-            $('#createCustomerForm').submit(function(e) {
-                if ($('.error-field').length) {
-                    showAlert('Please fix validation errors', 'error');
-                    return false;
-                }
-                e.preventDefault();
-
-                showAlert('Creating customer...', 'info');
-
-                $.ajax({
-                    url: '/admin/sales/create-customer',
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        if (response.success) {
-                            showAlert('Customer created successfully!', 'success');
-                            closeCreateCustomerModal();
-                            selectCustomer(response.customer_id);
-                        } else {
-                            showAlert('Error: ' + response.message, 'error');
-                        }
-                    },
-                    error: function(xhr) {
-                        showAlert('Failed to create customer: ' + (xhr.responseJSON?.message ||
-                            'Unknown error'), 'error');
-                    }
-                });
-            });
-
-            // Invoice form submission
-            $('#salesInvoiceForm').submit(function(e) {
-                e.preventDefault();
-
-                if (!validateForm()) {
-                    return;
-                }
-
-                // Prepare form data
-                const formData = new FormData();
-
-                // Add all form fields
-                $('#salesInvoiceForm').serializeArray().forEach(item => {
-                    formData.append(item.name, item.value);
-                });
-
-                // Add items array
-                formData.append('items', JSON.stringify(items));
-
-                // Add calculated totals
-                formData.append('subtotal', $('#subtotal').text());
-                formData.append('grand_total', $('#grandTotal').text());
-                formData.append('tax_amount', $('#taxTotal').text());
-                formData.append('discount_amount', $('#discountTotal').text());
-                formData.append('balance_amount', $('#balanceAmount').text());
-                formData.append('extra_discount', $('#extraDiscount').val() || 0);
-                formData.append('extra_charge', $('#extraCharge').val() || 0);
-                formData.append('charge_name', $('#chargeName').val() || '');
-                formData.append('auto_round_off', $('#autoRoundOff').is(':checked') ? 1 : 0);
-
-
-                showAlert('Creating invoice...', 'info');
-
-                $.ajax({
-                    url: '{{ route('admin.sales.store') }}',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        if (response.success) {
-                            showAlert('Invoice created successfully!', 'success');
-                            setTimeout(() => {
-                                window.location.href = '/admin/sales/' + response.invoice_id;
-                            }, 1500);
-                        } else {
-                            showAlert('Error: ' + response.message, 'error');
-                        }
-                    },
-                    error: function(xhr) {
-                        showAlert('Failed to create invoice: ' + (xhr.responseJSON?.message || 'Unknown error'), 'error');
-                    }
-                });
-            });
-
-            // Modal close handlers
-            document.querySelectorAll('.modal-overlay').forEach(overlay => {
-                overlay.addEventListener('click', function() {
-                    const modal = this.closest('.modal');
-                    if (modal.id === 'selectCustomerModal') {
-                        closeSelectCustomerModal();
-                    } else if (modal.id === 'createCustomerModal') {
-                        closeCreateCustomerModal();
-                    } else if (modal.id === 'addItemModal') {
-                        closeAddItemModal();
-                    }
-                });
-            });
-
-            // Close modals on Escape key
-            document.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape') {
-                    closeSelectCustomerModal();
-                    closeCreateCustomerModal();
-                    closeAddItemModal();
-                }
-            });
-
-            // Auto-calculate due date on page load if payment terms exist
-            setTimeout(function() {
-                const termsDays = parseInt($('#paymentTermsDays').val());
-                if (termsDays > 0) {
-                    updateDueDateFromTerms();
-                }
-            }, 100);
         });
-    </script>
+    });
+
+    $('#searchCustomer').on('input', function () {
+        const value = this.value.toLowerCase();
+        $('#customersTableBody tr').each(function () {
+            const name = $(this).find('.customer-name').text().toLowerCase();
+            const phone = $(this).find('.customer-phone').text().toLowerCase();
+            const email = $(this).find('.customer-email').text().toLowerCase();
+            const company = $(this).find('.customer-company').text().toLowerCase();
+
+            if (name.includes(value) || phone.includes(value) || email.includes(value) || company.includes(value)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    $('#invoiceDate').on('change', updateDueDateFromTerms);
+    $('#paymentTermsDays').on('change', updateDueDateFromTerms);
+    $('#dueDate').on('change', updatePaymentTermsFromDueDate);
+    $('#amountPaid').on('input', calculateBalance);
+
+    // Validation
+    $('input[name="phone"]').on('input', function() {
+        const value = this.value.replace(/\D/g, '');
+        this.value = value;
+        if (value.length !== 10) {
+            showFieldError(this, 'Phone number must be 10 digits');
+        } else {
+            clearFieldError(this);
+        }
+    });
+
+    $('input[name="billing_pincode"], input[name="shipping_pincode"]').on('input', function() {
+        const value = this.value.replace(/\D/g, '');
+        this.value = value;
+        if (value && value.length !== 6) {
+            showFieldError(this, 'Pincode must be 6 digits');
+        } else {
+            clearFieldError(this);
+        }
+    });
+
+    $('input[name="email"]').on('blur', function() {
+        const value = this.value;
+        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            showFieldError(this, 'Invalid email format');
+        } else {
+            clearFieldError(this);
+        }
+    });
+
+    $('input[name="pan_number"]').on('input', function() {
+        this.value = this.value.toUpperCase();
+        if (this.value && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(this.value)) {
+            showFieldError(this, 'Invalid PAN format (ABCDE1234F)');
+        } else {
+            clearFieldError(this);
+        }
+    });
+
+    $('input[name="gst_number"]').on('input', function() {
+        this.value = this.value.toUpperCase();
+        if (this.value && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(this.value)) {
+            showFieldError(this, 'Invalid GST number');
+        } else {
+            clearFieldError(this);
+        }
+    });
+
+    // Same as billing checkbox
+    function copyBillingToShipping() {
+        const form = $('#createCustomerForm');
+        form.find('input[name="shipping_address"]').val(form.find('input[name="billing_address"]').val());
+        form.find('input[name="shipping_city"]').val(form.find('input[name="billing_city"]').val());
+        form.find('input[name="shipping_state"]').val(form.find('input[name="billing_state"]').val());
+        form.find('input[name="shipping_pincode"]').val(form.find('input[name="billing_pincode"]').val());
+        form.find('input[name="shipping_country"]').val(form.find('input[name="billing_country"]').val());
+    }
+
+    $('#sameBillingShipping').on('change', function() {
+        if (this.checked) {
+            copyBillingToShipping();
+        }
+    });
+
+    $('input[name="billing_address"], input[name="billing_city"], input[name="billing_state"], input[name="billing_pincode"], input[name="billing_country"]')
+        .on('input', function() {
+            if ($('#sameBillingShipping').is(':checked')) {
+                copyBillingToShipping();
+            }
+        });
+
+    // Create customer form
+    $('#createCustomerForm').submit(function(e) {
+        if ($('.error-field').length) {
+            showAlert('Please fix validation errors', 'error');
+            return false;
+        }
+        e.preventDefault();
+        showAlert('Creating customer...', 'info');
+
+        $.ajax({
+            url: '/admin/sales/create-customer',
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.success) {
+                    showAlert('Customer created successfully!', 'success');
+                    closeCreateCustomerModal();
+                    selectCustomer(response.customer_id);
+                } else {
+                    showAlert('Error: ' + response.message, 'error');
+                }
+            },
+            error: function(xhr) {
+                showAlert('Failed to create customer: ' + (xhr.responseJSON?.message || 'Unknown error'), 'error');
+            }
+        });
+    });
+
+    // Invoice form submission
+    $('#salesInvoiceForm').submit(function(e) {
+        e.preventDefault();
+
+        if (!validateForm()) {
+            return;
+        }
+
+        const formData = new FormData();
+
+        $('#salesInvoiceForm').serializeArray().forEach(item => {
+            formData.append(item.name, item.value);
+        });
+
+        formData.append('items', JSON.stringify(items));
+        formData.append('subtotal', $('#subtotal').text());
+        formData.append('grand_total', $('#grandTotal').text());
+        formData.append('tax_amount', $('#totalTax').text());
+        formData.append('discount_amount', $('#totalDiscount').text());
+        formData.append('balance_amount', $('#balanceAmount').text());
+        formData.append('extra_discount', $('#extraDiscount').val() || 0);
+        formData.append('extra_charge', $('#extraCharge').val() || 0);
+        formData.append('charge_name', $('#chargeName').val() || '');
+        formData.append('auto_round_off', $('#autoRoundOff').is(':checked') ? 1 : 0);
+
+        showAlert('Creating invoice...', 'info');
+
+        $.ajax({
+            url: '{{ route('admin.sales.store') }}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    showAlert('Invoice created successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/admin/sales/' + response.invoice_id;
+                    }, 1500);
+                } else {
+                    showAlert('Error: ' + response.message, 'error');
+                }
+            },
+            error: function(xhr) {
+                showAlert('Failed to create invoice: ' + (xhr.responseJSON?.message || 'Unknown error'), 'error');
+            }
+        });
+    });
+
+    // Modal close handlers
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal.id === 'selectCustomerModal') {
+                closeSelectCustomerModal();
+            } else if (modal.id === 'createCustomerModal') {
+                closeCreateCustomerModal();
+            } else if (modal.id === 'addItemModal') {
+                closeAddItemModal();
+            }
+        });
+    });
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeSelectCustomerModal();
+            closeCreateCustomerModal();
+            closeAddItemModal();
+        }
+    });
+
+    setTimeout(function() {
+        const termsDays = parseInt($('#paymentTermsDays').val());
+        if (termsDays > 0) {
+            updateDueDateFromTerms();
+        }
+    }, 100);
+});
+</script>
 @endpush
+
 @endsection
