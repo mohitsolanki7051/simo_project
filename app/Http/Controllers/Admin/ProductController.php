@@ -10,6 +10,7 @@ use App\Models\Warehouse;
 use App\Models\WarehouseStock;
 use App\Models\WarehouseMovement;
 use Illuminate\Support\Facades\DB;
+use App\Models\PricingSetting;
 use App\Models\StockHistory;
 use App\Models\Attribute;
 use App\Models\AttributeItem;
@@ -17,39 +18,100 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use MongoDB\BSON\ObjectId;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Get all products from both tables
-        $simpleProducts = SimpleProduct::with('category')
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function($product) {
+        $perPage = (int) $request->input('per_page', 20);
+        $search = $request->input('search', '');
+        $status = $request->input('status', 'all');
+        $productType = $request->input('product_type', 'all');
+
+        // Initialize empty collections
+        $simpleProducts = collect();
+        $variantProducts = collect();
+
+        // Get simple products based on filters
+        if ($productType === 'all' || $productType === 'simple') {
+            $simpleQuery = SimpleProduct::with('category');
+
+            if (!empty($search)) {
+                $simpleQuery->where(function($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('sku_code', 'LIKE', "%{$search}%");
+                });
+            }
+
+            if ($status !== 'all') {
+                $simpleQuery->where('status', $status);
+            }
+
+            $simpleProducts = $simpleQuery->get()->map(function($product) {
                 $product->product_type = 'simple';
                 return $product;
             });
+        }
 
-        $variantProducts = VariantProduct::with(['category', 'warehouse'])
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function($product) {
+        // Get variant products based on filters
+        if ($productType === 'all' || $productType === 'variant') {
+            $variantQuery = VariantProduct::with(['category', 'warehouse']);
+
+            if (!empty($search)) {
+                $variantQuery->where('name', 'LIKE', "%{$search}%");
+            }
+
+            if ($status !== 'all') {
+                $variantQuery->where('status', $status);
+            }
+
+            $variantProducts = $variantQuery->get()->map(function($product) {
                 $product->product_type = 'variant';
                 return $product;
             });
+        }
 
-        // Merge and sort all products
-        $products = $simpleProducts->merge($variantProducts)
+        // Merge and sort
+        $allProducts = $simpleProducts->concat($variantProducts)
             ->sortByDesc('created_at')
             ->values();
 
+        // Manual pagination for MongoDB
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $currentPageItems = $allProducts->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
+        $products = new LengthAwarePaginator(
+            $currentPageItems,
+            $allProducts->count(),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
         $warehouses = Warehouse::where('status', 'active')->orderBy('name', 'asc')->get();
-
-        // Get default warehouse (first active warehouse or null)
         $defaultWarehouse = Warehouse::where('status', 'active')->first();
+        $pricing = PricingSetting::first();
 
-        return view('admin.products.index', compact('products', 'warehouses', 'defaultWarehouse'));
+        $totalProducts = $allProducts->count();
+        $totalSimple = SimpleProduct::count(); // Direct count
+        $totalVariant = VariantProduct::count(); // Direct count
+
+        return view('admin.products.index', compact(
+            'products',
+            'warehouses',
+            'defaultWarehouse',
+            'pricing',
+            'search',
+            'status',
+            'perPage',
+            'totalProducts',
+            'totalSimple',
+            'totalVariant',
+            'productType'
+        ));
     }
+
 
     public function create()
     {
@@ -180,14 +242,12 @@ class ProductController extends Controller
             'gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
 
             // Description
-            'description' => 'required|string',
+            'description' => 'nullable|string',
 
             // Pricing
             'cost_price' => 'required|numeric|min:0',
             'sale_price' => 'required|numeric|min:0',
             'mrp_price' => 'required|numeric|min:0',
-            'dealer_price' => 'required|numeric|min:0',
-            'distributor_price' => 'required|numeric|min:0',
 
             // Tax
             'hsn_code' => 'required|string|max:8',
@@ -224,6 +284,13 @@ class ProductController extends Controller
             /* ==========================
             PRODUCT CREATE
             ========================== */
+            $pricing = PricingSetting::first();
+
+            $dealerPercentage = $pricing ? $pricing->dealer_percentage : 0;
+            $distributorPercentage = $pricing ? $pricing->distributor_percentage : 0;
+
+            $dealerPrice = $request->mrp_price - ($request->mrp_price * $dealerPercentage / 100);
+            $distributorPrice = $request->mrp_price - ($request->mrp_price * $distributorPercentage / 100);
             $product = SimpleProduct::create([
                 'type' => 'simple',
                 'name' => $request->name,
@@ -242,8 +309,8 @@ class ProductController extends Controller
                 'cost_price' => $request->cost_price,
                 'sale_price' => $request->sale_price,
                 'mrp_price' => $request->mrp_price,
-                'dealer_price' => $request->dealer_price,
-                'distributor_price' => $request->distributor_price,
+                'dealer_price' => round($dealerPrice, 2),
+                'distributor_price' => round($distributorPrice, 2),
 
                 'hsn_code' => $request->hsn_code,
                 'gst' => $request->gst,
@@ -326,7 +393,7 @@ class ProductController extends Controller
             'gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
 
             // Description
-            'description' => 'required|string',
+            'description' => 'nullable|string',
 
             // Variants
             'variants' => 'required|array|min:1',
@@ -338,8 +405,6 @@ class ProductController extends Controller
             'variants.*.cost_price' => 'required|numeric|min:0',
             'variants.*.sale_price' => 'required|numeric|min:0',
             'variants.*.mrp_price' => 'required|numeric|min:0',
-            'variants.*.dealer_price' => 'required|numeric|min:0',
-            'variants.*.distributor_price' => 'required|numeric|min:0',
             'variants.*.opening_stock' => 'required|integer|min:0',
             'variants.*.min_stock_alert' => 'required|integer|min:0',
             'variants.*.base_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -373,6 +438,9 @@ class ProductController extends Controller
             BUILD VARIANTS (CORRECT FORMAT)
             ========================= */
             $variantsArray = [];
+            $pricing = PricingSetting::first();
+            $dealerPercentage = $pricing ? $pricing->dealer_percentage : 0;
+            $distributorPercentage = $pricing ? $pricing->distributor_percentage : 0;
 
             foreach ($request->variants as $i => $variantData) {
                 $variantId = new ObjectId(); // REAL VARIANT ID
@@ -396,6 +464,11 @@ class ProductController extends Controller
                         $variantGallery[] = $img->store('variant_products/variants/gallery', 'public');
                     }
                 }
+                $mrp = (float) $variantData['mrp_price'];
+
+                $dealerPrice = $mrp - ($mrp * $dealerPercentage / 100);
+                $distributorPrice = $mrp - ($mrp * $distributorPercentage / 100);
+
 
                 // Create variant array with proper data types
                 $variantArray = [
@@ -409,8 +482,8 @@ class ProductController extends Controller
                     'cost_price' => (float) $variantData['cost_price'],
                     'sale_price' => (float) $variantData['sale_price'],
                     'mrp_price' => (float) $variantData['mrp_price'],
-                    'dealer_price' => (float) $variantData['dealer_price'],
-                    'distributor_price' => (float) $variantData['distributor_price'],
+                    'dealer_price' => round($dealerPrice, 2),
+                    'distributor_price' => round($distributorPrice, 2),
                     'base_image' => $variantBaseImage,
                     'gallery_images' => $variantGallery,
                     'created_at' => now()->toDateTimeString(),
@@ -624,7 +697,6 @@ class ProductController extends Controller
         $warehouseStock = WarehouseStock::where('product_id', $product->_id)->first();
         $currentWarehouseId = $warehouseStock ? $warehouseStock->warehouse_id : null;
 
-        // Validation for simple product - current_stock को हटाएं
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
@@ -637,12 +709,10 @@ class ProductController extends Controller
             'barcode_symbology' => 'required|in:CODE128',
             'base_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'description' => 'required|string',
+            'description' => 'nullable|string',
             'cost_price' => 'required|numeric|min:0',
             'sale_price' => 'required|numeric|min:0',
             'mrp_price' => 'required|numeric|min:0',
-            'dealer_price' => 'required|numeric|min:0',
-            'distributor_price' => 'required|numeric|min:0',
             'hsn_code' => 'required|string|max:8',
             'gst' => 'required|numeric|min:0|max:100',
             'min_stock_alert' => 'required|integer|min:0',
@@ -659,7 +729,18 @@ class ProductController extends Controller
             ) {
                 $data['barcode'] = $this->generateBarcode($request->sku_code);
             }
+            if ($request->mrp_price != $product->mrp_price) {
+                $pricing = PricingSetting::first();
 
+                $dealerPercentage = $pricing ? $pricing->dealer_percentage : 0;
+                $distributorPercentage = $pricing ? $pricing->distributor_percentage : 0;
+
+                $data['dealer_price'] =
+                    round($request->mrp_price - ($request->mrp_price * $dealerPercentage / 100), 2);
+
+                $data['distributor_price'] =
+                    round($request->mrp_price - ($request->mrp_price * $distributorPercentage / 100), 2);
+            }
             // ✅ Warranty fields
             $data['warranty_duration'] = (int) $request->warranty_duration;
             $data['warranty_unit'] = $request->warranty_unit;
@@ -723,6 +804,33 @@ class ProductController extends Controller
             return back()->withInput()->with('error', 'Failed to update product. Please try again.');
         }
     }
+public function updateprice(Request $request)
+{
+    $request->validate([
+        'dealer_percentage' => 'required|numeric|min:0|max:100',
+        'distributor_percentage' => 'required|numeric|min:0|max:100',
+    ]);
+
+    $pricing = PricingSetting::first(); // 👈 sirf ek record lena
+
+    if ($pricing) {
+        // 👉 SAME record update hoga
+        $pricing->update([
+            'dealer_percentage' => (float) $request->dealer_percentage,
+            'distributor_percentage' => (float) $request->distributor_percentage,
+        ]);
+    } else {
+        // 👉 sirf pehli baar create
+        PricingSetting::create([
+            'dealer_percentage' => (float) $request->dealer_percentage,
+            'distributor_percentage' => (float) $request->distributor_percentage,
+        ]);
+    }
+
+    return back()->with('success', 'Pricing updated successfully');
+}
+
+
 
     private function updateVariantProduct(Request $request, $product)
     {
@@ -751,7 +859,7 @@ class ProductController extends Controller
             'gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
 
             // Description
-            'description' => 'required|string',
+            'description' => 'nullable|string',
 
             // Variants
             'variants' => 'required|array|min:1',
@@ -764,8 +872,6 @@ class ProductController extends Controller
             'variants.*.cost_price' => 'required|numeric|min:0',
             'variants.*.sale_price' => 'required|numeric|min:0|gt:variants.*.cost_price',
             'variants.*.mrp_price' => 'required|numeric|min:0|gt:variants.*.sale_price',
-            'variants.*.dealer_price' => 'required|numeric|min:0',
-            'variants.*.distributor_price' => 'required|numeric|min:0',
             'variants.*.opening_stock' => 'required|integer|min:0',
             'variants.*.min_stock_alert' => 'required|integer|min:0',
             'variants.*.base_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -823,6 +929,9 @@ class ProductController extends Controller
 
             // ✅ CRITICAL FIX: Prepare variants array properly
             $updatedVariants = [];
+            $pricing = PricingSetting::first();
+           $dealerPercentage = $pricing ? $pricing->dealer_percentage : 0;
+            $distributorPercentage = $pricing ? $pricing->distributor_percentage : 0;
 
             if ($request->has('variants') && is_array($request->variants)) {
                 foreach ($request->variants as $index => $variantData) {
@@ -858,8 +967,6 @@ class ProductController extends Controller
                         }
                     }
 
-                    // ✅ FIX: Properly handle variant ID
-                    // If it's an existing variant (has _id in request), keep it as is
                     // If it's a new variant (starts with 'new-'), create new ObjectId
                     if ($variantId && !str_starts_with($variantId, 'new-')) {
                         // Existing variant - use the existing ID (it might be string, convert to ObjectId if needed)
@@ -938,6 +1045,16 @@ class ProductController extends Controller
                             $openingStock = $warehouseStock->quantity;
                         }
                     }
+                   $mrp = (float) $variantData['mrp_price'];
+                    $oldMrp = (float) ($existingVariant['mrp_price'] ?? 0);
+
+                    if ($mrp != $oldMrp) {
+                        $dealerPrice = $mrp - ($mrp * $dealerPercentage / 100);
+                        $distributorPrice = $mrp - ($mrp * $distributorPercentage / 100);
+                    } else {
+                        $dealerPrice = $existingVariant['dealer_price'] ?? 0;
+                        $distributorPrice = $existingVariant['distributor_price'] ?? 0;
+                    }
 
                     // ✅ CRITICAL FIX: Create variant array with proper _id format
                     $variant = [
@@ -951,8 +1068,8 @@ class ProductController extends Controller
                         'cost_price' => (float) $variantData['cost_price'],
                         'sale_price' => (float) $variantData['sale_price'],
                         'mrp_price' => (float) $variantData['mrp_price'],
-                        'dealer_price' => (float) $variantData['dealer_price'],
-                        'distributor_price' => (float) $variantData['distributor_price'],
+                        'dealer_price' => round($dealerPrice, 2),
+                        'distributor_price' => round($distributorPrice, 2),
                         'opening_stock' => $openingStock,
                         'min_stock_alert' => (int) $variantData['min_stock_alert'],
                         'base_image' => $variantBaseImage,
@@ -1826,4 +1943,5 @@ class ProductController extends Controller
             ]);
         }
     }
+
 }

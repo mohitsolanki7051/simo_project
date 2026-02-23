@@ -15,51 +15,80 @@ use MongoDB\BSON\ObjectId;
 class CustomerController extends Controller
 {
     /**
-     * Display a listing of customers.
+     * Display a listing of parties based on type.
      */
-    public function index()
+    public function index(Request $request, $type = null)
     {
-        $customers = Customer::with(['addresses' => function($query) {
-            $query->where('is_default', true)
-                  ->orWhere(function($q) {
-                      $q->where('type', 'billing')->orderBy('is_default', 'desc');
-                  });
-        }])->orderBy('created_at', 'desc')->get();
+        // If type is provided in URL, use it, otherwise check query parameter
+        $partyType = $type ?? $request->get('type', 'customer');
 
-        return view('admin.customers.index', compact('customers'));
+        // Validate party type
+        if (!in_array($partyType, ['customer', 'dealer', 'distributor'])) {
+            abort(404);
+        }
+
+        $parties = Customer::with(['addresses' => function($query) {
+                $query->where('is_default', true)
+                      ->orWhere(function($q) {
+                          $q->where('type', 'billing')->orderBy('is_default', 'desc');
+                      });
+            }])
+            ->where('party_type', $partyType)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('admin.parties.index', compact('parties', 'partyType'));
     }
 
-    /**
-     * Show the form for creating a new customer.
-     */
-    public function create()
-    {
-        return view('admin.customers.create');
+public function create(Request $request)
+{
+    $partyType = $request->get('type', 'customer');
+
+    if (!in_array($partyType, ['customer', 'dealer', 'distributor'])) {
+        abort(404);
     }
 
+    // Get distributors for dealer parent selection
+    $distributors = [];
+    if ($partyType === 'dealer') {
+        $distributors = Customer::where('party_type', 'distributor')
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['_id', 'name']);
+    }
+
+    // NEW: Get active salesmen for dropdown
+    $salesmen = \App\Models\Salesman::where('status', 'active')
+        ->orderBy('name')
+        ->get(['_id', 'name']);
+
+    return view('admin.parties.create', compact('partyType', 'distributors', 'salesmen'));
+}
+
     /**
-     * Store a newly created customer with addresses.
+     * Store a newly created party with addresses.
      */
     public function store(Request $request)
     {
-        // Validate customer data
+        // Validate party data
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:15|unique:customers,phone,NULL,_id',
             'email' => 'nullable|email|unique:customers,email,NULL,_id',
-            'status' => 'required|in:active,inactive',
-            'customer_type' => 'required|in:individual,business',
-            'company_name' => 'required_if:customer_type,business',
+            'salesman_id' => 'nullable|exists:salesmen,_id',
+            'party_type' => 'required|in:customer,dealer,distributor',
+            'opening_balance' => 'nullable|numeric|min:0',
+            'credit_limit' => 'nullable|numeric|min:0',
+            'parent_party_id' => 'nullable|exists:customers,_id',
             'gst_number' => [
                 'nullable',
                 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/'
             ],
-
             'pan_number' => [
                 'nullable',
                 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/'
             ],
-
+            'status' => 'required|in:active,inactive',
             'notes' => 'nullable|string',
             'billing_addresses' => 'nullable|string',
             'shipping_addresses' => 'nullable|string'
@@ -72,16 +101,19 @@ class CustomerController extends Controller
         }
 
         try {
-            // Create customer
-            $customer = Customer::create([
+            // Create party
+            $party = Customer::create([
                 'name' => $request->name,
                 'phone' => $request->phone,
                 'email' => $request->email,
-                'status' => $request->status,
-                'customer_type' => $request->customer_type,
-                'company_name' => $request->customer_type == 'business' ? $request->company_name : null,
+                'party_type' => $request->party_type,
+                'opening_balance' => $request->opening_balance ?? 0,
+                'credit_limit' => $request->credit_limit,
+                'salesman_id' => $request->salesman_id,
+                'parent_party_id' => $request->parent_party_id,
                 'gst_number' => strtoupper($request->gst_number),
                 'pan_number' => strtoupper($request->pan_number),
+                'status' => $request->status,
                 'notes' => $request->notes
             ]);
 
@@ -89,17 +121,12 @@ class CustomerController extends Controller
             if ($request->billing_addresses) {
                 $billingAddresses = json_decode($request->billing_addresses, true);
 
-                // Debug
-                // \Log::info('Billing Addresses:', $billingAddresses);
-
                 if (is_array($billingAddresses) && count($billingAddresses) > 0) {
                     $hasDefaultBilling = false;
 
                     foreach ($billingAddresses as $address) {
-                        // Check keys - यहाँ ध्यान दें कि JavaScript में contactPerson है, controller में contact_person check कर रहा है
                         $isDefault = isset($address['isDefault']) && $address['isDefault'] === true;
 
-                        // Ensure only one default billing address
                         if ($isDefault && $hasDefaultBilling) {
                             $isDefault = false;
                         } elseif ($isDefault) {
@@ -107,7 +134,7 @@ class CustomerController extends Controller
                         }
 
                         CustomerAddress::create([
-                            'customer_id' => $customer->id,
+                            'customer_id' => $party->id,
                             'type' => 'billing',
                             'address' => $address['address'] ?? '',
                             'city' => $address['city'] ?? '',
@@ -115,8 +142,8 @@ class CustomerController extends Controller
                             'pincode' => $address['pincode'] ?? '',
                             'country' => $address['country'] ?? 'India',
                             'landmark' => $address['landmark'] ?? '',
-                            'contact_person' => $address['contactPerson'] ?? '', // यहाँ ध्यान दें
-                            'contact_number' => $address['contactNumber'] ?? '', // यहाँ ध्यान दें
+                            'contact_person' => $address['contactPerson'] ?? '',
+                            'contact_number' => $address['contactNumber'] ?? '',
                             'is_default' => $isDefault
                         ]);
                     }
@@ -127,16 +154,12 @@ class CustomerController extends Controller
             if ($request->shipping_addresses) {
                 $shippingAddresses = json_decode($request->shipping_addresses, true);
 
-                // Debug
-                // \Log::info('Shipping Addresses:', $shippingAddresses);
-
                 if (is_array($shippingAddresses) && count($shippingAddresses) > 0) {
                     $hasDefaultShipping = false;
 
                     foreach ($shippingAddresses as $address) {
                         $isDefault = isset($address['isDefault']) && $address['isDefault'] === true;
 
-                        // Ensure only one default shipping address
                         if ($isDefault && $hasDefaultShipping) {
                             $isDefault = false;
                         } elseif ($isDefault) {
@@ -144,7 +167,7 @@ class CustomerController extends Controller
                         }
 
                         CustomerAddress::create([
-                            'customer_id' => $customer->id,
+                            'customer_id' => $party->id,
                             'type' => 'shipping',
                             'address' => $address['address'] ?? '',
                             'city' => $address['city'] ?? '',
@@ -152,62 +175,72 @@ class CustomerController extends Controller
                             'pincode' => $address['pincode'] ?? '',
                             'country' => $address['country'] ?? 'India',
                             'landmark' => $address['landmark'] ?? '',
-                            'contact_person' => $address['contactPerson'] ?? '', // यहाँ ध्यान दें
-                            'contact_number' => $address['contactNumber'] ?? '', // यहाँ ध्यान दें
+                            'contact_person' => $address['contactPerson'] ?? '',
+                            'contact_number' => $address['contactNumber'] ?? '',
                             'is_default' => $isDefault
                         ]);
                     }
                 }
             }
 
-            return redirect()->route('admin.customers.index')
-                ->with('success', 'Customer created successfully!');
+            return redirect()->route('admin.parties.index', ['type' => $request->party_type])
+                ->with('success', ucfirst($request->party_type) . ' created successfully!');
 
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Error creating customer: ' . $e->getMessage())
+                ->with('error', 'Error creating party: ' . $e->getMessage())
                 ->withInput();
         }
     }
 
+public function edit($id)
+{
+    $party = Customer::with(['addresses' => function($query) {
+        $query->orderBy('is_default', 'desc')->orderBy('created_at', 'desc');
+    }])->findOrFail($id);
 
-
-    /**
-     * Show the form for editing the specified customer.
-     */
-    public function edit($id)
-    {
-        $customer = Customer::with(['addresses' => function($query) {
-            $query->orderBy('is_default', 'desc')->orderBy('created_at', 'desc');
-        }])->findOrFail($id);
-
-        return view('admin.customers.edit', compact('customer'));
+    // Get distributors for dealer parent selection
+    $distributors = [];
+    if ($party->party_type === 'dealer') {
+        $distributors = Customer::where('party_type', 'distributor')
+            ->where('status', 'active')
+            ->where('_id', '!=', $id)
+            ->orderBy('name')
+            ->get(['_id', 'name']);
     }
 
+    // NEW: Get active salesmen for dropdown
+    $salesmen = \App\Models\Salesman::where('status', 'active')
+        ->orderBy('name')
+        ->get(['_id', 'name']);
+
+    return view('admin.parties.edit', compact('party', 'distributors', 'salesmen'));
+}
+
     /**
-     * Update the specified customer.
+     * Update the specified party.
      */
     public function update(Request $request, $id)
     {
-        $customer = Customer::findOrFail($id);
+        $party = Customer::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:15|unique:customers,phone,' . $id . ',_id',
             'email' => 'nullable|email|unique:customers,email,' . $id . ',_id',
-            'status' => 'required|in:active,inactive',
-            'customer_type' => 'required|in:individual,business',
-            'company_name' => 'required_if:customer_type,business',
+            'salesman_id' => 'nullable|exists:salesmen,_id',
+            'opening_balance' => 'nullable|numeric|min:0',
+            'credit_limit' => 'nullable|numeric|min:0',
+            'parent_party_id' => 'nullable|exists:customers,_id',
             'gst_number' => [
                 'nullable',
                 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/'
             ],
-
             'pan_number' => [
                 'nullable',
                 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/'
             ],
-
+            'status' => 'required|in:active,inactive',
             'notes' => 'nullable|string'
         ]);
 
@@ -218,36 +251,38 @@ class CustomerController extends Controller
         }
 
         try {
-            $customer->update([
+            $party->update([
                 'name' => $request->name,
                 'phone' => $request->phone,
                 'email' => $request->email,
-                'status' => $request->status,
-                'customer_type' => $request->customer_type,
-                'company_name' => $request->customer_type == 'business' ? $request->company_name : null,
+                'opening_balance' => $request->opening_balance ?? 0,
+                'credit_limit' => $request->credit_limit,
+                'salesman_id' => $request->salesman_id,
+                'parent_party_id' => $request->parent_party_id,
                 'gst_number' => strtoupper($request->gst_number),
                 'pan_number' => strtoupper($request->pan_number),
+                'status' => $request->status,
                 'notes' => $request->notes
             ]);
 
-            return redirect()->route('admin.customers.index')
-                ->with('success', 'Customer updated successfully!');
+            return redirect()->route('admin.parties.index', ['type' => $party->party_type])
+                ->with('success', ucfirst($party->party_type) . ' updated successfully!');
 
         } catch (\Exception $e) {
             return redirect()->back()
-                ->with('error', 'Error updating customer: ' . $e->getMessage())
+                ->with('error', 'Error updating party: ' . $e->getMessage())
                 ->withInput();
         }
     }
 
-
+    // Address management methods remain the same...
 
     /**
-     * Store a new address for customer (AJAX).
+     * Store a new address for party (AJAX).
      */
     public function storeAddress(Request $request, $id)
     {
-        $customer = Customer::findOrFail($id);
+        $party = Customer::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'type' => 'required|in:billing,shipping',
@@ -270,14 +305,13 @@ class CustomerController extends Controller
         }
 
         try {
-            // If this address is set as default, remove default from other addresses of same type
             if ($request->is_default) {
                 CustomerAddress::where('customer_id', $id)
                     ->where('type', $request->type)
                     ->update(['is_default' => false]);
             }
 
-            $address = $customer->addresses()->create([
+            $address = $party->addresses()->create([
                 'type' => $request->type,
                 'address' => $request->address,
                 'city' => $request->city,
@@ -303,9 +337,6 @@ class CustomerController extends Controller
         }
     }
 
-    /**
-     * Update an address.
-     */
     public function updateAddress(Request $request, $addressId)
     {
         $address = CustomerAddress::findOrFail($addressId);
@@ -330,7 +361,6 @@ class CustomerController extends Controller
         }
 
         try {
-            // If this address is set as default, remove default from other addresses of same type
             if ($request->is_default) {
                 CustomerAddress::where('customer_id', $address->customer_id)
                     ->where('type', $address->type)
@@ -363,9 +393,6 @@ class CustomerController extends Controller
         }
     }
 
-    /**
-     * Delete an address.
-     */
     public function destroyAddress($addressId)
     {
         $address = CustomerAddress::findOrFail($addressId);
@@ -385,20 +412,15 @@ class CustomerController extends Controller
         }
     }
 
-    /**
-     * Set address as default.
-     */
     public function setDefaultAddress(Request $request, $addressId)
     {
         $address = CustomerAddress::findOrFail($addressId);
 
         try {
-            // Remove default from all addresses of same type for this customer
             CustomerAddress::where('customer_id', $address->customer_id)
                 ->where('type', $address->type)
                 ->update(['is_default' => false]);
 
-            // Set this address as default
             $address->update(['is_default' => true]);
 
             return response()->json([
@@ -413,13 +435,10 @@ class CustomerController extends Controller
         }
     }
 
-    /**
-     * Get addresses by type for a customer.
-     */
     public function getAddresses($id, $type)
     {
-        $customer = Customer::findOrFail($id);
-        $addresses = $customer->addresses()
+        $party = Customer::findOrFail($id);
+        $addresses = $party->addresses()
             ->where('type', $type)
             ->orderBy('is_default', 'desc')
             ->orderBy('created_at', 'desc')
@@ -432,13 +451,13 @@ class CustomerController extends Controller
     }
 
     /**
-     * Bulk update customer status.
+     * Bulk update party status.
      */
     public function bulkUpdateStatus(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'customer_ids' => 'required|array',
-            'customer_ids.*' => 'required|exists:customers,_id',
+            'party_ids' => 'required|array',
+            'party_ids.*' => 'required|exists:customers,_id',
             'status' => 'required|in:active,inactive'
         ]);
 
@@ -450,31 +469,25 @@ class CustomerController extends Controller
         }
 
         try {
-            // Convert string IDs to MongoDB ObjectIds if using MongoDB
-            $customerIds = $request->customer_ids;
-
-            Customer::whereIn('_id', $customerIds)
+            Customer::whereIn('_id', $request->party_ids)
                 ->update(['status' => $request->status]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Customer status updated successfully'
+                'message' => 'Status updated successfully'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating customer status: ' . $e->getMessage()
+                'message' => 'Error updating status: ' . $e->getMessage()
             ], 500);
         }
     }
 
     public function ledger($id)
     {
-        $customer = Customer::findOrFail($id);
+        $party = Customer::findOrFail($id);
 
-        // ================================
-        // 1. SALES (Debit)
-        // ================================
         $sales = SalesInvoice::where('customer_id', $id)
             ->get()
             ->map(function ($invoice) {
@@ -488,50 +501,40 @@ class CustomerController extends Controller
                 ];
             });
 
-        // ================================
-        // 2. PAYMENTS (Credit)
-        // ================================
-    // Get invoice ids as string properly
-    $invoiceIds = SalesInvoice::where('customer_id', $id)
-        ->get()
-        ->map(function ($invoice) {
-            return (string) $invoice->_id;
-        })
-        ->toArray();
+        $invoiceIds = SalesInvoice::where('customer_id', $id)
+            ->get()
+            ->map(function ($invoice) {
+                return (string) $invoice->_id;
+            })
+            ->toArray();
 
-    $payments = SalesPayment::whereIn('sales_invoice_id', $invoiceIds)
-        ->where('status', 'completed')
-        ->get()
-        ->map(function ($payment) {
-            return [
-                'date' => $payment->payment_date,
-                'type' => 'Payment',
-                'ref'  => $payment->reference_no ?? '-',
-                'debit' => 0,
-                'credit' => (float) $payment->amount,
-            ];
-        });
+        $payments = SalesPayment::whereIn('sales_invoice_id', $invoiceIds)
+            ->where('status', 'completed')
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'date' => $payment->payment_date,
+                    'type' => 'Payment',
+                    'ref'  => $payment->reference_no ?? '-',
+                    'debit' => 0,
+                    'credit' => (float) $payment->amount,
+                ];
+            });
 
-        // ================================
-        // 3. ADVANCE PAYMENTS (invoice_id = null)
-        // ================================
         $advance = SalesPayment::whereNull('sales_invoice_id')
-        ->where('status', 'completed')
-        ->where('customer_id', $id) // IMPORTANT
-        ->get()
-        ->map(function ($payment) {
-            return [
-                'date' => $payment->payment_date,
-                'type' => 'Advance',
-                'ref'  => $payment->reference_no ?? 'ADV',
-                'debit' => 0,
-                'credit' => (float) $payment->amount,
-            ];
-        });
+            ->where('status', 'completed')
+            ->where('customer_id', $id)
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'date' => $payment->payment_date,
+                    'type' => 'Advance',
+                    'ref'  => $payment->reference_no ?? 'ADV',
+                    'debit' => 0,
+                    'credit' => (float) $payment->amount,
+                ];
+            });
 
-        // ================================
-        // 4. DISCOUNT (from invoice)
-        // ================================
         $discounts = SalesInvoice::where('customer_id', $id)
             ->where('extra_discount', '>', 0)
             ->get()
@@ -545,9 +548,6 @@ class CustomerController extends Controller
                 ];
             });
 
-        // ================================
-        // 5. EXTRA CHARGES
-        // ================================
         $charges = SalesInvoice::where('customer_id', $id)
             ->where('extra_charge', '>', 0)
             ->get()
@@ -561,9 +561,6 @@ class CustomerController extends Controller
                 ];
             });
 
-        // ================================
-        // MERGE ALL
-        // ================================
         $ledger = collect()
             ->merge($sales)
             ->merge($payments)
@@ -573,9 +570,6 @@ class CustomerController extends Controller
             ->sortBy('date')
             ->values();
 
-        // ================================
-        // RUNNING BALANCE
-        // ================================
         $balance = 0;
         $ledger = $ledger->map(function ($row) use (&$balance) {
             $balance += $row['debit'];
@@ -584,7 +578,6 @@ class CustomerController extends Controller
             return $row;
         });
 
-        return view('admin.customers.ledger', compact('customer','ledger'));
+        return view('admin.parties.ledger', compact('party', 'ledger'));
     }
-
 }

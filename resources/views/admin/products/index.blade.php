@@ -5,14 +5,17 @@
 
 @section('content')
 <div class="products-container">
-    <!-- Header -->
+    <!-- Header with Action Buttons -->
     <div class="page-header">
         <div class="header-left">
             <h2 class="page-title">Product List</h2>
         </div>
         <div class="header-right">
-            <button type="button" class="btn-small btn-primary" onclick="openProductTypeModal()">
-                <span class="btn-icon">+</span> Add Product
+            <button type="button" class="btn-pricing" onclick="openPricingModal()">
+                <span>Set Dealer %</span>
+            </button>
+            <button type="button" class="btn-add" onclick="openProductTypeModal()">
+                <span>Add Product</span>
             </button>
         </div>
     </div>
@@ -24,7 +27,9 @@
             <div class="card-info">
                 <div class="card-title">Product Total Cost</div>
                 <div class="card-value" id="totalCostValue">₹0.00</div>
-                <div class="card-desc" id="totalProductsCount">0 products (0 simple, 0 variant)</div>
+                <div class="card-desc" id="totalProductsCount">
+                    {{ $totalProducts }} products ({{ $totalSimple }} simple, {{ $totalVariant }} variant)
+                </div>
             </div>
         </div>
         <div class="report-card">
@@ -41,19 +46,43 @@
     <div class="table-filters">
         <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" class="search-input" placeholder="Search products..." id="searchInput">
+            <input type="text"
+                   class="search-input"
+                   placeholder="Search products by name or SKU..."
+                   id="searchInput"
+                   value="{{ $search }}"
+                   autocomplete="off">
         </div>
-        <div class="filter-buttons">
-            <button class="filter-btn active" data-filter="all">All ({{ $products->count() }})</button>
-            <button class="filter-btn" data-filter="active">Active</button>
-            <button class="filter-btn" data-filter="inactive">Inactive</button>
+
+        <!-- Product Type Filter Dropdown -->
+        <div class="filter-dropdown">
+            <select class="type-filter" id="productTypeFilter" onchange="filterByProductType(this.value)">
+                <option value="all" {{ request('product_type') == 'all' ? 'selected' : '' }}>All Types</option>
+                <option value="simple" {{ request('product_type') == 'simple' ? 'selected' : '' }}>Simple Products</option>
+                <option value="variant" {{ request('product_type') == 'variant' ? 'selected' : '' }}>Variant Products</option>
+            </select>
         </div>
+
+        <div class="filter-tabs">
+            <a href="{{ route('admin.products.index', array_merge(request()->query(), ['status' => 'all', 'product_type' => request('product_type', 'all')])) }}"
+               class="filter-tab {{ $status === 'all' ? 'active' : '' }}">
+                All ({{ $totalProducts }})
+            </a>
+            <a href="{{ route('admin.products.index', array_merge(request()->query(), ['status' => 'active', 'product_type' => request('product_type', 'all')])) }}"
+               class="filter-tab {{ $status === 'active' ? 'active' : '' }}">
+                Active
+            </a>
+            <a href="{{ route('admin.products.index', array_merge(request()->query(), ['status' => 'inactive', 'product_type' => request('product_type', 'all')])) }}"
+               class="filter-tab {{ $status === 'inactive' ? 'active' : '' }}">
+                Inactive
+            </a>
+        </div>
+
         <div class="bulk-actions">
             <select class="bulk-select" id="bulkActionSelect" disabled>
                 <option value="">Bulk Actions</option>
                 <option value="active">Set Active</option>
                 <option value="inactive">Set Inactive</option>
-                <!-- REMOVED: Delete option -->
             </select>
             <button class="btn-bulk" id="applyBulkAction" disabled>Apply</button>
         </div>
@@ -61,19 +90,19 @@
 
     <!-- Products Table -->
     <div class="table-wrapper">
-        <table class="compact-table">
+        <table class="products-table">
             <thead>
                 <tr>
-                    <th class="th-checkbox"><input type="checkbox" id="selectAll"></th>
-                    <th class="th-sno">S.No.</th>
-                    <th class="th-image">Image</th>
-                    <th class="th-name">Product Name</th>
-                    <th class="th-type">Type</th>
-                    <th class="th-mrp">MRP</th>
-                    <th class="th-price">Sale Price</th>
-                    <th class="th-stock">Stock</th>
-                    <th class="th-status">Status</th>
-                    <th class="th-actions">Actions</th>
+                    <th width="30"><input type="checkbox" id="selectAll"></th>
+                    <th width="50">S.No.</th>
+                    <th width="60">Image</th>
+                    <th>Product Name</th>
+                    <th width="80">Type</th>
+                    <th width="100">MRP</th>
+                    <th width="100">Sale Price</th>
+                    <th width="100">Stock</th>
+                    <th width="80">Status</th>
+                    <th width="120">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -81,74 +110,80 @@
                 <tr class="table-row"
                     data-status="{{ $product->status }}"
                     data-product-id="{{ $product->id }}"
-                    data-product-type="{{ $product instanceof \App\Models\SimpleProduct ? 'simple' : 'variant' }}">
-                    <td class="td-checkbox">
+                    data-product-type="{{ $product->product_type }}">
+                    <td>
                         <input type="checkbox" class="row-checkbox" value="{{ $product->id }}">
                     </td>
-                    <td class="td-sno">{{ $index + 1 }}</td>
-                    <td class="td-image">
+                    <td>{{ $products->firstItem() + $index }}</td>
+                    <td>
                         <div class="product-img">
-                            <img src="{{ asset('storage/' . $product->base_image) }}"
+                            <img src="{{ $product->base_image ? asset('storage/' . $product->base_image) : 'https://via.placeholder.com/40x40/667eea/ffffff?text=No+Image' }}"
                                  alt="{{ $product->name }}"
                                  onerror="this.src='https://via.placeholder.com/40x40/667eea/ffffff?text=IMG'">
                         </div>
                     </td>
-                    <td class="td-name">
+                    <td>
                         <div class="product-name">{{ $product->name }}</div>
                     </td>
-                    <td class="td-type">
-                        @if($product instanceof \App\Models\SimpleProduct)
-                            <span class="type-badge type-simple">Simple</span>
+                    <td>
+                        @if($product->product_type === 'simple')
+                            <span class="type-badge simple">Simple</span>
                         @else
-                            <span class="type-badge type-variant">Variant</span>
+                            <span class="type-badge variant">Variant</span>
                         @endif
                     </td>
-                    <td class="td-mrp">
-                        @if($product instanceof \App\Models\SimpleProduct)
+                    <td class="price-cell">
+                        @if($product->product_type === 'simple')
                             ₹{{ number_format($product->mrp_price, 2) }}
                         @else
                             {{ $product->formatted_mrp_price_range }}
                         @endif
                     </td>
-                    <td class="td-price">
-                        @if($product instanceof \App\Models\SimpleProduct)
-                            <div class="price-main">₹{{ number_format($product->sale_price, 2) }}</div>
+                    <td class="price-cell">
+                        @if($product->product_type === 'simple')
+                            ₹{{ number_format($product->sale_price, 2) }}
                         @else
-                            <div class="price-main">{{ $product->formatted_price_range }}</div>
+                            {{ $product->formatted_price_range }}
                         @endif
                     </td>
-                    <td class="td-stock">
+                    <td>
                         <div class="stock-info">
                             <span class="stock-value">{{ $product->total_stock }}</span>
                             <span class="stock-unit">{{ $product->unit ?? 'pcs' }}</span>
                         </div>
-                        @if($product->min_stock_alert && $product->total_stock <= $product->min_stock_alert)
-                            <div class="stock-alert">⚠️ Alert: {{ $product->min_stock_alert }}</div>
-                        @endif
+                        @php
+                            $minAlert = 0;
+                            if ($product->product_type === 'simple') {
+                                $warehouseStock = \App\Models\WarehouseStock::where('product_id', $product->_id)
+                                    ->where('product_type', 'simple')
+                                    ->first();
+                                $minAlert = $warehouseStock ? $warehouseStock->min_stock_alert : 0;
+                            } else {
+                                $minAlert = $product->variants ? collect($product->variants)->min('min_stock_alert') : 0;
+                            }
+                        @endphp
                     </td>
-                    <td class="td-status">
+                    <td>
                         <span class="status-badge status-{{ $product->status }}">
                             {{ ucfirst($product->status) }}
                         </span>
                     </td>
-                    <td class="td-actions">
+                    <td>
                         <div class="action-icons">
                             <a href="{{ route('admin.products.show', $product->id) }}"
-                               class="icon-btn icon-view" title="View">
-                                👁️
+                               class="action-btn view" title="View">
+                                <span>👁️</span>
                             </a>
                             <a href="{{ route('admin.products.edit', $product->id) }}"
-                               class="icon-btn icon-edit" title="Edit">
-                                ✏️
+                               class="action-btn edit" title="Edit">
+                                <span>✏️</span>
                             </a>
-
                             <button type="button"
-                                    class="icon-btn icon-stock"
+                                    class="action-btn stock"
                                     onclick="openStockManagement('{{ $product->id }}', '{{ addslashes($product->name) }}')"
                                     title="Manage Stock">
-                                📦
+                                <span>📦</span>
                             </button>
-                            <!-- REMOVED: Delete button -->
                         </div>
                     </td>
                 </tr>
@@ -159,6 +194,9 @@
                             <div class="empty-icon">📦</div>
                             <h4>No Products Found</h4>
                             <p>Start by adding your first product</p>
+                            <button class="btn-add-product" onclick="openProductTypeModal()">
+                                + Add Product
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -167,77 +205,204 @@
         </table>
     </div>
 
-    @if($products->count() > 0)
+    <!-- Pagination and Per Page Selector -->
+    @if($products->total() > 0)
     <div class="table-footer">
-        <div class="footer-info">
-            Showing {{ $products->count() }} products
+        <div class="pagination-info">
+            Showing {{ $products->firstItem() }} to {{ $products->lastItem() }} of {{ $products->total() }} entries
+        </div>
+
+        <div class="pagination-controls">
+            <div class="per-page-selector">
+                <label for="perPage">Show</label>
+                <select id="perPage" onchange="changePerPage(this.value)">
+                    <option value="20" {{ $perPage == 20 ? 'selected' : '' }}>20</option>
+                    <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50</option>
+                    <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100</option>
+                    <option value="200" {{ $perPage == 200 ? 'selected' : '' }}>200</option>
+                    <option value="500" {{ $perPage == 500 ? 'selected' : '' }}>500</option>
+                </select>
+                <span>entries</span>
+            </div>
+
+            <div class="pagination">
+                @if($products->onFirstPage())
+                    <span class="page-item disabled">‹</span>
+                @else
+                    <a href="{{ $products->previousPageUrl() }}" class="page-item">‹</a>
+                @endif
+
+                @foreach($products->getUrlRange(max(1, $products->currentPage() - 2), min($products->lastPage(), $products->currentPage() + 2)) as $page => $url)
+                    <a href="{{ $url }}" class="page-item {{ $page == $products->currentPage() ? 'active' : '' }}">
+                        {{ $page }}
+                    </a>
+                @endforeach
+
+                @if($products->hasMorePages())
+                    <a href="{{ $products->nextPageUrl() }}" class="page-item">›</a>
+                @else
+                    <span class="page-item disabled">›</span>
+                @endif
+            </div>
         </div>
     </div>
     @endif
 </div>
 
+<!-- Pricing Modal -->
+<div class="modal" id="pricingModal">
+    <div class="modal-overlay" onclick="closePricingModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-icon pricing">⚙️</div>
+            <div class="modal-title-section">
+                <h4 class="modal-title">Price Settings</h4>
+                <p class="modal-subtitle">Set dealer and distributor percentages</p>
+            </div>
+            <button type="button" class="modal-close" onclick="closePricingModal()">×</button>
+        </div>
+
+        <form method="POST" action="{{ route('admin.pricing.update') }}" id="pricingForm">
+            @csrf
+            <div class="modal-body">
+                <div class="info-note">
+                    <span class="note-icon">ℹ️</span>
+                    <span>Prices will be automatically calculated from MRP</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        Dealer Percentage
+                        <span class="required">*</span>
+                    </label>
+                    <div class="input-group">
+                        <input type="number"
+                               step="0.01"
+                               name="dealer_percentage"
+                               class="form-input"
+                               value="{{ $pricing->dealer_percentage ?? 50 }}"
+                               min="0"
+                               max="100"
+                               required>
+                        <span class="input-suffix">%</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        Distributor Percentage
+                        <span class="required">*</span>
+                    </label>
+                    <div class="input-group">
+                        <input type="number"
+                               step="0.01"
+                               name="distributor_percentage"
+                               class="form-input"
+                               value="{{ $pricing->distributor_percentage ?? 60 }}"
+                               min="0"
+                               max="100"
+                               required>
+                        <span class="input-suffix">%</span>
+                    </div>
+                </div>
+
+                <div class="preview-box">
+                    <div class="preview-title">Preview Calculation</div>
+                    <div class="preview-row">
+                        <span class="preview-label">Dealer Price =</span>
+                        <span class="preview-value">MRP × <span id="dealerPreview">{{ $pricing->dealer_percentage ?? 50 }}</span>%</span>
+                    </div>
+                    <div class="preview-row">
+                        <span class="preview-label">Distributor Price =</span>
+                        <span class="preview-value">MRP × <span id="distributorPreview">{{ $pricing->distributor_percentage ?? 60 }}</span>%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closePricingModal()">Cancel</button>
+                <button type="submit" class="btn-save">Save Settings</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Product Type Modal -->
 <div class="modal" id="productTypeModal">
     <div class="modal-overlay" onclick="closeProductTypeModal()"></div>
-    <div class="modal-content modal-compact">
+    <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
-            <h4 class="modal-title">Add Product</h4>
+            <div class="modal-icon add">📦</div>
+            <div class="modal-title-section">
+                <h4 class="modal-title">Add Product</h4>
+                <p class="modal-subtitle">Choose product type</p>
+            </div>
             <button type="button" class="modal-close" onclick="closeProductTypeModal()">×</button>
         </div>
+
         <div class="modal-body">
             <div class="type-options">
                 <button type="button" class="type-option" onclick="selectProductType('simple')">
-                    <div class="option-icon">📦</div>
-                    <div class="option-details">
+                    <div class="option-icon simple">📦</div>
+                    <div class="option-content">
                         <h5>Simple Product</h5>
                         <p>Single product without variations</p>
                     </div>
                 </button>
+
                 <button type="button" class="type-option" onclick="selectProductType('variant')">
-                    <div class="option-icon">🎨</div>
-                    <div class="option-details">
+                    <div class="option-icon variant">🎨</div>
+                    <div class="option-content">
                         <h5>Variant Product</h5>
                         <p>Product with multiple variations</p>
                     </div>
                 </button>
             </div>
         </div>
-        <div class="modal-footer">
-            <button type="button" class="btn-modal btn-cancel" onclick="closeProductTypeModal()">Cancel</button>
-        </div>
     </div>
 </div>
-
-<!-- REMOVED: Delete Confirmation Modal -->
 
 <!-- Bulk Action Modal -->
 <div class="modal" id="bulkActionModal">
     <div class="modal-overlay" onclick="closeBulkActionModal()"></div>
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 400px;">
         <div class="modal-header">
-            <div class="modal-icon" style="background: #f59e0b;">⚠️</div>
-            <h4 class="modal-title" id="bulkModalTitle"></h4>
+            <div class="modal-icon warning" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">⚠️</div>
+            <div class="modal-title-section">
+                <h4 class="modal-title" id="bulkModalTitle">Confirm Bulk Action</h4>
+                <p class="modal-subtitle" id="bulkModalText">Update selected products</p>
+            </div>
+            <button type="button" class="modal-close" onclick="closeBulkActionModal()">×</button>
         </div>
-        <p class="modal-text" id="bulkModalText"></p>
-        <div class="modal-actions">
-            <button type="button" class="btn-modal btn-cancel" onclick="closeBulkActionModal()">Cancel</button>
-            <button type="button" class="btn-modal btn-confirm" id="confirmBulkAction">Confirm</button>
+
+        <div class="modal-body">
+            <div class="bulk-info">
+                <div class="bulk-icon">📋</div>
+                <div class="bulk-details" id="bulkDetails"></div>
+            </div>
+            <div class="bulk-summary" id="bulkSummary"></div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn-cancel" onclick="closeBulkActionModal()">Cancel</button>
+            <button type="button" class="btn-confirm" id="confirmBulkAction" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Confirm Update</button>
         </div>
     </div>
 </div>
 
-<!-- Stock Management Modal -->
+<!-- Stock Management Modal - Clean like Dealer Modal -->
 <div class="modal" id="stockManagementModal">
     <div class="modal-overlay" onclick="closeStockManagementModal()"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <div class="modal-icon" style="background: #8b5cf6;">📦</div>
+            <div class="modal-icon stock">📦</div>
             <div class="modal-title-section">
                 <h4 class="modal-title">Manage Stock</h4>
-                <div class="modal-subtitle">Adjust inventory levels in Main Warehouse</div>
+                <p class="modal-subtitle">Adjust inventory in Main Warehouse</p>
             </div>
             <button type="button" class="modal-close" onclick="closeStockManagementModal()">×</button>
         </div>
+
         <form id="stockManagementForm" method="POST">
             @csrf
             <div class="modal-body">
@@ -246,90 +411,84 @@
                 <input type="hidden" name="variant_id" id="selectedVariantId">
                 <input type="hidden" name="warehouse_id" id="warehouseId" value="{{ $defaultWarehouse->id ?? '' }}">
 
-                <!-- Product Info Card -->
-                <div class="info-card">
-                    <div class="info-item">
-                        <label>Product</label>
-                        <div class="info-value" id="stockProductName"></div>
-                    </div>
-                    <div class="info-item">
-                        <label>Current Stock (Main Warehouse)</label>
-                        <div class="stock-display">
-                            <span class="stock-value" id="currentStockValue">0</span>
-                            <span class="stock-unit">units</span>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <label>Warehouse</label>
-                        <div class="info-value" style="color: #667eea; font-weight: 600;">
-                            {{ $defaultWarehouse->name ?? 'Main Warehouse' }}
-                        </div>
-                    </div>
+                <!-- Product Info - Simple note like dealer modal -->
+                <div class="info-note">
+                    <span class="note-icon">📦</span>
+                    <span><strong id="stockProductName">Loading...</strong> - {{ $defaultWarehouse->name ?? 'Main Warehouse' }}</span>
+                </div>
+
+                <!-- Current Stock Display - Clean card -->
+                <div class="stock-display-simple">
+                    <div class="stock-label">Current Stock</div>
+                    <div class="stock-value-simple" id="currentStockValue">0</div>
                 </div>
 
                 <!-- Variant Selector -->
-                <div class="variant-selector" id="variantSelector">
-                    <label class="section-label">Select Variant</label>
+                <div class="variant-selector" id="variantSelector" style="display: none;">
+                    <label class="form-label">Select Variant <span class="required">*</span></label>
                     <div class="variant-options" id="variantOptions">
-                        <div class="no-variants">Loading variants...</div>
+                        <div class="loading-message">Loading variants...</div>
                     </div>
                 </div>
 
                 <!-- Adjustment Form -->
-                <div class="adjustment-form">
-                    <label class="section-label">Stock Adjustment</label>
+                <div class="form-group">
+                    <label class="form-label">
+                        Adjustment Type
+                        <span class="required">*</span>
+                    </label>
+                    <select class="form-select" name="adjustment_type" id="stockAdjustmentType" onchange="updateStockCalculation()">
+                        <option value="add">➕ Add Stock</option>
+                        <option value="reduce">➖ Reduce Stock</option>
+                    </select>
+                </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="stockAdjustmentType">
-                                <span class="label-text">Type</span>
-                                <span class="required">*</span>
-                            </label>
-                            <select class="form-select" name="adjustment_type" id="stockAdjustmentType" onchange="updateStockCalculation()">
-                                <option value="add">Add Stock</option>
-                                <option value="reduce">Reduce Stock</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="stockQuantity">
-                                <span class="label-text">Quantity</span>
-                                <span class="required">*</span>
-                            </label>
-                            <input type="number" class="form-input" name="quantity" id="stockQuantity"
-                                   value="1" min="1" step="1" oninput="updateStockCalculation()">
-                        </div>
-                    </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        Quantity
+                        <span class="required">*</span>
+                    </label>
+                    <input type="number"
+                           class="form-input"
+                           name="quantity"
+                           id="stockQuantity"
+                           value="1"
+                           min="1"
+                           step="1"
+                           oninput="updateStockCalculation()">
+                </div>
 
-                    <div class="form-group">
-                        <label for="remarks">Remarks</label>
-                        <textarea class="form-textarea" name="remarks" id="remarks"
-                                  rows="3" placeholder="Enter reason for stock adjustment..."></textarea>
-                    </div>
+                <div class="form-group">
+                    <label class="form-label">Remarks (Optional)</label>
+                    <textarea class="form-textarea"
+                              name="remarks"
+                              id="remarks"
+                              rows="2"
+                              placeholder="Enter reason for adjustment..."></textarea>
                 </div>
 
                 <!-- Calculation Preview -->
-                <div class="calculation-card">
-                    <div class="calc-header">Stock Calculation</div>
-                    <div class="calc-body">
-                        <div class="calc-row">
-                            <span class="calc-label">Current Stock:</span>
-                            <span class="calc-value" id="calcCurrent">0</span>
-                        </div>
-                        <div class="calc-row">
-                            <span class="calc-label">Adjustment:</span>
-                            <span class="calc-value" id="calcAdjustment">+0</span>
-                        </div>
-                        <div class="calc-divider"></div>
-                        <div class="calc-row total">
-                            <span class="calc-label">New Stock:</span>
-                            <span class="calc-value" id="calcNew">0</span>
-                        </div>
+                <div class="preview-box">
+                    <div class="preview-title">Stock Calculation</div>
+                    <div class="preview-row">
+                        <span class="preview-label">Current Stock:</span>
+                        <span class="preview-value" id="calcCurrent">0</span>
+                    </div>
+                    <div class="preview-row">
+                        <span class="preview-label">Adjustment:</span>
+                        <span class="preview-value adjustment" id="calcAdjustment">+0</span>
+                    </div>
+                    <div class="preview-divider"></div>
+                    <div class="preview-row total">
+                        <span class="preview-label">New Stock:</span>
+                        <span class="preview-value new-stock" id="calcNew">0</span>
                     </div>
                 </div>
             </div>
-            <div class="modal-actions">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeStockManagementModal()">Cancel</button>
-                <button type="submit" class="btn-modal btn-confirm" id="stockSubmitBtn">Update Stock</button>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeStockManagementModal()">Cancel</button>
+                <button type="submit" class="btn-save" id="stockSubmitBtn">Update Stock</button>
             </div>
         </form>
     </div>
@@ -337,95 +496,105 @@
 
 @push('styles')
 <style>
-    /* Main Container */
+    /* Modern ERP Style CSS */
     .products-container {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 12px;
-        line-height: 1.4;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        background: #f8fafc;
+        min-height: 100vh;
     }
 
-    /* Header */
+    /* Header Styles */
     .page-header {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #e2e8f0;
+        align-items: center;
+        margin-bottom: 10px;
+        padding: 0px 5px;
+    }
+
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
     }
 
     .page-title {
-        font-size: 16px;
+        font-size: 20px;
         font-weight: 600;
-        color: #2d3748;
-        margin: 0 0 4px 0;
-    }
-
-    .page-subtitle {
-        font-size: 11px;
-        color: #6b7280;
+        color: #1e293b;
         margin: 0;
     }
 
-    .btn-small {
-        padding: 6px 12px;
-        background: #fa8427;
-        color: white;
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .btn-pricing, .btn-add {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
         border: none;
-        border-radius: 4px;
-        font-size: 11px;
+        border-radius: 6px;
+        font-size: 13px;
         font-weight: 500;
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
         transition: all 0.2s;
+        color: white;
     }
 
-    .btn-small:hover {
-        background: #e97317;
+    .btn-pricing {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    }
+
+    .btn-pricing:hover {
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
     }
 
-    .btn-icon {
-        font-size: 12px;
+    .btn-add {
+        background: linear-gradient(135deg, #fa8427 0%, #e97317 100%);
+    }
+
+    .btn-add:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(250, 132, 39, 0.3);
     }
 
     /* Report Cards */
     .report-cards {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
         gap: 15px;
         margin-bottom: 15px;
     }
 
     .report-card {
-        flex: 1;
         display: flex;
         align-items: center;
         gap: 15px;
         padding: 15px;
         background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         transition: all 0.2s;
-        cursor: default;
-        min-width: 300px;
     }
 
     .report-card:hover {
-        border-color: #667eea;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
-        transform: translateY(-2px);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.05);
     }
 
     .card-icon {
         width: 48px;
         height: 48px;
-        border-radius: 10px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 20px;
+        font-size: 24px;
         color: white;
         flex-shrink: 0;
     }
@@ -436,127 +605,151 @@
 
     .card-title {
         font-size: 12px;
-        color: #6b7280;
-        font-weight: 500;
+        color: #64748b;
         margin-bottom: 4px;
     }
 
     .card-value {
         font-size: 20px;
         font-weight: 700;
-        color: #1f2937;
+        color: #1e293b;
         margin-bottom: 2px;
+        line-height: 1.2;
     }
 
     .card-desc {
         font-size: 11px;
-        color: #9ca3af;
+        color: #94a3b8;
     }
 
-    /* Filters */
+    /* Filters Section */
     .table-filters {
         display: flex;
-        gap: 8px;
-        margin-bottom: 10px;
         align-items: center;
-        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 5px;
+        background: white;
+        padding: 10px 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
     .search-box {
         flex: 1;
-        max-width: 200px;
+        max-width: 300px;
         position: relative;
     }
 
     .search-icon {
         position: absolute;
-        left: 8px;
+        left: 12px;
         top: 50%;
         transform: translateY(-50%);
-        font-size: 12px;
-        color: #718096;
+        color: #94a3b8;
+        font-size: 14px;
     }
 
     .search-input {
         width: 100%;
-        padding: 6px 8px 6px 24px;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        font-size: 11px;
-        background: #f9fafb;
+        padding: 8px 12px 8px 36px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        transition: all 0.2s;
+        background: #f8fafc;
     }
 
     .search-input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: #8b5cf6;
         background: white;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
     }
 
-    .filter-buttons {
+    .filter-dropdown {
+        min-width: 140px;
+    }
+
+    .type-filter {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #1e293b;
+        background: white;
+        cursor: pointer;
+    }
+
+    .type-filter:focus {
+        outline: none;
+        border-color: #8b5cf6;
+    }
+
+    .filter-tabs {
         display: flex;
         gap: 4px;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 8px;
     }
 
-    .filter-btn {
-        padding: 5px 10px;
-        background: #f3f4f6;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        font-size: 10px;
-        color: #4b5563;
-        cursor: pointer;
+    .filter-tab {
+        padding: 6px 16px;
+        font-size: 13px;
+        color: #64748b;
+        text-decoration: none;
+        border-radius: 6px;
         transition: all 0.2s;
+        font-weight: 500;
     }
 
-    .filter-btn:hover {
-        background: #e5e7eb;
+    .filter-tab:hover {
+        color: #334155;
     }
 
-    .filter-btn.active {
-        background: #667eea;
-        border-color: #667eea;
-        color: white;
+    .filter-tab.active {
+        background: white;
+        color: #8b5cf6;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    /* Bulk Actions */
     .bulk-actions {
         display: flex;
-        gap: 4px;
-        align-items: center;
+        gap: 8px;
         margin-left: auto;
     }
 
     .bulk-select {
-        padding: 5px 8px;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        font-size: 11px;
-        background: #f9fafb;
-        min-width: 120px;
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #1e293b;
+        background: white;
+        min-width: 130px;
         cursor: pointer;
     }
 
     .bulk-select:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: #8b5cf6;
     }
 
     .btn-bulk {
-        padding: 5px 12px;
-        background: #48bb78;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 11px;
+        padding: 8px 16px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #475569;
         cursor: pointer;
         transition: all 0.2s;
+        font-weight: 500;
     }
 
     .btn-bulk:hover:not(:disabled) {
-        background: #38a169;
-        transform: translateY(-1px);
+        background: #e2e8f0;
     }
 
     .btn-bulk:disabled {
@@ -564,81 +757,51 @@
         cursor: not-allowed;
     }
 
-    /* Compact Table */
+    /* Table Styles */
     .table-wrapper {
-        overflow-x: auto;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
         background: white;
-        margin-top: 10px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        overflow-x: auto;
+        margin-bottom: 15px;
     }
 
-    .compact-table {
+    .products-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 11px;
+        font-size: 13px;
     }
 
-    .compact-table th {
+    .products-table th {
         background: #f8fafc;
-        padding: 8px 10px;
+        padding: 12px 15px;
         text-align: left;
         font-weight: 600;
-        color: #4b5563;
+        color: #475569;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
         border-bottom: 1px solid #e2e8f0;
         white-space: nowrap;
     }
 
-    .compact-table td {
-        padding: 8px 10px;
-        border-bottom: 1px solid #f3f4f6;
+    .products-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
     }
 
-    .compact-table tr:last-child td {
-        border-bottom: none;
+    .products-table tr:hover td {
+        background: #f8fafc;
     }
 
-    .compact-table tr:hover {
-        background: #f9fafb;
-    }
-
-    /* Column widths */
-    .th-checkbox { width: 30px; }
-    .th-sno { width: 50px; }
-    .th-image { width: 50px; }
-    .th-name { width: 180px; }
-    .th-type { width: 70px; }
-    .th-mrp { width: 80px; }
-    .th-price { width: 90px; }
-    .th-stock { width: 80px; }
-    .th-status { width: 70px; }
-    .th-actions { width: 90px; }
-
-    /* Checkbox */
-    input[type="checkbox"] {
-        width: 14px;
-        height: 14px;
-        accent-color: #667eea;
-        cursor: pointer;
-    }
-
-    /* S.No. */
-    .td-sno {
-        font-size: 11px;
-        color: #6b7280;
-        font-weight: 500;
-        text-align: center;
-    }
-
-    /* Image */
     .product-img {
         width: 40px;
         height: 40px;
         border-radius: 6px;
         overflow: hidden;
-        border: 1px solid #e5e7eb;
-        background: #f9fafb;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
     }
 
     .product-img img {
@@ -647,95 +810,60 @@
         object-fit: cover;
     }
 
-    /* Product Name */
     .product-name {
-        font-weight: 600;
-        color: #1f2937;
-        line-height: 1.3;
-        font-size: 12px;
+        font-weight: 500;
+        color: #1e293b;
+        font-size: 13px;
     }
 
-    /* Type Badge */
     .type-badge {
         display: inline-block;
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-size: 9px;
-        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 11px;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
     }
 
-    .type-simple {
+    .type-badge.simple {
         background: #dbeafe;
         color: #1e40af;
     }
 
-    .type-variant {
+    .type-badge.variant {
         background: #f3e8ff;
         color: #6b21a8;
     }
 
-    /* Prices */
-    .td-mrp {
-        font-weight: 600;
-        color: #1f2937;
-        white-space: nowrap;
-        font-size: 11px;
+    .price-cell {
+        font-weight: 500;
+        color: #1e293b;
+        font-size: 13px;
     }
 
-    .td-price {
-        white-space: nowrap;
-    }
-
-    .price-main {
-        font-weight: 600;
-        color: #1f2937;
-        font-size: 11px;
-    }
-
-    /* Stock */
     .stock-info {
         display: flex;
         align-items: baseline;
-        gap: 3px;
-        margin-bottom: 3px;
+        gap: 4px;
     }
 
     .stock-value {
         font-weight: 600;
-        color: #1f2937;
-        font-size: 12px;
+        color: #1e293b;
+        font-size: 13px;
     }
 
     .stock-unit {
-        font-size: 9px;
-        color: #6b7280;
+        font-size: 11px;
+        color: #94a3b8;
     }
 
-    .stock-alert {
-        font-size: 9px;
-        color: #dc2626;
-        background: #fee2e2;
-        padding: 2px 6px;
-        border-radius: 3px;
-        display: inline-block;
-        animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-    }
-
-    /* Status Badge */
     .status-badge {
         display: inline-block;
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-size: 9px;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 11px;
         font-weight: 600;
-        text-transform: capitalize;
     }
 
     .status-active {
@@ -744,97 +872,163 @@
     }
 
     .status-inactive {
-        background: #f3f4f6;
-        color: #6b7280;
+        background: #f1f5f9;
+        color: #64748b;
     }
 
-    /* Action Icons */
     .action-icons {
         display: flex;
         gap: 6px;
     }
 
-    .icon-btn {
-        width: 26px;
-        height: 26px;
-        border-radius: 5px;
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
         border: none;
-        background: none;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 12px;
+        font-size: 14px;
         transition: all 0.2s;
-        padding: 0;
+        text-decoration: none;
     }
 
-    .icon-edit {
-        color: #3b82f6;
+    .action-btn.view {
+        background: #f1f5f9;
+        color: #475569;
+    }
+
+    .action-btn.edit {
         background: #dbeafe;
+        color: #2563eb;
     }
 
-    .icon-edit:hover {
-        background: #bfdbfe;
-        transform: scale(1.1);
-    }
-
-    .icon-stock {
-        color: #8b5cf6;
+    .action-btn.stock {
         background: #ede9fe;
+        color: #7c3aed;
     }
 
-    .icon-stock:hover {
-        background: #ddd6fe;
-        transform: scale(1.1);
+    .action-btn:hover {
+        transform: translateY(-1px);
     }
 
-    .icon-delete {
-        color: #ef4444;
-        background: #fee2e2;
+    /* Pagination Footer */
+    .table-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
-    .icon-delete:hover {
-        background: #fecaca;
-        transform: scale(1.1);
+    .pagination-info {
+        font-size: 13px;
+        color: #64748b;
+    }
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .per-page-selector {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #475569;
+    }
+
+    .per-page-selector select {
+        padding: 6px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #1e293b;
+        background: white;
+        cursor: pointer;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 4px;
+    }
+
+    .page-item {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 6px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #475569;
+        text-decoration: none;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+
+    .page-item.active {
+        background: #8b5cf6;
+        border-color: #8b5cf6;
+        color: white;
+    }
+
+    .page-item.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 
     /* Empty State */
     .empty-state {
-        padding: 40px 20px;
         text-align: center;
+        padding: 60px 20px;
     }
 
     .empty-content {
-        display: inline-block;
+        max-width: 300px;
+        margin: 0 auto;
     }
 
     .empty-icon {
-        font-size: 32px;
-        margin-bottom: 10px;
-        opacity: 0.5;
+        font-size: 48px;
+        margin-bottom: 15px;
+        opacity: 0.3;
     }
 
     .empty-content h4 {
-        font-size: 14px;
-        color: #374151;
-        margin-bottom: 5px;
+        font-size: 16px;
+        color: #334155;
+        margin-bottom: 8px;
     }
 
     .empty-content p {
-        font-size: 11px;
-        color: #6b7280;
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 20px;
     }
 
-    /* Table Footer */
-    .table-footer {
-        padding: 10px 15px;
-        border-top: 1px solid #e2e8f0;
-        background: #f8fafc;
-        font-size: 11px;
-        color: #6b7280;
-        border-radius: 0 0 6px 6px;
-        text-align: center;
+    .btn-add-product {
+        padding: 10px 20px;
+        background: #8b5cf6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-add-product:hover {
+        background: #7c3aed;
     }
 
     /* Modal Styles */
@@ -857,40 +1051,62 @@
         width: 100%;
         height: 100%;
         background: rgba(0,0,0,0.4);
-        backdrop-filter: blur(2px);
+        backdrop-filter: blur(4px);
     }
 
     .modal-content {
         position: relative;
         background: white;
-        border-radius: 12px;
-        padding: 0;
         width: 90%;
-        max-width: 500px;
+        max-width: 450px;
         max-height: 90vh;
         overflow-y: auto;
         animation: modalFadeIn 0.2s ease;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-    }
-
-    .modal-compact {
-        max-width: 400px;
-        padding: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        border-radius: 12px;
     }
 
     @keyframes modalFadeIn {
-        from { opacity: 0; transform: scale(0.95) translateY(20px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
     }
 
     .modal-header {
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 20px 24px;
-        border-bottom: 1px solid #e5e7eb;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e2e8f0;
         background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
         border-radius: 12px 12px 0 0;
+    }
+
+    .modal-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .modal-icon.pricing {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    }
+
+    .modal-icon.add {
+        background: linear-gradient(135deg, #fa8427 0%, #e97317 100%);
+    }
+
+    .modal-icon.warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .modal-icon.stock {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     }
 
     .modal-title-section {
@@ -900,24 +1116,22 @@
     .modal-title {
         font-size: 16px;
         font-weight: 600;
-        color: #1f2937;
-        margin: 0;
-        line-height: 1.3;
+        color: #1e293b;
+        margin: 0 0 2px 0;
     }
 
     .modal-subtitle {
-        font-size: 11px;
-        color: #6b7280;
-        margin-top: 2px;
+        font-size: 12px;
+        color: #64748b;
+        margin: 0;
     }
 
     .modal-close {
         background: none;
         border: none;
         font-size: 20px;
-        color: #6b7280;
+        color: #94a3b8;
         cursor: pointer;
-        padding: 4px;
         width: 32px;
         height: 32px;
         display: flex;
@@ -928,181 +1142,22 @@
     }
 
     .modal-close:hover {
-        background: #f3f4f6;
-        color: #1f2937;
-        transform: rotate(90deg);
+        background: #f1f5f9;
+        color: #334155;
     }
 
-    .modal-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        color: white;
-        flex-shrink: 0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    .modal-body {
+        padding: 20px;
     }
 
-    /* Product Type Modal */
-    .type-options {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .type-option {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        padding: 15px;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-align: left;
-        width: 100%;
-        border: none;
-    }
-
-    .type-option:hover {
-        background: #f3f4f6;
-        border-color: #667eea;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
-    }
-
-    .option-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 8px;
-        background: #667eea;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        flex-shrink: 0;
-    }
-
-    .option-details h5 {
-        font-size: 14px;
-        font-weight: 600;
-        color: #1f2937;
-        margin: 0 0 4px 0;
-    }
-
-    .option-details p {
-        font-size: 12px;
-        color: #6b7280;
-        margin: 0;
-    }
-
-    /* Modal Buttons */
-    .modal-actions, .modal-footer {
+    .modal-footer {
         display: flex;
         justify-content: flex-end;
         gap: 10px;
-        padding: 20px 24px;
-        border-top: 1px solid #e5e7eb;
+        padding: 16px 20px;
+        border-top: 1px solid #e2e8f0;
         background: #fafafa;
         border-radius: 0 0 12px 12px;
-    }
-
-    .btn-modal {
-        padding: 8px 20px;
-        border: none;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        min-width: 80px;
-    }
-
-    .btn-cancel {
-        background: #f3f4f6;
-        color: #4b5563;
-        border: 1px solid #e5e7eb;
-    }
-
-    .btn-cancel:hover {
-        background: #e5e7eb;
-    }
-
-    .btn-confirm {
-        background: #667eea;
-        color: white;
-        border: 1px solid #667eea;
-    }
-
-    .btn-confirm:hover {
-        background: #5a67d8;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-    }
-
-    /* Stock Management Modal Specific Styles */
-    .modal-body {
-        padding: 24px;
-    }
-
-    .info-card {
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 20px;
-    }
-
-    .info-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-    }
-
-    .info-item:last-child {
-        margin-bottom: 0;
-    }
-
-    .info-item label {
-        font-size: 11px;
-        font-weight: 500;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .info-value {
-        font-size: 13px;
-        font-weight: 600;
-        color: #1f2937;
-        text-align: right;
-        max-width: 60%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .stock-display {
-        display: flex;
-        align-items: baseline;
-        gap: 4px;
-    }
-
-    .stock-display .stock-value {
-        font-size: 18px;
-        font-weight: 700;
-        color: #1f2937;
-    }
-
-    .stock-display .stock-unit {
-        font-size: 11px;
-        color: #6b7280;
-        font-weight: 500;
     }
 
     /* Form Elements */
@@ -1110,24 +1165,12 @@
         margin-bottom: 16px;
     }
 
-    .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-        margin-bottom: 16px;
-    }
-
-    label {
+    .form-label {
         display: block;
-        font-size: 11px;
-        font-weight: 600;
-        color: #374151;
+        font-size: 13px;
+        font-weight: 500;
+        color: #334155;
         margin-bottom: 6px;
-    }
-
-    .label-text {
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 
     .required {
@@ -1135,308 +1178,359 @@
         margin-left: 2px;
     }
 
-    .info-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        background: #e0e7ff;
-        color: #4f46e5;
-        border-radius: 10px;
-        font-size: 9px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-left: 6px;
-    }
-
-    .section-label {
-        display: block;
-        font-size: 11px;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #e5e7eb;
+    .input-group {
+        position: relative;
+        display: flex;
+        align-items: center;
     }
 
     .form-input, .form-select, .form-textarea {
         width: 100%;
         padding: 8px 12px;
-        border: 1px solid #d1d5db;
+        border: 1px solid #e2e8f0;
         border-radius: 6px;
         font-size: 13px;
-        font-family: inherit;
         transition: all 0.2s;
         background: white;
     }
 
     .form-input:focus, .form-select:focus, .form-textarea:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        background: white;
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
     }
 
-    .form-input:disabled, .form-input:read-only {
-        background: #f3f4f6;
-        color: #6b7280;
-        cursor: not-allowed;
-        border-color: #e5e7eb;
+    .input-suffix {
+        position: absolute;
+        right: 12px;
+        color: #64748b;
+        font-weight: 500;
+        font-size: 13px;
     }
 
-    .form-input::placeholder, .form-textarea::placeholder {
-        color: #9ca3af;
+    .info-note {
+        background: #eff6ff;
+        border: 1px solid #dbeafe;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #1e40af;
     }
 
-    .form-textarea {
-        resize: vertical;
-        min-height: 80px;
+    .note-icon {
+        font-size: 14px;
     }
 
-    /* Variant Selector */
-    .variant-selector {
+    .preview-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 12px;
+        margin-top: 16px;
+    }
+
+    .preview-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .preview-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 13px;
+    }
+
+    .preview-row.total {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #e2e8f0;
+        font-weight: 600;
+    }
+
+    .preview-label {
+        color: #64748b;
+    }
+
+    .preview-value {
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .preview-value.adjustment {
+        color: #10b981;
+    }
+
+    .preview-value.new-stock {
+        color: #8b5cf6;
+        font-size: 16px;
+    }
+
+    .preview-divider {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 8px 0;
+    }
+
+    /* Stock Management Specific */
+    .stock-display-simple {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 15px;
+        text-align: center;
         margin-bottom: 20px;
-        display: none;
+    }
+
+    .stock-display-simple .stock-label {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+
+    .stock-display-simple .stock-value-simple {
+        font-size: 28px;
+        font-weight: 700;
+        color: #8b5cf6;
+        line-height: 1.2;
+    }
+
+    .variant-selector {
+        margin-bottom: 16px;
     }
 
     .variant-options {
-        display: grid;
-        gap: 8px;
-        max-height: 200px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        max-height: 180px;
         overflow-y: auto;
-        padding-right: 4px;
-    }
-
-    .variant-options::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .variant-options::-webkit-scrollbar-track {
-        background: #f1f5f9;
-        border-radius: 3px;
-    }
-
-    .variant-options::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 3px;
-    }
-
-    .variant-options::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+        background: white;
     }
 
     .variant-card {
-        padding: 12px;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        background: #f9fafb;
+        padding: 10px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 12px;
+    }
+
+    .variant-card:last-child {
+        border-bottom: none;
+    }
+
+    .variant-card:hover {
+        background: #f8fafc;
+    }
+
+    .variant-card.selected {
+        background: #f3e8ff;
+        border-left: 3px solid #8b5cf6;
+    }
+
+    .loading-message {
+        padding: 15px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 12px;
+    }
+
+    /* Buttons */
+    .btn-cancel, .btn-save, .btn-confirm {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
         cursor: pointer;
         transition: all 0.2s;
     }
 
-    .variant-card:hover {
-        border-color: #8b5cf6;
-        background: #f5f3ff;
-        transform: translateX(2px);
+    .btn-cancel {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
     }
 
-    .variant-card.selected {
-        border-color: #8b5cf6;
-        background: #ede9fe;
-        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
+    .btn-cancel:hover {
+        background: #e2e8f0;
     }
 
-    .variant-header {
+    .btn-save {
+        background: #f98824;
+        color: white;
+    }
+
+
+    .btn-confirm {
+        background: #f59e0b;
+        color: white;
+    }
+
+    .btn-confirm:hover {
+        background: #d97706;
+    }
+
+    /* Bulk Action Styles */
+    .bulk-info {
         display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 6px;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 6px;
+        margin-bottom: 12px;
     }
 
-    .variant-name {
-        font-size: 12px;
+    .bulk-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+    }
+
+    .bulk-details h4 {
+        font-size: 14px;
         font-weight: 600;
-        color: #1f2937;
+        color: #1e293b;
+        margin: 0 0 2px 0;
+    }
+
+    .bulk-details p {
+        font-size: 12px;
+        color: #64748b;
         margin: 0;
     }
 
-    .variant-stock {
-        font-size: 11px;
-        font-weight: 600;
-        color: #6b7280;
-        background: #f3f4f6;
-        padding: 2px 8px;
-        border-radius: 10px;
-    }
-
-    .variant-attributes {
-        font-size: 11px;
-        color: #6b7280;
-        margin-bottom: 4px;
-        line-height: 1.4;
-    }
-
-    .variant-sku {
-        font-size: 10px;
-        color: #9ca3af;
-        font-family: 'Courier New', monospace;
-    }
-
-    .no-variants {
-        text-align: center;
-        padding: 20px;
-        color: #9ca3af;
-        font-size: 12px;
-        background: #f9fafb;
+    .bulk-summary {
+        background: #f1f5f9;
         border-radius: 6px;
-        border: 1px dashed #d1d5db;
+        padding: 12px;
+        font-size: 13px;
+        color: #334155;
+        border-left: 3px solid #f59e0b;
     }
 
-    /* Calculation Card */
-    .calculation-card {
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 16px;
-        margin-top: 20px;
-    }
-
-    .calc-header {
-        font-size: 11px;
-        font-weight: 600;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 12px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #e5e7eb;
-    }
-
-    .calc-body {
+    /* Type Options */
+    .type-options {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
     }
 
-    .calc-row {
+    .type-option {
         display: flex;
-        justify-content: space-between;
         align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 100%;
+        text-align: left;
     }
 
-    .calc-label {
+    .type-option:hover {
+        border-color: #8b5cf6;
+        background: #f8fafc;
+    }
+
+    .option-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .option-icon.simple {
+        background: linear-gradient(135deg, #fa8427 0%, #e97317 100%);
+    }
+
+    .option-icon.variant {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    }
+
+    .option-content h5 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0 0 2px 0;
+    }
+
+    .option-content p {
         font-size: 12px;
-        color: #6b7280;
-    }
-
-    .calc-value {
-        font-size: 13px;
-        font-weight: 600;
-        color: #1f2937;
-    }
-
-    .calc-row.total {
-        margin-top: 8px;
-        padding-top: 12px;
-        border-top: 1px solid #e5e7eb;
-    }
-
-    .calc-row.total .calc-label {
-        font-size: 13px;
-        font-weight: 600;
-        color: #374151;
-    }
-
-    .calc-row.total .calc-value {
-        font-size: 16px;
-        font-weight: 700;
-        color: #10b981;
-    }
-
-    .calc-divider {
-        height: 1px;
-        background: #e5e7eb;
-        margin: 8px 0;
+        color: #64748b;
+        margin: 0;
     }
 
     /* Responsive */
     @media (max-width: 768px) {
-        .products-container {
-            padding: 10px;
-        }
-
         .page-header {
             flex-direction: column;
             gap: 10px;
-            align-items: stretch;
         }
 
-        .report-cards {
+        .header-right {
+            width: 100%;
             flex-direction: column;
         }
 
-        .report-card {
-            min-width: auto;
+        .btn-pricing, .btn-add {
             width: 100%;
+            justify-content: center;
+        }
+
+        .report-cards {
+            grid-template-columns: 1fr;
         }
 
         .table-filters {
             flex-direction: column;
             align-items: stretch;
-            gap: 10px;
         }
 
         .search-box {
             max-width: 100%;
         }
 
+        .filter-tabs {
+            justify-content: center;
+        }
+
         .bulk-actions {
             margin-left: 0;
             width: 100%;
-            justify-content: flex-end;
         }
 
-        .modal-content {
-            margin: 20px;
-            width: calc(100% - 40px);
-            max-height: calc(100vh - 40px);
-        }
-
-        .form-row {
-            grid-template-columns: 1fr;
+        .table-footer {
+            flex-direction: column;
             gap: 12px;
         }
 
-        .modal-header {
+        .pagination-controls {
             flex-direction: column;
-            align-items: flex-start;
             gap: 12px;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .modal-body {
-            padding: 16px;
-        }
-
-        .info-card {
-            padding: 12px;
-        }
-
-        .modal-actions {
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .btn-modal {
-            width: 100%;
         }
     }
 </style>
@@ -1444,27 +1538,18 @@
 
 @push('scripts')
 <script>
-    // Load product data and calculate summaries
+    // Load report data
     document.addEventListener('DOMContentLoaded', function() {
         loadReportData();
         setInterval(loadReportData, 30000);
     });
 
     function loadReportData() {
-        // Fetch fresh data from server
         fetch('{{ route("admin.products.report-data") }}')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Format total cost with ₹ symbol
-                    const totalCost = '₹' + data.total_cost;
-
-                    // Update first card (Product Total Cost)
-                    document.getElementById('totalCostValue').textContent = totalCost;
-                    document.getElementById('totalProductsCount').textContent =
-                        data.total_products + ' products (' + data.simple_products_count + ' simple, ' + data.variant_items_count + ' variant)';
-
-                    // Update second card (Low Stock Products)
+                    document.getElementById('totalCostValue').textContent = '₹' + data.total_cost;
                     document.getElementById('lowStockCount').textContent = data.total_low_stock;
                     document.getElementById('lowStockDetails').textContent =
                         data.simple_low_stock_count + ' simple, ' + data.variant_low_stock_count + ' variant';
@@ -1473,7 +1558,47 @@
             .catch(error => console.error('Error loading report data:', error));
     }
 
-    // Product Type Selection
+    // Product Type Filter
+    function filterByProductType(value) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('product_type', value);
+        url.searchParams.set('page', 1);
+        window.location.href = url.toString();
+    }
+
+    // Pagination and Per Page
+    function changePerPage(value) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', value);
+        url.searchParams.set('page', 1);
+        window.location.href = url.toString();
+    }
+
+    // Search with debounce
+    let searchTimeout;
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const url = new URL(window.location.href);
+            if (e.target.value) {
+                url.searchParams.set('search', e.target.value);
+            } else {
+                url.searchParams.delete('search');
+            }
+            url.searchParams.set('page', 1);
+            window.location.href = url.toString();
+        }, 500);
+    });
+
+    // Modal Functions
+    function openPricingModal() {
+        document.getElementById('pricingModal').style.display = 'flex';
+    }
+
+    function closePricingModal() {
+        document.getElementById('pricingModal').style.display = 'none';
+    }
+
     function openProductTypeModal() {
         document.getElementById('productTypeModal').style.display = 'flex';
     }
@@ -1486,9 +1611,110 @@
         closeProductTypeModal();
         if (type === 'simple') {
             window.location.href = '{{ route("admin.products.create-simple") }}';
-        } else if (type === 'variant') {
+        } else {
             window.location.href = '{{ route("admin.products.create") }}';
         }
+    }
+
+    // Bulk Actions
+    let selectedAction = '';
+    let selectedProductIds = [];
+    let selectedProductTypes = [];
+
+    document.getElementById('applyBulkAction').addEventListener('click', function() {
+        const action = document.getElementById('bulkActionSelect').value;
+        if (!action) return;
+
+        selectedProductIds = [];
+        selectedProductTypes = [];
+
+        document.querySelectorAll('.row-checkbox:checked').forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            selectedProductIds.push(checkbox.value);
+            selectedProductTypes.push(row.dataset.productType);
+        });
+
+        if (selectedProductIds.length === 0) return;
+
+        selectedAction = action;
+
+        const actionText = action === 'active' ? 'Activate' : 'Deactivate';
+        document.getElementById('bulkModalTitle').textContent = `Bulk ${actionText} Products`;
+        document.getElementById('bulkModalText').textContent = `You are about to ${actionText.toLowerCase()} ${selectedProductIds.length} product(s)`;
+
+        const simpleCount = selectedProductTypes.filter(t => t === 'simple').length;
+        const variantCount = selectedProductTypes.filter(t => t === 'variant').length;
+
+        document.getElementById('bulkDetails').innerHTML = `
+            <h4>${selectedProductIds.length} Products Selected</h4>
+            <p>${simpleCount} Simple, ${variantCount} Variant</p>
+        `;
+
+        document.getElementById('bulkSummary').innerHTML = `
+            <strong>Action:</strong> Set as ${action === 'active' ? 'Active' : 'Inactive'}<br>
+            <strong>Products:</strong> ${selectedProductIds.length} items
+        `;
+
+        document.getElementById('bulkActionModal').style.display = 'flex';
+    });
+
+    document.getElementById('confirmBulkAction').addEventListener('click', async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+
+        try {
+            const formData = new FormData();
+            formData.append('_token', '{{ csrf_token() }}');
+            formData.append('status', selectedAction);
+
+            selectedProductIds.forEach(id => formData.append('product_ids[]', id));
+            selectedProductTypes.forEach(type => formData.append('product_types[]', type));
+
+            const response = await fetch('{{ route("admin.products.bulk-update-status") }}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Operation failed');
+                closeBulkActionModal();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred');
+            closeBulkActionModal();
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Confirm Update';
+        }
+    });
+
+    function closeBulkActionModal() {
+        document.getElementById('bulkActionModal').style.display = 'none';
+        selectedAction = '';
+        selectedProductIds = [];
+        selectedProductTypes = [];
+    }
+
+    // Select All Checkbox
+    document.getElementById('selectAll').addEventListener('change', function() {
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = this.checked);
+        updateBulkActionButtons();
+    });
+
+    document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateBulkActionButtons);
+    });
+
+    function updateBulkActionButtons() {
+        const anyChecked = document.querySelectorAll('.row-checkbox:checked').length > 0;
+        document.getElementById('bulkActionSelect').disabled = !anyChecked;
+        document.getElementById('applyBulkAction').disabled = !anyChecked;
     }
 
     // Stock Management
@@ -1498,71 +1724,43 @@
     let selectedVariantData = null;
 
     async function openStockManagement(productId, productName) {
-        const modal = document.getElementById('stockManagementModal');
-        const productNameElement = document.getElementById('stockProductName');
-
-        // Set basic info
         document.getElementById('stockProductId').value = productId;
-        productNameElement.textContent = productName;
+        document.getElementById('stockProductName').textContent = productName;
 
-        // Reset form
-        const form = document.getElementById('stockManagementForm');
-        form.reset();
+        document.getElementById('stockManagementForm').reset();
         document.getElementById('stockQuantity').value = 1;
-        document.getElementById('remarks').value = '';
 
-        // ✅ Always set to main warehouse
         const warehouseId = document.getElementById('warehouseId').value;
         if (!warehouseId) {
-            alert('Main warehouse not found. Please set a main warehouse first.');
+            alert('Main warehouse not found');
             return;
         }
 
-        // Check if product is simple or variant
-        const productRow = document.querySelector(`tr[data-product-id="${productId}"]`);
-        const isVariant = productRow.querySelector('.type-variant') !== null;
-
+        const row = document.querySelector(`tr[data-product-id="${productId}"]`);
+        const isVariant = row.querySelector('.type-badge.variant') !== null;
         document.getElementById('productType').value = isVariant ? 'variant' : 'simple';
 
         if (isVariant) {
-            // Show variant selector and load variants
             document.getElementById('variantSelector').style.display = 'block';
             await loadProductVariants(productId);
         } else {
-            // Simple product - hide variant selector
             document.getElementById('variantSelector').style.display = 'none';
-
-            // ✅ Fetch main warehouse stock for simple product
             await fetchSimpleProductStock(productId);
-
-            selectedVariantData = null;
-            updateStockCalculation();
         }
 
-        modal.style.display = 'flex';
+        document.getElementById('stockManagementModal').style.display = 'flex';
     }
 
-    // ✅ NEW FUNCTION: Fetch simple product stock from main warehouse
     async function fetchSimpleProductStock(productId) {
         try {
             const response = await fetch(`/admin/products/${productId}/simple-warehouse-stock`);
             const data = await response.json();
 
-            if (data.success) {
-                currentProductStock = parseInt(data.main_warehouse_stock) || 0;
-                document.getElementById('currentStockValue').textContent = currentProductStock;
-
-                // Set calculation display
-                document.getElementById('calcCurrent').textContent = currentProductStock;
-                document.getElementById('calcAdjustment').textContent = '+0';
-                document.getElementById('calcNew').textContent = currentProductStock;
-            } else {
-                currentProductStock = 0;
-                document.getElementById('currentStockValue').textContent = '0';
-                alert('Could not load stock data');
-            }
+            currentProductStock = data.success ? parseInt(data.main_warehouse_stock) || 0 : 0;
+            document.getElementById('currentStockValue').textContent = currentProductStock;
+            updateStockCalculation();
         } catch (error) {
-            console.error('Error fetching simple product stock:', error);
+            console.error('Error fetching stock:', error);
             currentProductStock = 0;
             document.getElementById('currentStockValue').textContent = '0';
         }
@@ -1570,63 +1768,51 @@
 
     async function loadProductVariants(productId) {
         try {
-            const variantOptions = document.getElementById('variantOptions');
-            variantOptions.innerHTML = '<div class="no-variants">Loading variants...</div>';
+            const options = document.getElementById('variantOptions');
+            options.innerHTML = '<div class="loading-message">Loading variants...</div>';
 
-            // ✅ NEW: Load variants with main warehouse stock
             const response = await fetch(`/admin/products/${productId}/variants-with-stock`);
             const data = await response.json();
 
             if (data.success) {
                 currentProductVariants = data.variants || [];
-                variantOptions.innerHTML = '';
+                options.innerHTML = '';
 
                 if (currentProductVariants.length === 0) {
-                    variantOptions.innerHTML = '<div class="no-variants">No variants found</div>';
+                    options.innerHTML = '<div class="loading-message">No variants found</div>';
                     return;
                 }
 
                 currentProductVariants.forEach((variant, index) => {
-                    const variantCard = document.createElement('div');
-                    variantCard.className = 'variant-card';
-                    variantCard.dataset.index = index;
-                    variantCard.onclick = function() {
-                        selectVariant(index);
-                    };
+                    const card = document.createElement('div');
+                    card.className = 'variant-card';
+                    card.dataset.index = index;
+                    card.onclick = () => selectVariant(index);
 
-                    const variantName = variant.name || 'Unnamed Variant';
-                    const attributes = variant.attributes || [];
-                    const stock = parseInt(variant.current_stock) || 0;
-                    const sku = variant.sku_code || 'N/A';
+                    const attrs = variant.attributes || [];
+                    const attrText = Array.isArray(attrs)
+                        ? attrs.map(a => `${a.type || ''}: ${a.value || ''}`).join(', ')
+                        : '';
 
-                    let attributesText = '';
-                    if (Array.isArray(attributes)) {
-                        attributesText = attributes.map(attr =>
-                            `${attr.type || ''}: ${attr.value || ''}`
-                        ).join(', ');
-                    }
-
-                    variantCard.innerHTML = `
-                        <div class="variant-header">
-                            <div class="variant-name">${variantName}</div>
-                            <div class="variant-stock">${stock} units</div>
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <strong>${variant.name || 'Unnamed'}</strong>
+                            <span style="background: #e2e8f0; padding: 2px 6px; border-radius: 10px;">${variant.current_stock || 0}</span>
                         </div>
-                        <div class="variant-attributes">${attributesText}</div>
-                        <div class="variant-sku">SKU: ${sku}</div>
+                        <div style="font-size: 11px; color: #64748b;">${attrText}</div>
+                        <div style="font-size: 10px; color: #94a3b8;">SKU: ${variant.sku_code || 'N/A'}</div>
                     `;
 
-                    variantOptions.appendChild(variantCard);
+                    options.appendChild(card);
                 });
 
-                // Select first variant by default
                 if (currentProductVariants.length > 0) {
                     setTimeout(() => selectVariant(0), 100);
                 }
             }
         } catch (error) {
             console.error('Error loading variants:', error);
-            document.getElementById('variantOptions').innerHTML =
-                '<div class="no-variants">Error loading variants</div>';
+            document.getElementById('variantOptions').innerHTML = '<div class="loading-message">Error loading variants</div>';
         }
     }
 
@@ -1636,288 +1822,99 @@
 
         if (!selectedVariantData) return;
 
-        // Update UI
-        document.querySelectorAll('.variant-card').forEach(card => {
-            card.classList.remove('selected');
-        });
+        document.querySelectorAll('.variant-card').forEach(c => c.classList.remove('selected'));
+        const card = document.querySelector(`.variant-card[data-index="${index}"]`);
+        if (card) card.classList.add('selected');
 
-        const selectedCard = document.querySelector(`.variant-card[data-index="${index}"]`);
-        if (selectedCard) {
-            selectedCard.classList.add('selected');
-        }
-
-        // Get stock from variant data
-        const currentStock = parseInt(selectedVariantData.current_stock) || 0;
-        document.getElementById('currentStockValue').textContent = currentStock;
+        currentProductStock = parseInt(selectedVariantData.current_stock) || 0;
+        document.getElementById('currentStockValue').textContent = currentProductStock;
         document.getElementById('selectedVariantId').value = selectedVariantData._id || index;
 
-        currentProductStock = currentStock;
         updateStockCalculation();
     }
 
     function updateStockCalculation() {
-        // Ensure currentProductStock is always an integer
-        const currentStock = parseInt(currentProductStock) || 0;
-        const adjustmentType = document.getElementById('stockAdjustmentType').value;
-        // Parse quantity as integer
-        const quantity = parseInt(document.getElementById('stockQuantity').value) || 0;
+        const current = parseInt(currentProductStock) || 0;
+        const type = document.getElementById('stockAdjustmentType').value;
+        const qty = parseInt(document.getElementById('stockQuantity').value) || 0;
 
-        let newStock = currentStock;
-        let adjustmentText = '';
+        let newStock = current;
+        let adjText = '';
 
-        switch(adjustmentType) {
-            case 'add':
-                // Ensure numeric addition
-                newStock = currentStock + quantity;
-                adjustmentText = `+${quantity}`;
-                document.getElementById('calcAdjustment').style.color = '#10b981';
-                break;
-            case 'reduce':
-                newStock = Math.max(0, currentStock - quantity);
-                adjustmentText = `-${quantity}`;
-                document.getElementById('calcAdjustment').style.color = '#ef4444';
-                break;
+        if (type === 'add') {
+            newStock = current + qty;
+            adjText = `+${qty}`;
+            document.getElementById('calcAdjustment').style.color = '#10b981';
+        } else {
+            newStock = Math.max(0, current - qty);
+            adjText = `-${qty}`;
+            document.getElementById('calcAdjustment').style.color = '#ef4444';
         }
 
-        // Update calculation display
-        document.getElementById('calcCurrent').textContent = currentStock;
-        document.getElementById('calcAdjustment').textContent = adjustmentText;
+        document.getElementById('calcCurrent').textContent = current;
+        document.getElementById('calcAdjustment').textContent = adjText;
         document.getElementById('calcNew').textContent = newStock;
-
-        // Update current stock display in info card
-        document.getElementById('currentStockValue').textContent = currentStock;
     }
 
     function closeStockManagementModal() {
         document.getElementById('stockManagementModal').style.display = 'none';
-        document.getElementById('stockManagementForm').reset();
         currentProductVariants = [];
         selectedVariantIndex = -1;
         selectedVariantData = null;
         currentProductStock = 0;
-        document.getElementById('variantOptions').innerHTML = '';
     }
 
-    // Update form submission to handle both simple and variant products
+    // Form submission
     document.getElementById('stockManagementForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        const formData = new FormData(this);
-        const productType = document.getElementById('productType').value;
-
-        if (productType === 'variant' && selectedVariantIndex === -1) {
+        const type = document.getElementById('productType').value;
+        if (type === 'variant' && selectedVariantIndex === -1) {
             alert('Please select a variant');
             return;
         }
 
-        // Add variant-specific data if it's a variant product
-        if (productType === 'variant' && selectedVariantData) {
+        const btn = document.querySelector('#stockManagementForm .btn-save');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Updating...';
+
+        const formData = new FormData(this);
+        if (type === 'variant' && selectedVariantData) {
             formData.append('variant_id', selectedVariantData._id || selectedVariantIndex);
         }
-
-        const submitBtn = document.getElementById('stockSubmitBtn');
-        const originalBtnText = submitBtn.textContent;
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Updating...';
 
         try {
             const response = await fetch('{{ route("admin.products.update-stock") }}', {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
 
             const data = await response.json();
-
             if (data.success) {
-                alert('✅ Stock updated successfully in Main Warehouse');
+                alert('Stock updated successfully');
                 closeStockManagementModal();
                 setTimeout(() => window.location.reload(), 500);
             } else {
-                alert('❌ ' + (data.message || 'Failed to update stock'));
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalBtnText;
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            alert('❌ An error occurred');
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalBtnText;
-        }
-    });
-
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        const rows = document.querySelectorAll('.table-row');
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(searchTerm) ? '' : 'none';
-        });
-    });
-
-    // Filter functionality
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            const filter = this.getAttribute('data-filter');
-            const rows = document.querySelectorAll('.table-row');
-            rows.forEach(row => {
-                if (filter === 'all') {
-                    row.style.display = '';
-                } else {
-                    const status = row.getAttribute('data-status');
-                    row.style.display = status === filter ? '' : 'none';
-                }
-            });
-        });
-    });
-
-    // Select all checkbox
-    document.getElementById('selectAll').addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('.row-checkbox');
-        checkboxes.forEach(cb => cb.checked = this.checked);
-        updateBulkActionButtons();
-    });
-
-    // Individual checkboxes
-    document.querySelectorAll('.row-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const allChecked = Array.from(document.querySelectorAll('.row-checkbox')).every(cb => cb.checked);
-            document.getElementById('selectAll').checked = allChecked;
-            updateBulkActionButtons();
-        });
-    });
-
-    function updateBulkActionButtons() {
-        const anyChecked = Array.from(document.querySelectorAll('.row-checkbox')).some(cb => cb.checked);
-        document.getElementById('bulkActionSelect').disabled = !anyChecked;
-        document.getElementById('applyBulkAction').disabled = !anyChecked;
-    }
-
-    // ✅ FIXED: Bulk Action with product_types array (REMOVED DELETE OPTION)
-    let selectedAction = '';
-    let selectedProductIds = [];
-    let selectedProductTypes = [];
-
-    document.getElementById('applyBulkAction').addEventListener('click', function() {
-        const action = document.getElementById('bulkActionSelect').value;
-        if (!action) {
-            alert('Please select a bulk action');
-            return;
-        }
-
-        selectedProductIds = [];
-        selectedProductTypes = [];
-
-        // ✅ Collect product IDs and types
-        document.querySelectorAll('.row-checkbox:checked').forEach(checkbox => {
-            const productId = checkbox.value;
-            const row = checkbox.closest('tr');
-            const productType = row.getAttribute('data-product-type');
-
-            selectedProductIds.push(productId);
-            selectedProductTypes.push(productType);
-        });
-
-        if (selectedProductIds.length === 0) {
-            alert('Please select at least one product');
-            return;
-        }
-
-        selectedAction = action;
-        const modal = document.getElementById('bulkActionModal');
-        const modalTitle = document.getElementById('bulkModalTitle');
-        const modalText = document.getElementById('bulkModalText');
-
-        const actionText = {
-            'active': 'Set as Active',
-            'inactive': 'Set as Inactive'
-        }[action];
-
-        const actionMessage = {
-            'active': `Set ${selectedProductIds.length} product(s) as active?`,
-            'inactive': `Set ${selectedProductIds.length} product(s) as inactive?`
-        }[action];
-
-        modalTitle.textContent = actionText;
-        modalText.textContent = actionMessage;
-        modal.style.display = 'flex';
-    });
-
-    // ✅ FIXED: Confirm bulk action with proper data (REMOVED DELETE LOGIC)
-    document.getElementById('confirmBulkAction').addEventListener('click', async function() {
-        if (selectedProductIds.length === 0 || !selectedAction) return;
-
-        const modal = document.getElementById('bulkActionModal');
-        const confirmBtn = this;
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Processing...';
-
-        try {
-            const url = '/admin/products/bulk-update-status';
-            const method = 'POST';
-
-            const formData = new FormData();
-            formData.append('_token', '{{ csrf_token() }}');
-
-            // ✅ Send both product_ids and product_types arrays
-            selectedProductIds.forEach(id => {
-                formData.append('product_ids[]', id);
-            });
-
-            selectedProductTypes.forEach(type => {
-                formData.append('product_types[]', type);
-            });
-
-            formData.append('status', selectedAction);
-
-            const response = await fetch(url, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                window.location.reload();
-            } else {
-                alert(data.message || 'Operation failed');
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = 'Confirm';
+                alert(data.message || 'Failed to update stock');
             }
         } catch (error) {
             console.error('Error:', error);
             alert('An error occurred');
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Confirm';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
         }
     });
-
-    // REMOVED: Delete Modal functions
-
-    function closeBulkActionModal() {
-        document.getElementById('bulkActionModal').style.display = 'none';
-        selectedAction = '';
-        selectedProductIds = [];
-        selectedProductTypes = [];
-        document.getElementById('bulkActionSelect').selectedIndex = 0;
-    }
 
     // Close modals with Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+            closePricingModal();
+            closeProductTypeModal();
             closeBulkActionModal();
             closeStockManagementModal();
-            closeProductTypeModal();
         }
     });
 </script>

@@ -14,7 +14,8 @@ class SalesInvoice extends Model
     protected $fillable = [
         'invoice_number',
         'invoice_date',
-        'customer_id',
+        'party_id',              // Store only party ID
+        'salesman_id',            // Store only salesman ID
         'warehouse_id',
         // addresses
         'billing_address',
@@ -23,14 +24,16 @@ class SalesInvoice extends Model
         'payment_terms',
         'due_date',
         'po_number',
-        'vehicle_no',
-        'colours',
         'notes',
         // totals
         'total_mrp',
         'subtotal',
         'discount_total',
         'tax_total',
+        'cgst_total',      // New - Total CGST amount
+        'sgst_total',      // New - Total SGST amount
+        'igst_total',      // New - Total IGST amount
+        'tax_type',        // New - 'intra' or 'inter'
         'extra_discount',
         'extra_discount_type',
         'extra_charge',
@@ -50,6 +53,9 @@ class SalesInvoice extends Model
         'subtotal' => 'decimal:2',
         'discount_total' => 'decimal:2',
         'tax_total' => 'decimal:2',
+        'cgst_total' => 'decimal:2',
+        'sgst_total' => 'decimal:2',
+        'igst_total' => 'decimal:2',
         'grand_total' => 'decimal:2',
         'round_off' => 'decimal:2',
         'total_paid' => 'decimal:2',
@@ -59,9 +65,14 @@ class SalesInvoice extends Model
     ];
 
     // Relationships
-    public function customer()
+    public function party()
     {
-        return $this->belongsTo(Customer::class, 'customer_id');
+        return $this->belongsTo(Customer::class, 'party_id');
+    }
+
+    public function salesman()
+    {
+        return $this->belongsTo(Salesman::class, 'salesman_id');
     }
 
     public function warehouse()
@@ -124,5 +135,17 @@ class SalesInvoice extends Model
             $diff = $today->diffInDays($dueDate);
             return "{$diff} Days";
         }
+    }
+
+    // Helper to check if intra-state
+    public function isIntraState()
+    {
+        return $this->tax_type === 'intra';
+    }
+
+    // Helper to check if inter-state
+    public function isInterState()
+    {
+        return $this->tax_type === 'inter';
     }
 }

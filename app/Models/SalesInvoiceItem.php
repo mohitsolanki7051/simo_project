@@ -30,8 +30,11 @@ class SalesInvoiceItem extends Model
         'discount',
         'tax_percent',
         'tax_amount',
+        'cgst_amount',      // New - CGST portion
+        'sgst_amount',      // New - SGST portion
+        'igst_amount',      // New - IGST portion
         'total',
-        
+
         'warranty_type',
         'warranty_period',
         'warranty_start',
@@ -44,6 +47,9 @@ class SalesInvoiceItem extends Model
         'discount' => 'decimal:2',
         'tax_percent' => 'decimal:2',
         'tax_amount' => 'decimal:2',
+        'cgst_amount' => 'decimal:2',
+        'sgst_amount' => 'decimal:2',
+        'igst_amount' => 'decimal:2',
         'total' => 'decimal:2',
         'warranty_period' => 'integer',
         'warranty_start'  => 'date',
@@ -62,5 +68,16 @@ class SalesInvoiceItem extends Model
             return $this->belongsTo(VariantProduct::class, 'product_id');
         }
         return $this->belongsTo(SimpleProduct::class, 'product_id');
+    }
+
+    // Helper to check tax type for this item
+    public function hasIgst()
+    {
+        return $this->igst_amount > 0;
+    }
+
+    public function hasCgstSgst()
+    {
+        return $this->cgst_amount > 0 && $this->sgst_amount > 0;
     }
 }

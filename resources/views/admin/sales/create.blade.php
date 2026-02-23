@@ -28,32 +28,35 @@
             <input type="hidden" name="warehouse_id" value="{{ $mainWarehouse->_id }}">
             <input type="hidden" name="tax_amount" id="taxAmountInput" value="0">
             <input type="hidden" name="discount_amount" id="discountAmountInput" value="0">
+            <input type="hidden" id="extraDiscountTypeInput" name="extra_discount_type" value="amount">
+            <input type="hidden" name="salesman_id" id="salesmanIdInput">
 
             <div class="form-row">
                 <div class="form-col-main">
                     <div class="two-col-row">
                         <div class="col-50">
-                             <!-- Customer Section -->
+                            <!-- Party Section -->
                             <div class="form-section">
                                 <div class="section-header">
                                     <div class="section-header-left">
                                         <div class="section-icon">👤</div>
                                         <div class="section-title">
                                             <h3>Bill To</h3>
-                                            <p>Select customer and address details</p>
+                                            <p>Select party and address details</p>
                                         </div>
                                     </div>
-                                    <button type="button" class="btn-select-customer" id="selectCustomerBtn" onclick="openSelectCustomerModal()">
+                                    <button type="button" class="btn-select-customer" id="selectPartyBtn" onclick="openSelectPartyModal()">
                                         <span class="btn-icon">👤</span>
-                                        Select Customer
+                                        Select Party
                                     </button>
                                 </div>
 
                                 <div class="section-body">
-                                    <div id="selectedCustomerDetails" class="selected-customer-details" style="display: none;">
+                                    <div id="selectedPartyDetails" class="selected-customer-details" style="display: none;">
                                         <div class="customer-header">
-                                            <h4 id="customerNameDisplay">Customer Name</h4>
-                                            <button type="button" class="btn-change-customer" onclick="openSelectCustomerModal()">
+                                            <h4 id="partyNameDisplay">Party Name</h4>
+                                            <span id="partyTypeBadge" class="party-type-badge"></span>
+                                            <button type="button" class="btn-change-customer" onclick="openSelectPartyModal()">
                                                 Change
                                             </button>
                                         </div>
@@ -62,30 +65,31 @@
                                             <div class="info-column">
                                                 <div class="info-row">
                                                     <span class="info-label">Phone:</span>
-                                                    <span id="customerPhone" class="info-value">-</span>
+                                                    <span id="partyPhone" class="info-value">-</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">Email:</span>
-                                                    <span id="customerEmail" class="info-value">-</span>
+                                                    <span id="partyEmail" class="info-value">-</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">GST:</span>
-                                                    <span id="customerGst" class="info-value">-</span>
+                                                    <span id="partyGst" class="info-value">-</span>
                                                 </div>
                                             </div>
                                             <div class="info-column">
                                                 <div class="info-row">
-                                                    <span class="info-label">Type:</span>
-                                                    <span id="customerType" class="info-value">-</span>
+                                                    <span class="info-label">Opening Bal:</span>
+                                                    <span id="partyOpeningBalance" class="info-value">-</span>
                                                 </div>
                                                 <div class="info-row">
-                                                    <span class="info-label">Company:</span>
-                                                    <span id="customerCompany" class="info-value">-</span>
+                                                    <span class="info-label">Credit Limit:</span>
+                                                    <span id="partyCreditLimit" class="info-value">-</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <input type="hidden" name="customer_id" id="customerIdInput">
+                                        <input type="hidden" name="party_id" id="partyIdInput">
+                                        <input type="hidden" name="party_type" id="partyTypeInput">
 
                                         <div class="address-section">
                                             <div class="address-header">
@@ -98,7 +102,7 @@
                                                         <span class="address-type">Billing Address</span>
                                                     </div>
                                                     <div class="address-content">
-                                                        <p id="billingAddressText">Select a customer to view address</p>
+                                                        <p id="billingAddressText">Select a party to view address</p>
                                                     </div>
                                                     <input type="hidden" name="billing_address" id="billingAddressInput">
                                                 </div>
@@ -108,7 +112,7 @@
                                                         <span class="address-type">Shipping Address</span>
                                                     </div>
                                                     <div class="address-content">
-                                                        <p id="shippingAddressText">Select a customer to view address</p>
+                                                        <p id="shippingAddressText">Select a party to view address</p>
                                                     </div>
                                                     <input type="hidden" name="shipping_address" id="shippingAddressInput">
                                                 </div>
@@ -164,16 +168,11 @@
                                             <label class="form-label">PO Number</label>
                                             <input type="text" name="po_number" class="form-control" placeholder="Optional">
                                         </div>
-
                                         <div class="form-group col-6">
-                                            <label class="form-label">Vehicle No.</label>
-                                            <input type="text" name="vehicle_no" class="form-control" placeholder="Optional">
-                                        </div>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group col-6">
-                                            <label class="form-label">Colours</label>
-                                            <input type="text" name="colours" class="form-control" placeholder="Optional">
+                                            <label class="form-label">Assigned Salesman</label>
+                                            <div class="salesman-display" id="salesmanNameDisplay">
+                                                —
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -191,7 +190,7 @@
                                     <p>Add products to invoice</p>
                                 </div>
                             </div>
-                            <button type="button" class="btn-add-item" onclick="openAddItemModal()">
+                            <button type="button" class="btn-add-item" id="addItemBtn" onclick="openAddItemModal()" disabled style="opacity: 0.5; cursor: not-allowed;">
                                 + Add Item
                             </button>
                         </div>
@@ -208,7 +207,7 @@
                                             <th class="th-warranty">Warranty</th>
                                             <th class="th-mrp">MRP (₹)</th>
                                             <th class="th-discount">Disc %</th>
-                                            <th class="th-sale-price">Sale Price (₹)</th>
+                                            <th class="th-sale-price" id="priceColumnHeader">Sale Price (₹)</th>
                                             <th class="th-tax">Tax %</th>
                                             <th class="th-amount">Final Amt (₹)</th>
                                             <th class="th-action">Action</th>
@@ -239,75 +238,115 @@
                         <div class="invoice-bottom-layout">
                             <div class="invoice-row">
                                 <!-- LEFT: Invoice Summary -->
-                                <div class="invoice-col">
-                                    <div class="summary-section">
-                                        <div class="summary-header">
-                                            <div class="summary-icon">💰</div>
-                                            <h3>Invoice Summary</h3>
-                                        </div>
+<!-- LEFT: Invoice Summary -->
+<div class="invoice-col">
+    <div class="summary-section">
+        <div class="summary-header">
+            <div class="summary-icon">💰</div>
+            <h3>Invoice Summary</h3>
+        </div>
 
-                                        <div class="summary-body">
-                                            <div class="summary-row">
-                                                <span class="summary-label">Total MRP</span>
-                                                <span class="summary-value">₹ <span id="totalMRP">0.00</span></span>
-                                            </div>
-                                            <div class="summary-row">
-                                                <span class="summary-label">Total Discount</span>
-                                                <span class="summary-value">- ₹ <span id="totalDiscount">0.00</span></span>
-                                            </div>
-                                            <div class="summary-row">
-                                                <span class="summary-label">Total Tax</span>
-                                                <span class="summary-value">₹ <span id="totalTax">0.00</span></span>
-                                            </div>
-                                            <div class="summary-divider"></div>
-                                            <div class="summary-row">
-                                                <span class="summary-label" style="font-weight: 600;">Subtotal</span>
-                                                <span class="summary-value">₹ <span id="subtotal">0.00</span></span>
-                                            </div>
-                                            <div class="summary-divider"></div>
+        <div class="summary-body">
+            <!-- Total MRP -->
+            <div class="summary-row">
+                <span class="summary-label">Total MRP</span>
+                <span class="summary-value">₹ <span id="totalMRP">0.00</span></span>
+            </div>
 
-                                            <div class="summary-row">
-                                                <span class="summary-label">
-                                                    <a href="javascript:void(0)" onclick="toggleExtraDiscount()">+ Add Discount</a>
-                                                </span>
-                                            </div>
-                                            <div id="extraDiscountRow" style="display:none;" class="summary-row">
-                                                <input type="number" id="extraDiscount" placeholder="Enter discount amount" oninput="calculateTotals()" class="summary-input">
-                                            </div>
+            <!-- Total Discount -->
+            <div class="summary-row">
+                <span class="summary-label">Total Discount</span>
+                <span class="summary-value">- ₹ <span id="totalDiscount">0.00</span></span>
+            </div>
 
-                                            <div class="summary-row">
-                                                <span class="summary-label">
-                                                    <a href="javascript:void(0)" onclick="toggleExtraDiscountPercent()">+ Add Discount %</a>
-                                                </span>
-                                            </div>
-                                            <div id="extraDiscountPercentRow" style="display:none;" class="summary-row">
-                                                <input type="number" id="extraDiscountPercent" placeholder="Enter discount %" oninput="calculateTotals()" class="summary-input">
-                                            </div>
+            <!-- Divider before Subtotal -->
+            <div class="summary-divider"></div>
 
-                                            <div class="summary-row">
-                                                <span class="summary-label">
-                                                    <a href="javascript:void(0)" onclick="toggleExtraCharge()">+ Add Another Charge</a>
-                                                </span>
-                                            </div>
-                                            <div id="extraChargeRow" style="display:none;" class="summary-row">
-                                                <input type="text" placeholder="Charge Name" id="chargeName" class="summary-input">
-                                                <input type="number" placeholder="₹" id="extraCharge" oninput="calculateTotals()" class="summary-input-small">
-                                            </div>
+            <!-- SUBTOTAL (WITHOUT TAX) -->
+            <div class="summary-row">
+                <span class="summary-label" style="font-weight: 600;">Subtotal</span>
+                <span class="summary-value">₹ <span id="subtotal">0.00</span></span>
+            </div>
 
-                                            <div class="summary-row">
-                                                <label>
-                                                    <input type="checkbox" id="autoRoundOff" onchange="calculateTotals()">
-                                                    Auto Round Off
-                                                </label>
-                                            </div>
+            <!-- TAX BREAKUP - DYNAMIC BASED ON STATE -->
+            <div id="taxBreakupContainer">
+                <!-- Intra-state tax breakup (CGST + SGST) -->
+                <div id="intraStateTax" style="display: none;">
+                    <div class="summary-row">
+                        <span class="summary-label">CGST</span>
+                        <span class="summary-value">+ ₹ <span id="cgstTotal">0.00</span></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">SGST</span>
+                        <span class="summary-value">+ ₹ <span id="sgstTotal">0.00</span></span>
+                    </div>
+                </div>
 
-                                            <div class="summary-row total-row">
-                                                <span class="summary-label">Grand Total</span>
-                                                <span class="summary-value">₹ <span id="grandTotal">0.00</span></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                <!-- Inter-state tax breakup (IGST) -->
+                <div id="interStateTax" style="display: none;">
+                    <div class="summary-row">
+                        <span class="summary-label">IGST</span>
+                        <span class="summary-value">+ ₹ <span id="igstTotal">0.00</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOTAL TAX (for reference) -->
+            <div class="summary-row" style="border-top: 1px dashed #ddd; padding-top: 5px;">
+                <span class="summary-label">Total Tax</span>
+                <span class="summary-value">+ ₹ <span id="totalTax">0.00</span></span>
+            </div>
+
+            <!-- Divider before additional charges -->
+            <div class="summary-divider"></div>
+
+            <!-- Add Discount Link -->
+            <div class="summary-row">
+                <span class="summary-label">
+                    <a href="javascript:void(0)" id="addDiscountLink" onclick="toggleExtraDiscount()">+ Add Discount</a>
+                </span>
+            </div>
+            <div id="extraDiscountRow" style="display:none;" class="summary-row">
+                <input type="number" id="extraDiscount" placeholder="Enter discount amount" step="0.01" oninput="calculateTotals()" class="summary-input">
+            </div>
+
+            <!-- Add Discount % Link -->
+            <div class="summary-row">
+                <span class="summary-label">
+                    <a href="javascript:void(0)" id="addDiscountPercentLink" onclick="toggleExtraDiscountPercent()">+ Add Discount %</a>
+                </span>
+            </div>
+            <div id="extraDiscountPercentRow" style="display:none;" class="summary-row">
+                <input type="number" id="extraDiscountPercent" placeholder="Enter discount %" step="0.01" oninput="calculateTotals()" class="summary-input">
+            </div>
+
+            <!-- Add Another Charge Link -->
+            <div class="summary-row">
+                <span class="summary-label">
+                    <a href="javascript:void(0)" id="addChargeLink" onclick="toggleExtraCharge()">+ Add Another Charge</a>
+                </span>
+            </div>
+            <div id="extraChargeRow" style="display:none;" class="summary-row">
+                <input type="text" placeholder="Charge Name" id="chargeName" class="summary-input">
+                <input type="number" placeholder="₹" id="extraCharge" oninput="calculateTotals()" class="summary-input-small">
+            </div>
+
+            <!-- Auto Round Off Checkbox -->
+            <div class="summary-row">
+                <label>
+                    <input type="checkbox" id="autoRoundOff" onchange="calculateTotals()">
+                    Auto Round Off
+                </label>
+            </div>
+
+            <!-- Grand Total (Final) -->
+            <div class="summary-row total-row">
+                <span class="summary-label">Grand Total</span>
+                <span class="summary-value">₹ <span id="grandTotal">0.00</span></span>
+            </div>
+        </div>
+    </div>
+</div>
 
                                 <!-- RIGHT: Payment Details -->
                                 <div class="invoice-col">
@@ -330,7 +369,7 @@
 
                                         <div class="form-group">
                                             <label class="form-label">Amount Paid</label>
-                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" value="0" step="0.01" min="0" oninput="calculateBalance()">
+                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" step="0.01" min="0" oninput="calculateBalance()">
                                         </div>
                                         <div class="form-group">
                                             <button type="button" onclick="markFullyPaid()" class="btn-mark-paid" style="width:auto; padding:4px 8px; font-size:10px;">
@@ -363,92 +402,99 @@
     </div>
 </div>
 
-<!-- Select Customer Modal -->
-<div class="modal" id="selectCustomerModal">
-    <div class="modal-overlay" onclick="closeSelectCustomerModal()"></div>
+<!-- Select Party Modal -->
+<div class="modal" id="selectPartyModal">
+    <div class="modal-overlay" onclick="closeSelectPartyModal()"></div>
     <div class="modal-content modal-xl">
         <div class="modal-header">
             <div class="modal-icon">👥</div>
             <div class="modal-title-section">
-                <h4 class="modal-title">Select Customer</h4>
-                <div class="modal-subtitle">Choose customer or create new one</div>
+                <h4 class="modal-title">Select Party</h4>
+                <div class="modal-subtitle">Choose customer, dealer or distributor</div>
             </div>
-            <button type="button" class="modal-close" onclick="closeSelectCustomerModal()">×</button>
+            <button type="button" class="modal-close" onclick="closeSelectPartyModal()">×</button>
         </div>
 
         <div class="modal-body">
-            <div class="customer-modal-header">
+            <!-- Party Type Filter Tabs -->
+            <div class="party-type-tabs">
+                <button type="button" class="party-type-tab active" data-type="all">All</button>
+                <button type="button" class="party-type-tab" data-type="customer">Customers</button>
+                <button type="button" class="party-type-tab" data-type="dealer">Dealers</button>
+                <button type="button" class="party-type-tab" data-type="distributor">Distributors</button>
+            </div>
+
+            <div class="party-modal-header">
                 <div class="search-container">
                     <div class="search-box">
                         <span class="search-icon">🔍</span>
-                        <input type="text" id="searchCustomer" class="search-input" placeholder="Search customers by name, phone or email...">
+                        <input type="text" id="searchParty" class="search-input" placeholder="Search by name, phone or email...">
                     </div>
                 </div>
-                <button type="button" class="btn-create-new-customer" onclick="openCreateCustomerModal()">
+                <button type="button" class="btn-create-new-party" onclick="openCreatePartyModal()">
                     <span class="btn-icon">+</span>
-                    Create New Customer
+                    Create New Party
                 </button>
             </div>
 
-            <div class="customers-table-container">
-                <table class="customers-table">
+            <div class="parties-table-container">
+                <table class="parties-table">
                     <thead>
                         <tr>
                             <th class="th-name">Name</th>
+                            <th class="th-type">Type</th>
                             <th class="th-phone">Phone</th>
                             <th class="th-email">Email</th>
-                            <th class="th-company">Company</th>
-                            <th class="th-type">Type</th>
                             <th class="th-status">Status</th>
                             <th class="th-action">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="customersTableBody">
+                    <tbody id="partiesTableBody">
                     </tbody>
                 </table>
-                <div id="customersLoading" class="loading-state">
+                <div id="partiesLoading" class="loading-state">
                     <div class="loading-spinner"></div>
-                    <p>Loading customers...</p>
+                    <p>Loading parties...</p>
                 </div>
-                <div id="noCustomers" class="no-data-state" style="display: none;">
+                <div id="noParties" class="no-data-state" style="display: none;">
                     <div class="no-data-icon">👤</div>
-                    <p>No customers found</p>
-                    <button type="button" class="btn-create-first-customer" onclick="openCreateCustomerModal()">
-                        + Create First Customer
+                    <p>No parties found</p>
+                    <button type="button" class="btn-create-first-party" onclick="openCreatePartyModal()">
+                        + Create New Party
                     </button>
                 </div>
             </div>
         </div>
 
         <div class="modal-actions">
-            <button type="button" class="btn-modal btn-cancel" onclick="closeSelectCustomerModal()">
+            <button type="button" class="btn-modal btn-cancel" onclick="closeSelectPartyModal()">
                 Cancel
             </button>
         </div>
     </div>
 </div>
 
-<!-- Create Customer Modal -->
-<div class="modal" id="createCustomerModal">
-    <div class="modal-overlay" onclick="closeCreateCustomerModal()"></div>
+<!-- Create Party Modal -->
+<div class="modal" id="createPartyModal">
+    <div class="modal-overlay" onclick="closeCreatePartyModal()"></div>
     <div class="modal-content modal-lg">
         <div class="modal-header">
             <div class="modal-icon">👤</div>
             <div class="modal-title-section">
-                <h4 class="modal-title">Create New Customer</h4>
-                <div class="modal-subtitle">Enter customer details and address</div>
+                <h4 class="modal-title">Create New Party</h4>
+                <div class="modal-subtitle">Enter party details and address</div>
             </div>
-            <button type="button" class="modal-close" onclick="closeCreateCustomerModal()">×</button>
+            <button type="button" class="modal-close" onclick="closeCreatePartyModal()">×</button>
         </div>
 
-        <form id="createCustomerForm">
+        <form id="createPartyForm">
             @csrf
             <div class="modal-body">
                 <div class="form-section-small">
                     <h5>Basic Information</h5>
                     <div class="form-row">
                         <div class="form-group col-6">
-                            <label class="form-label required">Customer Name</label>
+                            <label class="form-label required">Party Name</label>
                             <input type="text" name="name" class="form-control" required>
                         </div>
                         <div class="form-group col-6">
@@ -463,11 +509,12 @@
                             <input type="email" name="email" class="form-control">
                         </div>
                         <div class="form-group col-6">
-                            <label class="form-label">Customer Type</label>
+                            <label class="form-label required">Party Type</label>
                             <div class="select-wrapper">
-                                <select name="customer_type" class="form-control">
-                                    <option value="individual">Individual</option>
-                                    <option value="business">Business</option>
+                                <select name="party_type" class="form-control" required>
+                                    <option value="customer">Customer</option>
+                                    <option value="dealer">Dealer</option>
+                                    <option value="distributor">Distributor</option>
                                 </select>
                             </div>
                         </div>
@@ -475,15 +522,27 @@
 
                     <div class="form-row">
                         <div class="form-group col-6">
-                            <label class="form-label">Company Name</label>
-                            <input type="text" name="company_name" class="form-control">
+                            <label class="form-label">Opening Balance</label>
+                            <input type="number" name="opening_balance" class="form-control" step="0.01" min="0" value="0">
                         </div>
                         <div class="form-group col-6">
-                            <label class="form-label">Status</label>
+                            <label class="form-label">Credit Limit</label>
+                            <input type="number" name="credit_limit" class="form-control" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label class="form-label">Assign Salesman</label>
                             <div class="select-wrapper">
-                                <select name="status" class="form-control">
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
+                                <select name="salesman_id" class="form-control">
+                                    <option value="">None (No Salesman)</option>
+                                    @php
+                                        $salesmen = \App\Models\Salesman::where('status', 'active')->orderBy('name')->get();
+                                    @endphp
+                                    @foreach($salesmen as $salesman)
+                                        <option value="{{ $salesman->_id }}">{{ $salesman->name }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                         </div>
@@ -495,11 +554,11 @@
                     <div class="form-row">
                         <div class="form-group col-6">
                             <label class="form-label">GST Number</label>
-                            <input type="text" name="gst_number" class="form-control" maxlength="15">
+                            <input type="text" name="gst_number" class="form-control" maxlength="15" oninput="this.value = this.value.toUpperCase()">
                         </div>
                         <div class="form-group col-6">
                             <label class="form-label">PAN Number</label>
-                            <input type="text" name="pan_number" class="form-control" maxlength="10">
+                            <input type="text" name="pan_number" class="form-control" maxlength="10" oninput="this.value = this.value.toUpperCase()">
                         </div>
                     </div>
                 </div>
@@ -582,11 +641,11 @@
             </div>
 
             <div class="modal-actions">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeCreateCustomerModal()">
+                <button type="button" class="btn-modal btn-cancel" onclick="closeCreatePartyModal()">
                     Cancel
                 </button>
                 <button type="submit" class="btn-modal btn-primary">
-                    Create Customer
+                    Create Party
                 </button>
             </div>
         </form>
@@ -619,8 +678,8 @@
                         <tr>
                             <th class="th-name">Item Name</th>
                             <th class="th-code">Item Code</th>
-                            <th class="th-mrp">MRP Price</th>
-                            <th class="th-price">Sale Price</th>
+                            <th class="th-mrp">MRP (₹)</th>
+                            <th class="th-price" id="modalPriceColumnHeader">Sale Price (₹)</th>
                             <th class="th-stock">Current Stock</th>
                             <th class="th-qty">Quantity</th>
                             <th class="th-action">Action</th>
@@ -646,7 +705,27 @@
 @push('styles')
 <style>
 /* [KEEP ALL YOUR EXISTING CSS - Copy from original file] */
-/* Main Container */
+/* Additional CSS for disabled extra fields links */
+
+.disabled-link {
+    pointer-events: none !important;
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    background-color: #e0e0e0 !important;
+    color: #999 !important;
+    border-color: #ccc !important;
+}
+
+.summary-label a.disabled-link {
+    background: #e0e0e0 !important;
+    color: #999 !important;
+    border: 1px dashed #ccc !important;
+}
+
+.summary-label a.disabled-link:hover {
+    background: #e0e0e0 !important;
+    color: #999 !important;
+}
 .products-container {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 11px;
@@ -916,6 +995,28 @@
     color: #333;
     margin: 0;
 }
+/* Spinner for loading state */
+.spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+    margin-right: 5px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Disabled button style */
+.btn-submit-invoice:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 
 .btn-change-customer {
     padding: 3px 8px;
@@ -970,7 +1071,39 @@
 .invoice-col {
     flex: 1;
 }
+/* Salesman Display */
+.salesman-display {
+    padding: 6px 10px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 10px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
 
+/* Select button as icon */
+.btn-select-party-row {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #28a745;
+    transition: all 0.2s;
+}
+
+.btn-select-party-row:hover {
+    transform: scale(1.1);
+    color: #218838;
+}
+
+/* Party type text - no colors */
+.parties-table .party-type {
+    font-size: 10px;
+    color: #333;
+}
 /* Terms box */
 .terms-box {
     background: #f1f3f5;
@@ -2075,94 +2208,230 @@
         font-size: 9px;
     }
 }
+
+.party-type-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    padding: 5px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.party-type-tab {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.party-type-tab:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.party-type-tab.active {
+    background: #007bff;
+    color: white;
+}
+
+.party-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: #e7f1ff;
+    color: #0066cc;
+    margin-left: 8px;
+}
+
+.party-type-badge.customer { background: #d4edda; color: #155724; }
+.party-type-badge.dealer { background: #cce5ff; color: #004085; }
+.party-type-badge.distributor { background: #fff3cd; color: #856404; }
+
+.parties-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.parties-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+}
+
+.parties-table th {
+    background: #f8f9fa;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.parties-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.parties-table tr:hover {
+    background: #f9f9f9;
+}
+
+.parties-table .party-type {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 500;
+}
+
+.parties-table .type-customer {
+    background: #d4edda;
+    color: #155724;
+}
+
+.parties-table .type-dealer {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.parties-table .type-distributor {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.btn-create-new-party {
+    padding: 7px 14px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.btn-create-new-party:hover {
+    background: #218838;
+}
+
+.btn-create-first-party {
+    padding: 6px 12px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-create-first-party:hover {
+    background: #218838;
+}
+
+.party-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
 </style>
 @endpush
 
 @push('scripts')
 <script>
-// ===================== 🔥 COMPLETE CORRECTED JAVASCRIPT =====================
-
-function showFieldError(input, message) {
-    $(input).addClass('error-field');
-    if (!$(input).next('.field-error').length) {
-        $(input).after(`<div class="field-error">${message}</div>`);
-    }
-}
-
-function clearFieldError(input) {
-    $(input).removeClass('error-field');
-    $(input).next('.field-error').remove();
-}
+// ===================== SALES INVOICE CREATE - PARTY VERSION =====================
 
 let items = [];
+let currentPartyType = 'all';
+let cgstTotal = 0;
+let sgstTotal = 0;
+let igstTotal = 0;
+let currentTaxType = 'intra'; // 'intra' for CGST+SGST, 'inter' for IGST
+let isSubmitting = false;
+// ===================== PARTY MODAL FUNCTIONS =====================
 
-// ===================== CUSTOMER MODAL FUNCTIONS =====================
-
-function openSelectCustomerModal() {
-    $('#selectCustomerModal').css('display', 'flex');
-    loadCustomers();
+function openSelectPartyModal() {
+    $('#selectPartyModal').css('display', 'flex');
+    loadParties();
 }
 
-function closeSelectCustomerModal() {
-    $('#selectCustomerModal').hide();
-    $('#searchCustomer').val('');
+function closeSelectPartyModal() {
+    $('#selectPartyModal').hide();
+    $('#searchParty').val('');
 }
 
-function openCreateCustomerModal() {
-    closeSelectCustomerModal();
-    $('#createCustomerModal').css('display', 'flex');
+function openCreatePartyModal() {
+    closeSelectPartyModal();
+    $('#createPartyModal').css('display', 'flex');
 }
 
-function closeCreateCustomerModal() {
-    $('#createCustomerModal').hide();
-    $('#createCustomerForm')[0].reset();
+function closeCreatePartyModal() {
+    $('#createPartyModal').hide();
+    $('#createPartyForm')[0].reset();
+    $('#sameBillingShipping').prop('checked', false);
 }
 
-function toggleExtraDiscount() {
-    $('#extraDiscountRow').toggle();
-}
-
-function toggleExtraDiscountPercent() {
-    $('#extraDiscountPercentRow').toggle();
-}
-
-function toggleExtraCharge() {
-    $('#extraChargeRow').toggle();
-}
-
-function loadCustomers(search = '') {
-    const tbody = $('#customersTableBody');
-    const loading = $('#customersLoading');
-    const noData = $('#noCustomers');
+function loadParties(search = '') {
+    const tbody = $('#partiesTableBody');
+    const loading = $('#partiesLoading');
+    const noData = $('#noParties');
 
     tbody.empty();
     loading.show();
     noData.hide();
 
-    $.get('{{ route('admin.sales.customers.list') }}', {
-        search: search
+    $.get('{{ route('admin.sales.parties.list') }}', {
+        search: search,
+        party_type: currentPartyType !== 'all' ? currentPartyType : null
     }, function(response) {
         loading.hide();
 
-        if (response.customers.length === 0) {
+        if (response.parties.length === 0) {
             noData.show();
             return;
         }
 
-        response.customers.forEach(customer => {
-            const statusClass = customer.status === 'active' ? 'status-active' : 'status-inactive';
+        response.parties.forEach(party => {
+            const statusClass = party.status === 'active' ? 'status-active' : 'status-inactive';
+
             const row = `
-                <tr data-customer-id="${customer.id}">
-                    <td class="customer-name">${customer.name}</td>
-                    <td class="customer-phone">${customer.phone || '-'}</td>
-                    <td class="customer-email">${customer.email || '-'}</td>
-                    <td class="customer-company">${customer.company_name || '-'}</td>
-                    <td class="customer-type">${customer.customer_type}</td>
-                    <td class="customer-status">
-                        <span class="status-badge ${statusClass}">${customer.status}</span>
+                <tr data-party-id="${party.id}" data-party-type="${party.party_type}">
+                    <td class="party-name">${party.name}</td>
+                    <td class="party-type">${party.party_type_text}</td>
+                    <td class="party-phone">${party.phone || '-'}</td>
+                    <td class="party-email">${party.email || '-'}</td>
+                    <td class="party-status">
+                        <span class="status-badge ${statusClass}">${party.status}</span>
                     </td>
-                    <td class="customer-action">
-                        <button type="button" class="btn-select-customer-row" onclick="selectCustomer('${customer.id}')">Select</button>
+                    <td class="party-action">
+                        <button type="button" class="btn-select-party-row" onclick="selectParty('${party.id}')" style="background: none; border: none; cursor: pointer; font-size: 16px;" title="Select">
+                            ✓
+                        </button>
                     </td>
                 </tr>
             `;
@@ -2170,43 +2439,769 @@ function loadCustomers(search = '') {
         });
     }).fail(function() {
         loading.hide();
-        showAlert('Failed to load customers', 'error');
+        showAlert('Failed to load parties', 'error');
     });
 }
 
-function selectCustomer(customerId) {
-    $.get('{{ route('admin.sales.get-customer-details', ':id') }}'.replace(':id', customerId), function(res) {
+// ===================== TAX BREAKUP FUNCTIONS =====================
+
+function updateTaxBreakup(warehouseState, partyState) {
+    console.log('Warehouse State:', warehouseState);
+    console.log('Party State:', partyState);
+
+    if (!warehouseState || !partyState) {
+        console.log('States not available, default to intra-state');
+        showIntraStateTax();
+        return;
+    }
+
+    // Clean states (remove extra spaces, convert to lowercase for comparison)
+    const cleanWarehouseState = warehouseState.toString().trim().toLowerCase();
+    const cleanPartyState = partyState.toString().trim().toLowerCase();
+
+    if (cleanWarehouseState === cleanPartyState) {
+        console.log('Same state - showing CGST+SGST');
+        showIntraStateTax();
+    } else {
+        console.log('Different state - showing IGST');
+        showInterStateTax();
+    }
+}
+
+function showIntraStateTax() {
+    console.log('Switching to INTRA-state tax display (CGST+SGST)');
+    $('#intraStateTax').show();
+    $('#interStateTax').hide();
+    currentTaxType = 'intra';
+    // Recalculate with new tax type
+    calculateTaxBreakup();
+}
+
+function showInterStateTax() {
+    console.log('Switching to INTER-state tax display (IGST)');
+    $('#intraStateTax').hide();
+    $('#interStateTax').show();
+    currentTaxType = 'inter';
+    // Recalculate with new tax type
+    calculateTaxBreakup();
+}
+
+function calculateTaxBreakup() {
+    // Reset tax totals
+    cgstTotal = 0;
+    sgstTotal = 0;
+    igstTotal = 0;
+
+    // Calculate based on current items
+    items.forEach(item => {
+        const salePriceTotal = item.quantity * item.price;
+        const taxPercent = parseFloat(item.tax_percent) || 0;
+        const itemTax = (salePriceTotal * taxPercent) / 100;
+
+        if (currentTaxType === 'intra') {
+            // Split equally for intra-state
+            const halfTax = itemTax / 2;
+            cgstTotal += halfTax;
+            sgstTotal += halfTax;
+        } else {
+            // Full IGST for inter-state
+            igstTotal += itemTax;
+        }
+    });
+
+    // Update display
+    $('#cgstTotal').text(cgstTotal.toFixed(2));
+    $('#sgstTotal').text(sgstTotal.toFixed(2));
+    $('#igstTotal').text(igstTotal.toFixed(2));
+    $('#totalTax').text((cgstTotal + sgstTotal + igstTotal).toFixed(2));
+
+    console.log('Tax Breakup:', {
+        type: currentTaxType,
+        cgst: cgstTotal,
+        sgst: sgstTotal,
+        igst: igstTotal,
+        total: cgstTotal + sgstTotal + igstTotal
+    });
+}
+
+// ===================== PARTY TYPE PRICING HANDLING =====================
+
+// Get current party type
+function getCurrentPartyType() {
+    return $('#partyTypeInput').val() || null;
+}
+
+// Enable/disable Add Item button based on party selection
+function updateAddItemButtonState() {
+    const partyType = getCurrentPartyType();
+    const addItemBtn = $('#addItemBtn');
+
+    if (partyType) {
+        addItemBtn.prop('disabled', false);
+        addItemBtn.css('opacity', '1');
+        addItemBtn.css('cursor', 'pointer');
+    } else {
+        addItemBtn.prop('disabled', true);
+        addItemBtn.css('opacity', '0.5');
+        addItemBtn.css('cursor', 'not-allowed');
+    }
+}
+
+// Get price column header text based on party type
+function getPriceColumnHeader() {
+    const partyType = getCurrentPartyType();
+    switch(partyType) {
+        case 'dealer':
+            return 'Dealer Price (₹)';
+        case 'distributor':
+            return 'Distributor Price (₹)';
+        default:
+            return 'Sale Price (₹)';
+    }
+}
+
+// Update price column headers in both tables
+function updatePriceColumnHeaders() {
+    const headerText = getPriceColumnHeader();
+    $('#priceColumnHeader').text(headerText);
+    $('#modalPriceColumnHeader').text(headerText);
+}
+
+// Get price for product based on party type
+function getProductPrice(product, partyType) {
+    switch(partyType) {
+        case 'dealer':
+            return parseFloat(product.dealer_price || 0);
+        case 'distributor':
+            return parseFloat(product.distributor_price || 0);
+        default:
+            return parseFloat(product.sale_price || 0);
+    }
+}
+
+// Calculate discount percentage from MRP and price
+function calculateDiscountPercentage(mrp, price) {
+    if (mrp <= 0 || price <= 0) return 0;
+    return ((mrp - price) / mrp * 100).toFixed(2);
+}
+
+// Override openAddItemModal to check party selection
+function openAddItemModal() {
+    const partyType = getCurrentPartyType();
+
+    if (!partyType) {
+        showAlert('Please select a party first', 'error');
+        return;
+    }
+
+    $('#addItemModal').css('display', 'flex');
+    $('#searchProduct').val('');
+    loadProducts();
+}
+
+function closeAddItemModal() {
+    $('#addItemModal').hide();
+    $('#searchProduct').val('');
+}
+
+function loadProducts(search = '') {
+    const tbody = $('#productsTableBody');
+    const loading = $('#productsLoading');
+    const partyType = getCurrentPartyType();
+
+    tbody.empty();
+    loading.show();
+
+    $.get('{{ route('admin.sales.get-main-warehouse-products') }}', {
+        search: search
+    }, function(response) {
+        loading.hide();
+
+        if (response.products.length === 0) {
+            tbody.html(`
+                <tr>
+                    <td colspan="7" class="text-center" style="padding: 40px 20px;">
+                        <div style="font-size: 32px; opacity: 0.3; margin-bottom: 10px;">📦</div>
+                        <p style="font-size: 11px; color: #6b7280;">No products found</p>
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+
+        response.products.forEach(product => {
+            // Get price based on party type
+            const price = getProductPrice(product, partyType);
+            const mrp = parseFloat(product.mrp_price || 0);
+            const discountPercent = calculateDiscountPercentage(mrp, price);
+
+            const row = `
+                <tr>
+                    <td class="product-name">${product.name}</td>
+                    <td class="product-code">${product.sku || '-'}</td>
+                    <td class="product-mrp">₹ ${mrp.toFixed(2)}</td>
+                    <td class="product-price">
+                        ₹ ${price.toFixed(2)}
+                        ${discountPercent > 0 ? `<br><small style="color: #28a745;">(${discountPercent}% off)</small>` : ''}
+                    </td>
+                    <td class="product-stock">${product.current_stock} ${product.unit}</td>
+                    <td class="product-qty">
+                        <input type="number"
+                               class="qty-input"
+                               min="1"
+                               max="${product.current_stock}"
+                               value="1"
+                               data-product-id="${product.id}"
+                               data-variant-id="${product.variant_id || ''}"
+                               data-type="${product.type}"
+                               data-price="${price}"
+                               data-mrp="${mrp}"
+                               data-stock="${product.current_stock}"
+                               data-name="${product.name}"
+                               data-sku="${product.sku}"
+                               data-hsn="${product.hsn_code || ''}"
+                               data-tax="${product.tax_percent || 0}"
+                               data-unit="${product.unit}"
+                               data-warranty-type="${product.warranty_type}"
+                               data-warranty-period="${product.warranty_period}">
+                    </td>
+                    <td>
+                        <input type="checkbox" class="select-product">
+                    </td>
+                </tr>
+            `;
+            tbody.append(row);
+        });
+    }).fail(function() {
+        loading.hide();
+        tbody.html(`
+            <tr>
+                <td colspan="7" class="text-center" style="padding: 40px 20px; color: #ef4444;">
+                    Failed to load products
+                </td>
+            </tr>
+        `);
+    });
+}
+
+function addSelectedProducts() {
+    $('#productsTableBody tr').each(function() {
+        const checkbox = $(this).find('.select-product');
+        if (!checkbox.is(':checked')) return;
+
+        const input = $(this).find('.qty-input');
+        const qty = parseFloat(input.val()) || 0;
+        const maxStock = parseFloat(input.data('stock'));
+
+        if (qty <= 0) return;
+        if (qty > maxStock) {
+            showAlert(`Only ${maxStock} items available`, 'error');
+            return;
+        }
+
+        const price = parseFloat(input.data('price')) || 0;
+        const mrpPrice = parseFloat(input.data('mrp')) || 0;
+        const partyType = getCurrentPartyType();
+
+        let autoDiscount = 0;
+        if (mrpPrice > 0 && mrpPrice > price) {
+            autoDiscount = ((mrpPrice - price) / mrpPrice) * 100;
+        }
+
+        const item = {
+            product_id: input.data('product-id'),
+            variant_id: input.data('variant-id'),
+            product_type: input.data('type'),
+            name: input.data('name'),
+            sku: input.data('sku'),
+            hsn_sac: input.data('hsn'),
+            mrp_price: mrpPrice,
+            price: price,
+            quantity: qty,
+            discount: parseFloat(autoDiscount.toFixed(2)),
+            tax_percent: parseFloat(input.data('tax')) || 0,
+            unit: input.data('unit') || 'PCS',
+            warranty_type: input.data('warranty-type') || 'none',
+            warranty_period: parseInt(input.data('warranty-period')) || 0,
+            party_type: partyType
+        };
+
+        addItemToInvoice(item);
+    });
+
+    closeAddItemModal();
+}
+
+// Add item to invoice
+function addItemToInvoice(item) {
+    const existingIndex = items.findIndex(i =>
+        i.product_id === item.product_id &&
+        i.variant_id === item.variant_id
+    );
+
+    if (existingIndex > -1) {
+        items[existingIndex].quantity += item.quantity;
+        showAlert(`Updated quantity for ${item.name}`, 'info');
+    } else {
+        items.push(item);
+        showAlert(`Added ${item.name} to invoice`, 'success');
+    }
+
+    renderItemsTable();
+}
+
+function updateItem(index, field, value) {
+    if (items[index]) {
+        items[index][field] = parseFloat(value) || 0;
+
+        if (field === 'discount') {
+            const mrp = parseFloat(items[index].mrp_price || 0);
+            const discountPercent = parseFloat(value || 0);
+
+            if (mrp > 0 && discountPercent >= 0 && discountPercent <= 100) {
+                const discountAmount = (mrp * discountPercent) / 100;
+                items[index].price = mrp - discountAmount;
+            }
+        }
+
+        if (field === 'price') {
+            const mrp = parseFloat(items[index].mrp_price || 0);
+            const sale = parseFloat(value || 0);
+
+            if (mrp > 0 && sale <= mrp) {
+                items[index].discount = ((mrp - sale) / mrp) * 100;
+            } else {
+                items[index].discount = 0;
+            }
+        }
+
+        renderItemsTable();
+    }
+}
+
+function removeItem(index) {
+    items.splice(index, 1);
+    renderItemsTable();
+}
+
+function updateWarrantyType(index, value) {
+    items[index].warranty_type = value;
+}
+
+function updateWarrantyPeriod(index, value) {
+    items[index].warranty_period = parseInt(value) || 0;
+}
+
+// Render items table
+function renderItemsTable() {
+    const tbody = $('#itemsTableBody');
+    const partyType = getCurrentPartyType();
+
+    tbody.empty();
+
+    enableExtraFields();
+
+    if (items.length === 0) {
+        tbody.html(`
+            <tr class="empty-row">
+                <td colspan="11">
+                    <div class="empty-items">
+                        <div class="empty-icon">🛒</div>
+                        <p>No items added yet</p>
+                        <button type="button" class="btn-add-first-item" onclick="openAddItemModal()">
+                            + Add First Item
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `);
+        $('#itemsTableFooter').hide();
+
+        $('#totalMRP').text('0.00');
+        $('#totalDiscount').text('0.00');
+        $('#cgstTotal').text('0.00');
+        $('#sgstTotal').text('0.00');
+        $('#igstTotal').text('0.00');
+        $('#totalTax').text('0.00');
+        $('#subtotal').text('0.00');
+        $('#grandTotal').text('0.00');
+        calculateBalance();
+        return;
+    }
+
+    $('#itemsTableFooter').show();
+
+    let footerMRP = 0;
+    let footerDiscountAmount = 0;
+    let footerSalePrice = 0;
+    let footerTaxAmount = 0;
+    let footerFinalAmount = 0;
+
+    items.forEach((item, index) => {
+        const mrpPrice = parseFloat(item.mrp_price || 0);
+        const salePrice = parseFloat(item.price || 0);
+        const quantity = parseFloat(item.quantity || 1);
+        const discountPercent = parseFloat(item.discount || 0);
+        const taxPercent = parseFloat(item.tax_percent || 0);
+
+        const mrpTotal = quantity * mrpPrice;
+        const discountAmount = (mrpPrice - salePrice) * quantity;
+        const salePriceTotal = quantity * salePrice;
+        const taxAmount = (salePriceTotal * taxPercent) / 100;
+        const finalTotal = salePriceTotal + taxAmount;
+
+        footerMRP += mrpTotal;
+        footerDiscountAmount += discountAmount;
+        footerSalePrice += salePriceTotal;
+        footerTaxAmount += taxAmount;
+        footerFinalAmount += finalTotal;
+
+        // Determine price column label based on party type
+        const priceColumnLabel = partyType === 'dealer' ? 'Dealer Price' :
+                                (partyType === 'distributor' ? 'Distributor Price' : 'Sale Price');
+
+        const row = `
+            <tr>
+                <td class="item-name">${item.name}</td>
+                <td class="item-hsn">${item.hsn_sac || '-'}</td>
+                <td class="item-unit">${item.unit || 'PCS'}</td>
+                <td class="item-qty">
+                    <input type="number" class="qty-edit" min="1" value="${quantity}"
+                        onchange="updateItem(${index}, 'quantity', this.value)">
+                </td>
+                <td class="item-warranty">
+                    <div class="warranty-wrapper">
+                        <input type="number" min="0" value="${item.warranty_period || 0}"
+                            onchange="updateWarrantyPeriod(${index}, this.value)" class="warranty-input">
+                        <select onchange="updateWarrantyType(${index}, this.value)" class="warranty-select">
+                            <option value="none" ${item.warranty_type === 'none' ? 'selected' : ''}>None</option>
+                            <option value="month" ${item.warranty_type === 'month' ? 'selected' : ''}>Month(s)</option>
+                            <option value="year" ${item.warranty_type === 'year' ? 'selected' : ''}>Year(s)</option>
+                        </select>
+                    </div>
+                </td>
+                <td class="item-mrp" style="background: #f9f9f9;">₹ ${mrpPrice.toFixed(2)}</td>
+                <td class="item-discount">
+                    <input type="number" class="discount-edit" min="0" max="100" step="0.01" value="${discountPercent.toFixed(2)}"
+                        onchange="updateItem(${index}, 'discount', this.value)">
+                </td>
+                <td class="item-sale-price">
+                    <input type="number" class="sale-price-edit" min="0" step="0.01" value="${salePrice.toFixed(2)}"
+                        onchange="updateItem(${index}, 'price', this.value)"
+                        title="${priceColumnLabel}">
+                </td>
+                <td class="item-tax">
+                    <input type="number" class="tax-edit" min="0" max="100" step="0.01" value="${taxPercent.toFixed(2)}"
+                        onchange="updateItem(${index}, 'tax_percent', this.value)">
+                </td>
+                <td class="item-amount">₹ ${finalTotal.toFixed(2)}</td>
+                <td class="item-action">
+                    <button type="button" class="btn-delete" onclick="removeItem(${index})" title="Remove item">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+                        </svg>
+                    </button>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+
+    $('#footerMRP').text('₹ ' + footerMRP.toFixed(2));
+    $('#footerDiscount').text('₹ ' + footerDiscountAmount.toFixed(2));
+    $('#footerSalePrice').text('₹ ' + footerSalePrice.toFixed(2));
+    $('#footerTax').text('₹ ' + footerTaxAmount.toFixed(2));
+    $('#footerFinalAmount').text('₹ ' + footerFinalAmount.toFixed(2));
+
+    // Calculate tax breakup after rendering items
+    calculateTaxBreakup();
+    calculateInvoiceSummary(footerMRP, footerDiscountAmount, footerTaxAmount, footerSalePrice);
+}
+
+// ===================== SELECT PARTY =====================
+
+// ===================== SELECT PARTY =====================
+
+function selectParty(partyId) {
+    $.get('{{ route('admin.sales.get-party-details', ':id') }}'.replace(':id', partyId), function(res) {
         if (!res.success) return;
 
-        const c = res.customer;
-        $('#selectCustomerBtn').hide();
-        $('#selectedCustomerDetails').show();
-        $('#customerNameDisplay').text(c.name);
-        $('#customerPhone').text(c.phone || '-');
-        $('#customerEmail').text(c.email || '-');
-        $('#customerGst').text(c.gst_number || '-');
-        $('#customerType').text(c.customer_type || '-');
-        $('#customerCompany').text(c.company_name || '-');
-        $('#customerIdInput').val(c.id);
+        const p = res.party;
+        $('#selectPartyBtn').hide();
+        $('#selectedPartyDetails').show();
 
-        window.selectedCustomer = c;
+        $('#partyNameDisplay').text(p.name);
+        $('#partyTypeBadge').text(p.party_type_text).attr('class', `party-type-badge ${p.party_type}`);
+        $('#partyPhone').text(p.phone || '-');
+        $('#partyEmail').text(p.email || '-');
+        $('#partyOpeningBalance').text(p.opening_balance ? '₹ ' + parseFloat(p.opening_balance).toFixed(2) : '₹ 0.00');
+        $('#partyCreditLimit').text(p.credit_limit ? '₹ ' + parseFloat(p.credit_limit).toFixed(2) : 'No Limit');
 
-        if (c.billing_address) {
-            $('#billingAddressText').text(c.billing_address);
-            $('#billingAddressInput').val(c.billing_address);
-        }
+        $('#partyIdInput').val(p.id);
+        $('#partyTypeInput').val(p.party_type);
 
-        if (c.shipping_address) {
-            $('#shippingAddressText').text(c.shipping_address);
-            $('#shippingAddressInput').val(c.shipping_address);
+        // Update price column headers when party changes
+        updatePriceColumnHeaders();
+
+        // Enable Add Item button
+        updateAddItemButtonState();
+
+        // Clear existing items when party changes
+        items = [];
+
+        // Get warehouse state from Laravel
+        const warehouseState = '{{ $mainWarehouse->state ?? "" }}';
+
+        // Get party state from billing address (NOW THIS WILL HAVE VALUE)
+        const partyState = p.billing_state || '';
+
+        console.log('Warehouse State:', warehouseState);
+        console.log('Party State:', partyState);
+        console.log('States Match:', warehouseState === partyState);
+
+        // Update tax breakup based on state comparison
+        if (warehouseState && partyState) {
+            if (warehouseState === partyState) {
+                console.log('Same state - Showing CGST+SGST');
+                showIntraStateTax();
+            } else {
+                console.log('Different state - Showing IGST');
+                showInterStateTax();
+            }
         } else {
-            $('#shippingAddressText').text(c.billing_address || 'No shipping address available');
-            $('#shippingAddressInput').val(c.billing_address || '');
+            console.log('States missing - default to intra-state');
+            showIntraStateTax();
         }
 
-        closeSelectCustomerModal();
-        showAlert('Customer selected', 'success');
+        renderItemsTable();
+
+        // Display salesman
+        if (p.salesman_id && p.salesman_name) {
+            $('#salesmanIdInput').val(p.salesman_id);
+            $('#salesmanNameDisplay').text('👤 ' + p.salesman_name);
+        } else {
+            $('#salesmanIdInput').val('');
+            $('#salesmanNameDisplay').text('—');
+        }
+
+        window.selectedParty = p;
+
+        if (p.billing_address) {
+            $('#billingAddressText').text(p.billing_address);
+            $('#billingAddressInput').val(p.billing_address);
+        }
+
+        if (p.shipping_address) {
+            $('#shippingAddressText').text(p.shipping_address);
+            $('#shippingAddressInput').val(p.shipping_address);
+        } else {
+            $('#shippingAddressText').text(p.billing_address || 'No shipping address available');
+            $('#shippingAddressInput').val(p.billing_address || '');
+        }
+
+        closeSelectPartyModal();
+        showAlert('Party selected successfully', 'success');
     });
+}
+// ===================== CREATE PARTY FORM =====================
+
+$('#createPartyForm').submit(function(e) {
+    e.preventDefault();
+
+    // Basic validation
+    const phone = $('input[name="phone"]').val();
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+        showAlert('Please enter a valid 10-digit phone number', 'error');
+        return;
+    }
+
+    const email = $('input[name="email"]').val();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showAlert('Please enter a valid email address', 'error');
+        return;
+    }
+
+    const gst = $('input[name="gst_number"]').val();
+    if (gst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gst)) {
+        showAlert('Please enter a valid GST number', 'error');
+        return;
+    }
+
+    const pan = $('input[name="pan_number"]').val();
+    if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+        showAlert('Please enter a valid PAN number', 'error');
+        return;
+    }
+
+    const pincode = $('input[name="billing_pincode"]').val();
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+        showAlert('Pincode must be 6 digits', 'error');
+        return;
+    }
+
+    showAlert('Creating party...', 'info');
+
+    // Add same_billing_shipping flag
+    const formData = $(this).serializeArray();
+    formData.push({
+        name: 'same_billing_shipping',
+        value: $('#sameBillingShipping').is(':checked') ? '1' : '0'
+    });
+
+    $.ajax({
+        url: '{{ route('admin.sales.create-party') }}',
+        type: 'POST',
+        data: $.param(formData),
+        success: function(response) {
+            if (response.success) {
+                showAlert('Party created successfully!', 'success');
+                closeCreatePartyModal();
+                selectParty(response.party_id);
+            } else {
+                showAlert('Error: ' + response.message, 'error');
+            }
+        },
+        error: function(xhr) {
+            let message = 'Failed to create party';
+            if (xhr.responseJSON && xhr.responseJSON.errors) {
+                message = Object.values(xhr.responseJSON.errors).flat().join(', ');
+            } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            }
+            showAlert(message, 'error');
+        }
+    });
+});
+
+// ===================== PARTY TYPE FILTER =====================
+
+$(document).on('click', '.party-type-tab', function() {
+    $('.party-type-tab').removeClass('active');
+    $(this).addClass('active');
+
+    currentPartyType = $(this).data('type');
+    loadParties($('#searchParty').val());
+});
+
+// ===================== SEARCH =====================
+
+$('#searchParty').on('input', function() {
+    const value = this.value.toLowerCase();
+    $('#partiesTableBody tr').each(function() {
+        const name = $(this).find('.party-name').text().toLowerCase();
+        const phone = $(this).find('.party-phone').text().toLowerCase();
+        const email = $(this).find('.party-email').text().toLowerCase();
+
+        if (name.includes(value) || phone.includes(value) || email.includes(value)) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+// ===================== SAME AS BILLING CHECKBOX =====================
+
+function copyBillingToShipping() {
+    const form = $('#createPartyForm');
+    form.find('input[name="shipping_address"]').val(form.find('input[name="billing_address"]').val());
+    form.find('input[name="shipping_city"]').val(form.find('input[name="billing_city"]').val());
+    form.find('input[name="shipping_state"]').val(form.find('input[name="billing_state"]').val());
+    form.find('input[name="shipping_pincode"]').val(form.find('input[name="billing_pincode"]').val());
+    form.find('input[name="shipping_country"]').val(form.find('input[name="billing_country"]').val());
+}
+
+$('#sameBillingShipping').on('change', function() {
+    if (this.checked) {
+        copyBillingToShipping();
+    }
+});
+
+$('input[name="billing_address"], input[name="billing_city"], input[name="billing_state"], input[name="billing_pincode"], input[name="billing_country"]')
+    .on('input', function() {
+        if ($('#sameBillingShipping').is(':checked')) {
+            copyBillingToShipping();
+        }
+    });
+
+
+// ===================== EXTRA DISCOUNT/CHARGE TOGGLE FUNCTIONS =====================
+
+function toggleExtraDiscount() {
+    if (items.length === 0) {
+        showAlert('Please add at least one item first', 'error');
+        return;
+    }
+
+    // Hide percentage row and show amount row
+    $('#extraDiscountPercentRow').hide();
+    $('#extraDiscountPercent').val('');
+    $('#extraDiscountRow').toggle();
+
+    if ($('#extraDiscountRow').is(':visible')) {
+        $('#extraDiscountTypeInput').val('amount');
+        $('#extraDiscount').focus();
+    } else {
+        $('#extraDiscount').val('');
+    }
+
+    calculateTotals();
+}
+
+function toggleExtraDiscountPercent() {
+    if (items.length === 0) {
+        showAlert('Please add at least one item first', 'error');
+        return;
+    }
+
+    // Hide amount row and show percentage row
+    $('#extraDiscountRow').hide();
+    $('#extraDiscount').val('');
+    $('#extraDiscountPercentRow').toggle();
+
+    if ($('#extraDiscountPercentRow').is(':visible')) {
+        $('#extraDiscountTypeInput').val('percent');
+        $('#extraDiscountPercent').focus();
+    } else {
+        $('#extraDiscountPercent').val('');
+    }
+
+    calculateTotals();
+}
+
+function toggleExtraCharge() {
+    if (items.length === 0) {
+        showAlert('Please add at least one item first', 'error');
+        return;
+    }
+    $('#extraChargeRow').toggle();
+    if (!$('#extraChargeRow').is(':visible')) {
+        $('#extraCharge').val('');
+        $('#chargeName').val('');
+        calculateTotals();
+    }
+}
+// ===================== ENABLE/DISABLE EXTRA FIELDS =====================
+
+function enableExtraFields() {
+    if (items.length > 0) {
+        $('#addDiscountLink').removeClass('disabled-link');
+        $('#addDiscountPercentLink').removeClass('disabled-link');
+        $('#addChargeLink').removeClass('disabled-link');
+    } else {
+        $('#addDiscountLink').addClass('disabled-link');
+        $('#addDiscountPercentLink').addClass('disabled-link');
+        $('#addChargeLink').addClass('disabled-link');
+
+        $('#extraDiscountRow').hide();
+        $('#extraDiscountPercentRow').hide();
+        $('#extraChargeRow').hide();
+        $('#extraDiscount').val('');
+        $('#extraDiscountPercent').val('');
+        $('#extraCharge').val('');
+        $('#chargeName').val('');
+        $('#extraDiscountTypeInput').val('amount');
+    }
 }
 
 // ===================== PAYMENT TERMS =====================
@@ -2241,367 +3236,68 @@ function updatePaymentTermsFromDueDate() {
     $('#paymentTermsInput').val(`Due in ${diffDays} days`);
 }
 
-// ===================== ITEM MODAL =====================
-
-function openAddItemModal() {
-    $('#addItemModal').css('display', 'flex');
-    $('#searchProduct').val('');
-    loadProducts();
-}
-
-function closeAddItemModal() {
-    $('#addItemModal').hide();
-    $('#searchProduct').val('');
-    loadProducts();
-}
-
 function markFullyPaid() {
     const grandTotal = parseFloat($('#grandTotal').text()) || 0;
     $('#amountPaid').val(grandTotal.toFixed(2));
     calculateBalance();
 }
 
-function addSelectedProducts() {
-    $('#productsTableBody tr').each(function() {
-        const checkbox = $(this).find('.select-product');
-        if (!checkbox.is(':checked')) return;
+// ===================== CALCULATE INVOICE SUMMARY =====================
 
-        const input = $(this).find('.qty-input');
-        const qty = parseFloat(input.val()) || 0;
-        const maxStock = parseFloat(input.data('stock'));
+// ===================== CALCULATE INVOICE SUMMARY =====================
 
-        if (qty <= 0) return;
-        if (qty > maxStock) {
-            showAlert(`Only ${maxStock} items available`, 'error');
-            return;
+function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotal) {
+    let extraDiscount = 0;
+    const discountType = $('#extraDiscountTypeInput').val();
+
+    // EXTRA DISCOUNT - Sirf subtotal par lagega, tax par nahi
+    if (discountType === 'percent') {
+        const discountPercent = parseFloat($('#extraDiscountPercent').val()) || 0;
+        if (discountPercent > 0 && subtotal > 0) {
+            // Extra discount sirf subtotal par calculate karo
+            extraDiscount = (subtotal * discountPercent) / 100;
         }
-
-        const salePrice = parseFloat(input.data('price')) || 0;
-        const mrpPrice = parseFloat(input.data('mrp')) || 0;
-
-        let autoDiscount = 0;
-        if (mrpPrice > 0 && mrpPrice > salePrice) {
-            autoDiscount = ((mrpPrice - salePrice) / mrpPrice) * 100;
-        }
-
-        const item = {
-            product_id: input.data('product-id'),
-            variant_id: input.data('variant-id'),
-            product_type: input.data('type'),
-            name: input.data('name'),
-            sku: input.data('sku'),
-            hsn_sac: input.data('hsn'),
-            mrp_price: mrpPrice,
-            price: salePrice,
-            quantity: qty,
-            discount: parseFloat(autoDiscount.toFixed(2)),
-            tax_percent: parseFloat(input.data('tax')) || 0,
-            unit: input.data('unit') || 'PCS',
-            warranty_type: input.data('warranty-type') || 'none',
-            warranty_period: parseInt(input.data('warranty-period')) || 0
-        };
-
-        addItemToInvoice(item);
-    });
-
-    closeAddItemModal();
-}
-
-function loadProducts(search = '') {
-    const tbody = $('#productsTableBody');
-    const loading = $('#productsLoading');
-
-    tbody.empty();
-    loading.show();
-
-    $.get('{{ route('admin.sales.get-main-warehouse-products') }}', {
-        search: search
-    }, function(response) {
-        loading.hide();
-
-        if (response.products.length === 0) {
-            tbody.html(`
-                <tr>
-                    <td colspan="7" class="text-center" style="padding: 40px 20px;">
-                        <div style="font-size: 32px; opacity: 0.3; margin-bottom: 10px;">📦</div>
-                        <p style="font-size: 11px; color: #6b7280;">No products found</p>
-                    </td>
-                </tr>
-            `);
-            return;
-        }
-
-        response.products.forEach(product => {
-            const row = `
-                <tr>
-                    <td class="product-name">${product.name}</td>
-                    <td class="product-code">${product.sku || '-'}</td>
-                    <td class="product-mrp">₹ ${parseFloat(product.mrp_price || 0).toFixed(2)}</td>
-                    <td class="product-price">₹ ${parseFloat(product.sale_price).toFixed(2)}</td>
-                    <td class="product-stock">${product.current_stock} ${product.unit}</td>
-                    <td class="product-qty">
-                        <input type="number"
-                               class="qty-input"
-                               min="1"
-                               max="${product.current_stock}"
-                               value="1"
-                               data-product-id="${product.id}"
-                               data-variant-id="${product.variant_id || ''}"
-                               data-type="${product.type}"
-                               data-price="${product.sale_price}"
-                               data-mrp="${product.mrp_price || 0}"
-                               data-stock="${product.current_stock}"
-                               data-name="${product.name}"
-                               data-sku="${product.sku}"
-                               data-hsn="${product.hsn_code || ''}"
-                               data-tax="${product.tax_percent || 0}"
-                               data-unit="${product.unit}"
-                               data-warranty-type="${product.warranty_type}"
-                               data-warranty-period="${product.warranty_period}">
-                    </td>
-                    <td>
-                        <input type="checkbox" class="select-product">
-                    </td>
-                </tr>
-            `;
-            tbody.append(row);
-        });
-    }).fail(function() {
-        loading.hide();
-        tbody.html(`
-            <tr>
-                <td colspan="7" class="text-center" style="padding: 40px 20px; color: #ef4444;">
-                    Failed to load products
-                </td>
-            </tr>
-        `);
-    });
-}
-
-// ===================== ITEM MANAGEMENT =====================
-
-function addItemToInvoice(item) {
-    const existingIndex = items.findIndex(i =>
-        i.product_id === item.product_id &&
-        i.variant_id === item.variant_id
-    );
-
-    if (existingIndex > -1) {
-        items[existingIndex].quantity += item.quantity;
-        showAlert(`Updated quantity for ${item.name}`, 'info');
     } else {
-        items.push(item);
-        showAlert(`Added ${item.name} to invoice`, 'success');
+        extraDiscount = parseFloat($('#extraDiscount').val()) || 0;
     }
 
-    renderItemsTable();
-}
+    // GRAND TOTAL CALCULATION:
+    // Step 1: Subtotal par extra discount lagao
+    const afterDiscountSubtotal = subtotal - extraDiscount;
 
-function updateItem(index, field, value) {
-    if (items[index]) {
-        items[index][field] = parseFloat(value) || 0;
+    // Step 2: Tax add karo (tax original price par hi rahega)
+    let grandTotal = afterDiscountSubtotal + totalTax;
 
-        // 🔥 When discount changes, recalculate sale price from MRP
-        if (field === 'discount') {
-            const mrp = parseFloat(items[index].mrp_price || 0);
-            const discountPercent = parseFloat(value || 0);
-
-            if (mrp > 0 && discountPercent >= 0 && discountPercent <= 100) {
-                const discountAmount = (mrp * discountPercent) / 100;
-                items[index].price = mrp - discountAmount;
-            }
-        }
-
-        // 🔥 When sale price changes, recalculate discount from MRP
-        if (field === 'price') {
-            const mrp = parseFloat(items[index].mrp_price || 0);
-            const sale = parseFloat(value || 0);
-
-            if (mrp > 0 && sale <= mrp) {
-                items[index].discount = ((mrp - sale) / mrp) * 100;
-            } else {
-                items[index].discount = 0;
-            }
-        }
-
-        renderItemsTable();
-    }
-}
-
-function removeItem(index) {
-    items.splice(index, 1);
-    renderItemsTable();
-}
-
-// ===================== 🔥 CORRECTED RENDER ITEMS TABLE =====================
-function renderItemsTable() {
-    const tbody = $('#itemsTableBody');
-    tbody.empty();
-
-    if (items.length === 0) {
-        tbody.html(`
-            <tr class="empty-row">
-                <td colspan="11">
-                    <div class="empty-items">
-                        <div class="empty-icon">🛒</div>
-                        <p>No items added yet</p>
-                        <button type="button" class="btn-add-first-item" onclick="openAddItemModal()">
-                            + Add First Item
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `);
-        $('#itemsTableFooter').hide();
-
-        // Reset summary
-        $('#totalMRP').text('0.00');
-        $('#totalDiscount').text('0.00');
-        $('#totalTax').text('0.00');
-        $('#subtotal').text('0.00');
-        $('#grandTotal').text('0.00');
-        calculateBalance();
-        return;
-    }
-
-    $('#itemsTableFooter').show();
-
-    // Initialize footer totals
-    let footerMRP = 0;
-    let footerDiscountAmount = 0;
-    let footerSalePrice = 0;
-    let footerTaxAmount = 0;
-    let footerFinalAmount = 0;
-
-    items.forEach((item, index) => {
-        const mrpPrice = parseFloat(item.mrp_price || 0);
-        const salePrice = parseFloat(item.price || 0);
-        const quantity = parseFloat(item.quantity || 1);
-        const discountPercent = parseFloat(item.discount || 0);
-        const taxPercent = parseFloat(item.tax_percent || 0);
-
-        // 🔥 Calculations
-        const mrpTotal = quantity * mrpPrice;
-        const discountAmount = (mrpTotal * discountPercent) / 100;
-        const salePriceTotal = quantity * salePrice;
-        const taxAmount = (salePriceTotal * taxPercent) / 100;
-        const finalTotal = salePriceTotal + taxAmount;
-
-        // Add to footer totals
-        footerMRP += mrpTotal;
-        footerDiscountAmount += discountAmount;
-        footerSalePrice += salePriceTotal;
-        footerTaxAmount += taxAmount;
-        footerFinalAmount += finalTotal;
-
-        // 🔥 Render row: Warranty → MRP (readonly) → Discount % (EDITABLE) → Sale Price (editable) → Tax → Final
-        const row = `
-            <tr>
-                <td class="item-name">${item.name}</td>
-                <td class="item-hsn">${item.hsn_sac || '-'}</td>
-                <td class="item-unit">${item.unit || 'PCS'}</td>
-                <td class="item-qty">
-                    <input type="number" class="qty-edit" min="1" value="${quantity}"
-                        onchange="updateItem(${index}, 'quantity', this.value)">
-                </td>
-                <td class="item-warranty">
-                    <div class="warranty-wrapper">
-                        <input type="number" min="0" value="${item.warranty_period || 0}"
-                            onchange="updateWarrantyPeriod(${index}, this.value)" class="warranty-input">
-                        <select onchange="updateWarrantyType(${index}, this.value)" class="warranty-select">
-                            <option value="none" ${item.warranty_type === 'none' ? 'selected' : ''}>None</option>
-                            <option value="month" ${item.warranty_type === 'month' ? 'selected' : ''}>Month(s)</option>
-                            <option value="year" ${item.warranty_type === 'year' ? 'selected' : ''}>Year(s)</option>
-                        </select>
-                    </div>
-                </td>
-                <td class="item-mrp" style="background: #f9f9f9;">₹ ${mrpPrice.toFixed(2)}</td>
-                <td class="item-discount">
-                    <input type="number" class="discount-edit" min="0" max="100" step="0.01" value="${discountPercent.toFixed(2)}"
-                        onchange="updateItem(${index}, 'discount', this.value)">
-                </td>
-                <td class="item-sale-price">
-                    <input type="number" class="sale-price-edit" min="0" step="0.01" value="${salePrice.toFixed(2)}"
-                        onchange="updateItem(${index}, 'price', this.value)">
-                </td>
-                <td class="item-tax">
-                    <input type="number" class="tax-edit" min="0" max="100" step="0.01" value="${taxPercent.toFixed(2)}"
-                        onchange="updateItem(${index}, 'tax_percent', this.value)">
-                </td>
-                <td class="item-amount">₹ ${finalTotal.toFixed(2)}</td>
-                <td class="item-action">
-                    <button type="button" class="btn-delete" onclick="removeItem(${index})" title="Remove item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
-                        </svg>
-                    </button>
-                </td>
-            </tr>
-        `;
-        tbody.append(row);
-    });
-
-    // 🔥 Calculate footer percentages
-    const footerDiscountPercent = footerMRP > 0 ? (footerDiscountAmount / footerMRP) * 100 : 0;
-    const footerTaxPercent = footerSalePrice > 0 ? (footerTaxAmount / footerSalePrice) * 100 : 0;
-
-    // 🔥 Update footer: MRP → Discount % → Sale Price → Tax % → Final Amount
-    $('#footerMRP').text('₹ ' + footerMRP.toFixed(2));
-    $('#footerDiscount').text(footerDiscountPercent.toFixed(2) + '%');
-    $('#footerSalePrice').text('₹ ' + footerSalePrice.toFixed(2));
-    $('#footerTax').text(footerTaxPercent.toFixed(2) + '%');
-    $('#footerFinalAmount').text('₹ ' + footerFinalAmount.toFixed(2));
-
-    // 🔥 Pass to invoice summary
-    calculateInvoiceSummary(footerMRP, footerDiscountAmount, footerTaxAmount, footerFinalAmount);
-}
-
-// ===================== 🔥 CORRECTED INVOICE SUMMARY =====================
-function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotalFinal) {
-    // Extra discount (fixed amount)
-    let extraDiscount = parseFloat($('#extraDiscount').val()) || 0;
-
-    // Extra discount (percentage)
-    const discountPercent = parseFloat($('#extraDiscountPercent').val()) || 0;
-    if (discountPercent > 0) {
-        extraDiscount = (subtotalFinal * discountPercent) / 100;
-    }
-
-    // 🔥 Grand total calculation
-    let grandTotal = subtotalFinal;
-    grandTotal -= extraDiscount;
-
-    // Extra charge
+    // Step 3: Extra charge add karo
     const extraCharge = parseFloat($('#extraCharge').val()) || 0;
     grandTotal += extraCharge;
 
-    // Auto round off
+    // Step 4: Round off
     if ($('#autoRoundOff').is(':checked')) {
         grandTotal = Math.round(grandTotal);
     }
 
-    // 🔥 Update invoice summary: Total MRP → Total Discount → Total Tax → Subtotal → Grand Total
+    // Update UI
     $('#totalMRP').text(totalMRP.toFixed(2));
     $('#totalDiscount').text(totalDiscount.toFixed(2));
-    $('#totalTax').text(totalTax.toFixed(2));
-    $('#subtotal').text(subtotalFinal.toFixed(2));
+    $('#subtotal').text(subtotal.toFixed(2));
     $('#grandTotal').text(grandTotal.toFixed(2));
 
-    // Update hidden inputs
     $('#taxAmountInput').val(totalTax.toFixed(2));
-    $('#discountAmountInput').val((totalDiscount + extraDiscount).toFixed(2));
+    $('#discountAmountInput').val(totalDiscount.toFixed(2));
+
+    // Log for debugging
+    console.log('Calculation:', {
+        subtotal: subtotal,
+        extraDiscount: extraDiscount,
+        afterDiscountSubtotal: afterDiscountSubtotal,
+        totalTax: totalTax,
+        extraCharge: extraCharge,
+        grandTotal: grandTotal
+    });
 
     calculateBalance();
 }
-
-function updateWarrantyType(index, value) {
-    items[index].warranty_type = value;
-}
-
-function updateWarrantyPeriod(index, value) {
-    items[index].warranty_period = parseInt(value) || 0;
-}
-
 function calculateTotals() {
     renderItemsTable();
 }
@@ -2613,9 +3309,11 @@ function calculateBalance() {
     $('#balanceAmount').text(balance.toFixed(2));
 }
 
+// ===================== FORM VALIDATION =====================
+
 function validateForm() {
-    if (!$('#customerIdInput').val()) {
-        showAlert('Please select a customer', 'error');
+    if (!$('#partyIdInput').val()) {
+        showAlert('Please select a party', 'error');
         return false;
     }
 
@@ -2626,6 +3324,8 @@ function validateForm() {
 
     return true;
 }
+
+// ===================== ALERT SYSTEM =====================
 
 function showAlert(message, type = 'success') {
     const container = document.getElementById('alertContainer');
@@ -2639,9 +3339,23 @@ function showAlert(message, type = 'success') {
 // ===================== DOCUMENT READY =====================
 
 $(document).ready(function() {
-    window.selectedCustomer = null;
+    window.selectedParty = null;
+
+    // Initialize Add Item button state
+    updateAddItemButtonState();
+
+    // Initially show intra-state tax by default
+    showIntraStateTax();
+
+    // Load products for item modal
     loadProducts();
 
+    // Attach input event handlers
+    $('#extraDiscount').on('input', calculateTotals);
+    $('#extraDiscountPercent').on('input', calculateTotals);
+    $('#extraCharge').on('input', calculateTotals);
+
+    // Search product
     $('#searchProduct').on('input', function () {
         const value = this.value.toLowerCase();
         $('#productsTableBody tr').each(function () {
@@ -2655,205 +3369,138 @@ $(document).ready(function() {
         });
     });
 
-    $('#searchCustomer').on('input', function () {
-        const value = this.value.toLowerCase();
-        $('#customersTableBody tr').each(function () {
-            const name = $(this).find('.customer-name').text().toLowerCase();
-            const phone = $(this).find('.customer-phone').text().toLowerCase();
-            const email = $(this).find('.customer-email').text().toLowerCase();
-            const company = $(this).find('.customer-company').text().toLowerCase();
-
-            if (name.includes(value) || phone.includes(value) || email.includes(value) || company.includes(value)) {
-                $(this).show();
-            } else {
-                $(this).hide();
-            }
-        });
-    });
-
+    // Invoice date handlers
     $('#invoiceDate').on('change', updateDueDateFromTerms);
     $('#paymentTermsDays').on('change', updateDueDateFromTerms);
     $('#dueDate').on('change', updatePaymentTermsFromDueDate);
     $('#amountPaid').on('input', calculateBalance);
 
-    // Validation
-    $('input[name="phone"]').on('input', function() {
-        const value = this.value.replace(/\D/g, '');
-        this.value = value;
-        if (value.length !== 10) {
-            showFieldError(this, 'Phone number must be 10 digits');
-        } else {
-            clearFieldError(this);
-        }
-    });
-
-    $('input[name="billing_pincode"], input[name="shipping_pincode"]').on('input', function() {
-        const value = this.value.replace(/\D/g, '');
-        this.value = value;
-        if (value && value.length !== 6) {
-            showFieldError(this, 'Pincode must be 6 digits');
-        } else {
-            clearFieldError(this);
-        }
-    });
-
-    $('input[name="email"]').on('blur', function() {
-        const value = this.value;
-        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-            showFieldError(this, 'Invalid email format');
-        } else {
-            clearFieldError(this);
-        }
-    });
-
-    $('input[name="pan_number"]').on('input', function() {
-        this.value = this.value.toUpperCase();
-        if (this.value && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(this.value)) {
-            showFieldError(this, 'Invalid PAN format (ABCDE1234F)');
-        } else {
-            clearFieldError(this);
-        }
-    });
-
-    $('input[name="gst_number"]').on('input', function() {
-        this.value = this.value.toUpperCase();
-        if (this.value && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(this.value)) {
-            showFieldError(this, 'Invalid GST number');
-        } else {
-            clearFieldError(this);
-        }
-    });
-
-    // Same as billing checkbox
-    function copyBillingToShipping() {
-        const form = $('#createCustomerForm');
-        form.find('input[name="shipping_address"]').val(form.find('input[name="billing_address"]').val());
-        form.find('input[name="shipping_city"]').val(form.find('input[name="billing_city"]').val());
-        form.find('input[name="shipping_state"]').val(form.find('input[name="billing_state"]').val());
-        form.find('input[name="shipping_pincode"]').val(form.find('input[name="billing_pincode"]').val());
-        form.find('input[name="shipping_country"]').val(form.find('input[name="billing_country"]').val());
-    }
-
-    $('#sameBillingShipping').on('change', function() {
-        if (this.checked) {
-            copyBillingToShipping();
-        }
-    });
-
-    $('input[name="billing_address"], input[name="billing_city"], input[name="billing_state"], input[name="billing_pincode"], input[name="billing_country"]')
-        .on('input', function() {
-            if ($('#sameBillingShipping').is(':checked')) {
-                copyBillingToShipping();
-            }
-        });
-
-    // Create customer form
-    $('#createCustomerForm').submit(function(e) {
-        if ($('.error-field').length) {
-            showAlert('Please fix validation errors', 'error');
-            return false;
-        }
-        e.preventDefault();
-        showAlert('Creating customer...', 'info');
-
-        $.ajax({
-            url: '/admin/sales/create-customer',
-            type: 'POST',
-            data: $(this).serialize(),
-            success: function(response) {
-                if (response.success) {
-                    showAlert('Customer created successfully!', 'success');
-                    closeCreateCustomerModal();
-                    selectCustomer(response.customer_id);
-                } else {
-                    showAlert('Error: ' + response.message, 'error');
-                }
-            },
-            error: function(xhr) {
-                showAlert('Failed to create customer: ' + (xhr.responseJSON?.message || 'Unknown error'), 'error');
-            }
-        });
-    });
-
-    // Invoice form submission
-    $('#salesInvoiceForm').submit(function(e) {
-        e.preventDefault();
-
-        if (!validateForm()) {
-            return;
-        }
-
-        const formData = new FormData();
-
-        $('#salesInvoiceForm').serializeArray().forEach(item => {
-            formData.append(item.name, item.value);
-        });
-
-        formData.append('items', JSON.stringify(items));
-        formData.append('subtotal', $('#subtotal').text());
-        formData.append('grand_total', $('#grandTotal').text());
-        formData.append('tax_amount', $('#totalTax').text());
-        formData.append('discount_amount', $('#totalDiscount').text());
-        formData.append('balance_amount', $('#balanceAmount').text());
-        formData.append('extra_discount', $('#extraDiscount').val() || 0);
-        formData.append('extra_charge', $('#extraCharge').val() || 0);
-        formData.append('charge_name', $('#chargeName').val() || '');
-        formData.append('auto_round_off', $('#autoRoundOff').is(':checked') ? 1 : 0);
-
-        showAlert('Creating invoice...', 'info');
-
-        $.ajax({
-            url: '{{ route('admin.sales.store') }}',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(response) {
-                if (response.success) {
-                    showAlert('Invoice created successfully!', 'success');
-                    setTimeout(() => {
-                        window.location.href = '/admin/sales/' + response.invoice_id;
-                    }, 1500);
-                } else {
-                    showAlert('Error: ' + response.message, 'error');
-                }
-            },
-            error: function(xhr) {
-                showAlert('Failed to create invoice: ' + (xhr.responseJSON?.message || 'Unknown error'), 'error');
-            }
-        });
-    });
-
     // Modal close handlers
-    document.querySelectorAll('.modal-overlay').forEach(overlay => {
-        overlay.addEventListener('click', function() {
-            const modal = this.closest('.modal');
-            if (modal.id === 'selectCustomerModal') {
-                closeSelectCustomerModal();
-            } else if (modal.id === 'createCustomerModal') {
-                closeCreateCustomerModal();
-            } else if (modal.id === 'addItemModal') {
-                closeAddItemModal();
-            }
-        });
-    });
-
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            closeSelectCustomerModal();
-            closeCreateCustomerModal();
+    $('.modal-overlay').on('click', function() {
+        const modal = $(this).closest('.modal');
+        if (modal.attr('id') === 'selectPartyModal') {
+            closeSelectPartyModal();
+        } else if (modal.attr('id') === 'createPartyModal') {
+            closeCreatePartyModal();
+        } else if (modal.attr('id') === 'addItemModal') {
             closeAddItemModal();
         }
     });
 
+    // Escape key handler
+    $(document).on('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeSelectPartyModal();
+            closeCreatePartyModal();
+            closeAddItemModal();
+        }
+    });
+
+    // Initialize due date
     setTimeout(function() {
         const termsDays = parseInt($('#paymentTermsDays').val());
         if (termsDays > 0) {
             updateDueDateFromTerms();
         }
     }, 100);
+
+    // Invoice form submission
+   // Invoice form submission with duplicate submission prevention
+$('#salesInvoiceForm').submit(function(e) {
+    e.preventDefault();
+
+    // Prevent multiple submissions
+    if (isSubmitting) {
+        console.log('Form already submitting, please wait...');
+        showAlert('Please wait, invoice is being created...', 'info');
+        return;
+    }
+
+    if (!validateForm()) {
+        return;
+    }
+
+    // Disable submit button and set flag
+    isSubmitting = true;
+    const $submitBtn = $('.btn-submit-invoice');
+    const originalText = $submitBtn.html();
+
+    // Disable button and show loading state
+    $submitBtn.prop('disabled', true);
+    $submitBtn.html('<span class="spinner"></span> Creating...');
+
+    const formData = new FormData();
+
+    // Serialize form data
+    $(this).serializeArray().forEach(item => {
+        formData.append(item.name, item.value);
+    });
+
+    // Add calculated data with tax breakup
+    formData.append('items', JSON.stringify(items));
+    formData.append('subtotal', $('#subtotal').text());
+    formData.append('grand_total', $('#grandTotal').text());
+    formData.append('tax_amount', $('#totalTax').text());
+    formData.append('cgst_total', cgstTotal.toFixed(2));
+    formData.append('sgst_total', sgstTotal.toFixed(2));
+    formData.append('igst_total', igstTotal.toFixed(2));
+    formData.append('tax_type', currentTaxType);
+    formData.append('discount_amount', $('#totalDiscount').text());
+    formData.append('balance_amount', $('#balanceAmount').text());
+
+    // Extra discount
+    const discountType = $('#extraDiscountTypeInput').val();
+    if (discountType === 'percent') {
+        formData.append('extra_discount', $('#extraDiscountPercent').val() || 0);
+        formData.append('extra_discount_type', 'percent');
+    } else {
+        formData.append('extra_discount', $('#extraDiscount').val() || 0);
+        formData.append('extra_discount_type', 'amount');
+    }
+
+    formData.append('extra_charge', $('#extraCharge').val() || 0);
+    formData.append('charge_name', $('#chargeName').val() || '');
+    formData.append('auto_round_off', $('#autoRoundOff').is(':checked') ? 1 : 0);
+
+    showAlert('Creating invoice...', 'info');
+
+    $.ajax({
+        url: '{{ route('admin.sales.store') }}',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                showAlert('Invoice created successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = '/admin/sales/' + response.invoice_id;
+                }, 1500);
+            } else {
+                showAlert('Error: ' + response.message, 'error');
+                // Re-enable form on error
+                isSubmitting = false;
+                $submitBtn.prop('disabled', false);
+                $submitBtn.html(originalText);
+            }
+        },
+        error: function(xhr) {
+            let message = 'Failed to create invoice';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            } else if (xhr.responseJSON && xhr.responseJSON.errors) {
+                message = Object.values(xhr.responseJSON.errors).flat().join(', ');
+            }
+            showAlert(message, 'error');
+
+            // Re-enable form on error
+            isSubmitting = false;
+            $submitBtn.prop('disabled', false);
+            $submitBtn.html(originalText);
+        }
+    });
+});
 });
 </script>
 @endpush
-
 @endsection

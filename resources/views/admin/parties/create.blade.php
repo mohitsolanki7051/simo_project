@@ -1,32 +1,32 @@
 @extends('layouts.admin')
 
-@section('title', 'Edit Customer - Admin Panel')
-@section('header-title', 'Edit Customer')
+@section('title', 'Create ' . ucfirst($partyType) . ' - Admin Panel')
+@section('header-title', 'Create ' . ucfirst($partyType))
 
 @section('content')
-<div class="edit-customer-container">
+<div class="create-party-container">
     <!-- Alert Messages -->
     <div id="alertContainer"></div>
 
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
-            <h2 class="page-title">Edit Customer: {{ $customer->name }}</h2>
+            <h2 class="page-title">Add New {{ ucfirst($partyType) }}</h2>
         </div>
         <div class="header-right">
-            <a href="{{ route('admin.customers.index') }}" class="back-btn">← Back to Customers</a>
+            <a href="{{ route('admin.parties.index.type', $partyType) }}" class="back-btn">← Back to {{ ucfirst($partyType) }}s</a>
         </div>
     </div>
 
-    <form action="{{ route('admin.customers.update', $customer->id) }}" method="POST" id="customerForm">
+    <form action="{{ route('admin.parties.store') }}" method="POST" id="partyForm">
         @csrf
-        @method('PUT')
+        <input type="hidden" name="party_type" value="{{ $partyType }}">
 
         <!-- Tab Navigation -->
         <div class="tab-container">
             <div class="tab-nav">
-                <button type="button" class="tab-btn active" data-tab="customer-info">
-                    👤 Customer Info
+                <button type="button" class="tab-btn active" data-tab="party-info">
+                    👤 {{ ucfirst($partyType) }} Info
                 </button>
                 <button type="button" class="tab-btn" data-tab="addresses">
                     📍 Billing & Shipping
@@ -35,16 +35,16 @@
 
             <!-- Tab Content -->
             <div class="tab-content-wrapper">
-                <!-- Tab 1: Customer Information -->
-                <div class="tab-content active" id="customer-info">
+                <!-- Tab 1: Party Information -->
+                <div class="tab-content active" id="party-info">
                     <div class="tab-header">
-                        <h3 class="tab-title">Customer Information</h3>
+                        <h3 class="tab-title">{{ ucfirst($partyType) }} Information</h3>
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group">
                             <label class="form-label">Full Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="name" value="{{ old('name', $customer->name) }}" placeholder="e.g., John Doe" required>
+                            <input type="text" class="form-input" name="name" value="{{ old('name') }}" placeholder="e.g., John Doe" required>
                             @error('name')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -52,7 +52,7 @@
 
                         <div class="form-group">
                             <label class="form-label">Phone Number <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="phone" name="phone" value="{{ old('phone', $customer->phone) }}" placeholder="e.g., 9876543210" maxlength="10" required oninput="validatePhone(this.value)">
+                            <input type="text" class="form-input" id="phone" name="phone" value="{{ old('phone') }}" placeholder="e.g., 9876543210" maxlength="10" required oninput="validatePhone(this.value)">
                             <div class="phone-validation-message" id="phone_message"></div>
                             @error('phone')
                                 <div class="error-message">{{ $message }}</div>
@@ -61,7 +61,7 @@
 
                         <div class="form-group">
                             <label class="form-label">Email Address</label>
-                            <input type="email" class="form-input" id="email" name="email" value="{{ old('email', $customer->email) }}" placeholder="e.g., john@example.com" oninput="validateEmail(this.value)">
+                            <input type="email" class="form-input" id="email" name="email" value="{{ old('email') }}" placeholder="e.g., john@example.com" oninput="validateEmail(this.value)">
                             <div class="email-validation-message" id="email_message"></div>
                             @error('email')
                                 <div class="error-message">{{ $message }}</div>
@@ -69,28 +69,55 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Customer Type <span class="required">*</span></label>
-                            <select class="form-select" name="customer_type" id="customerType" required onchange="toggleCompanyField()">
-                                <option value="">Select Type</option>
-                                <option value="individual" {{ old('customer_type', $customer->customer_type) == 'individual' ? 'selected' : '' }}>Individual</option>
-                                <option value="business" {{ old('customer_type', $customer->customer_type) == 'business' ? 'selected' : '' }}>Business</option>
-                            </select>
-                            @error('customer_type')
+                            <label class="form-label">Opening Balance</label>
+                            <input type="number" step="0.01" min="0" class="form-input" name="opening_balance" value="{{ old('opening_balance', 0) }}" placeholder="0.00">
+                            @error('opening_balance')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
                         </div>
 
-                        <div class="form-group" id="companyField" style="display: {{ old('customer_type', $customer->customer_type) == 'business' ? 'block' : 'none' }};">
-                            <label class="form-label">Company Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="company_name" value="{{ old('company_name', $customer->company_name) }}" placeholder="e.g., ABC Enterprises" {{ $customer->customer_type == 'business' ? 'required' : '' }}>
-                            @error('company_name')
+                        <div class="form-group">
+                            <label class="form-label">Credit Limit</label>
+                            <input type="number" step="0.01" min="0" class="form-input" name="credit_limit" value="{{ old('credit_limit') }}" placeholder="e.g., 50000">
+                            @error('credit_limit')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        @if($partyType === 'dealer')
+                        <div class="form-group">
+                            <label class="form-label">Parent Distributor</label>
+                            <select class="form-select" name="parent_party_id">
+                                <option value="">None (Independent Dealer)</option>
+                                @foreach($distributors as $distributor)
+                                    <option value="{{ $distributor->_id }}" {{ old('parent_party_id') == $distributor->_id ? 'selected' : '' }}>
+                                        {{ $distributor->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('parent_party_id')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        @endif
+                        <div class="form-group">
+                            <label class="form-label">Salesman</label>
+                            <select class="form-select" name="salesman_id">
+                                <option value="">None</option>
+                                @foreach($salesmen as $salesman)
+                                    <option value="{{ $salesman->_id }}" {{ old('salesman_id') == $salesman->_id ? 'selected' : '' }}>
+                                        {{ $salesman->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('salesman_id')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">GST Number</label>
-                            <input type="text" class="form-input" name="gst_number" value="{{ old('gst_number', $customer->gst_number) }}" placeholder="e.g., 27ABCDE1234F1Z5" maxlength="15" oninput="this.value = this.value.toUpperCase()">
+                            <input type="text" class="form-input" name="gst_number" value="{{ old('gst_number') }}" placeholder="e.g., 27ABCDE1234F1Z5" maxlength="15" oninput="this.value = this.value.toUpperCase()">
                             @error('gst_number')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -98,7 +125,7 @@
 
                         <div class="form-group">
                             <label class="form-label">PAN Number</label>
-                            <input type="text" class="form-input" name="pan_number" value="{{ old('pan_number', $customer->pan_number) }}" placeholder="e.g., ABCDE1234F" maxlength="10" oninput="this.value = this.value.toUpperCase()">
+                            <input type="text" class="form-input" name="pan_number" value="{{ old('pan_number') }}" placeholder="e.g., ABCDE1234F" maxlength="10" oninput="this.value = this.value.toUpperCase()">
                             @error('pan_number')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -107,8 +134,8 @@
                         <div class="form-group">
                             <label class="form-label">Status <span class="required">*</span></label>
                             <select class="form-select" name="status" required>
-                                <option value="active" {{ old('status', $customer->status) == 'active' ? 'selected' : '' }}>Active</option>
-                                <option value="inactive" {{ old('status', $customer->status) == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                <option value="active" {{ old('status') == 'active' ? 'selected' : 'active' }}>Active</option>
+                                <option value="inactive" {{ old('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
                             </select>
                             @error('status')
                                 <div class="error-message">{{ $message }}</div>
@@ -117,7 +144,7 @@
 
                         <div class="form-group full-width">
                             <label class="form-label">Notes</label>
-                            <textarea class="form-textarea" name="notes" rows="3" placeholder="Any additional notes about the customer">{{ old('notes', $customer->notes) }}</textarea>
+                            <textarea class="form-textarea" name="notes" rows="3" placeholder="Any additional notes about the {{ $partyType }}">{{ old('notes') }}</textarea>
                             @error('notes')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -129,7 +156,7 @@
                 <div class="tab-content" id="addresses">
                     <div class="tab-header">
                         <h3 class="tab-title">Billing & Shipping Addresses</h3>
-                        <p class="tab-subtitle">Manage billing and shipping addresses for this customer</p>
+                        <p class="tab-subtitle">You can add multiple billing and shipping addresses</p>
                     </div>
 
                     <!-- Address Type Tabs -->
@@ -154,47 +181,10 @@
                         </div>
 
                         <div class="addresses-list" id="billingAddressesList">
-                            @foreach($customer->addresses->where('type', 'billing') as $address)
-                            <div class="address-card {{ $address->is_default ? 'default' : '' }}" data-id="{{ $address->id }}" data-type="billing">
-                                <div class="address-header">
-                                    <h5 class="address-title">{{ $address->city }}, {{ $address->state }}</h5>
-                                    <span class="address-badge {{ $address->is_default ? 'badge-default' : 'badge-regular' }}">
-                                        {{ $address->is_default ? 'DEFAULT' : '' }}
-                                    </span>
-                                </div>
-                                <div class="address-details">
-                                    {{ $address->address }}<br>
-                                    @if($address->landmark){{ $address->landmark }}<br>@endif
-                                    {{ $address->city }}, {{ $address->state }} - {{ $address->pincode }}<br>
-                                    {{ $address->country }}
-                                </div>
-                                @if($address->contact_person || $address->contact_number)
-                                <div class="address-contact">
-                                    @if($address->contact_person)<span>👤 {{ $address->contact_person }}</span>@endif
-                                    @if($address->contact_number)<span>📱 {{ $address->contact_number }}</span>@endif
-                                </div>
-                                @endif
-                                <div class="address-actions">
-                                    <button type="button" class="action-btn btn-edit" onclick="editAddress('{{ $address->id }}')">
-                                        ✏️ Edit
-                                    </button>
-                                    @if(!$address->is_default)
-                                    <button type="button" class="action-btn btn-set-default" onclick="setDefaultAddress('{{ $address->id }}')">
-                                        ⭐ Set Default
-                                    </button>
-                                    @endif
-                                    <button type="button" class="action-btn btn-delete" onclick="deleteAddress('{{ $address->id }}')">
-                                        🗑️ Delete
-                                    </button>
-                                </div>
-                            </div>
-                            @endforeach
-                            @if($customer->addresses->where('type', 'billing')->isEmpty())
                             <div class="no-addresses">
                                 <div class="empty-icon">🏢</div>
                                 <p>No billing addresses added yet</p>
                             </div>
-                            @endif
                         </div>
                     </div>
 
@@ -205,52 +195,21 @@
                             <button type="button" class="btn-small btn-secondary" onclick="openAddressModal('shipping')">
                                 <span class="btn-icon">+</span> Add Shipping Address
                             </button>
+                            <button type="button" class="btn-small btn-tertiary" onclick="copyBillingToShipping()">
+                                📋 Same as Billing
+                            </button>
                         </div>
 
                         <div class="addresses-list" id="shippingAddressesList">
-                            @foreach($customer->addresses->where('type', 'shipping') as $address)
-                            <div class="address-card {{ $address->is_default ? 'default' : '' }}" data-id="{{ $address->id }}" data-type="shipping">
-                                <div class="address-header">
-                                    <h5 class="address-title">{{ $address->city }}, {{ $address->state }}</h5>
-                                    <span class="address-badge {{ $address->is_default ? 'badge-default' : 'badge-regular' }}">
-                                        {{ $address->is_default ? 'DEFAULT' : '' }}
-                                    </span>
-                                </div>
-                                <div class="address-details">
-                                    {{ $address->address }}<br>
-                                    @if($address->landmark){{ $address->landmark }}<br>@endif
-                                    {{ $address->city }}, {{ $address->state }} - {{ $address->pincode }}<br>
-                                    {{ $address->country }}
-                                </div>
-                                @if($address->contact_person || $address->contact_number)
-                                <div class="address-contact">
-                                    @if($address->contact_person)<span>👤 {{ $address->contact_person }}</span>@endif
-                                    @if($address->contact_number)<span>📱 {{ $address->contact_number }}</span>@endif
-                                </div>
-                                @endif
-                                <div class="address-actions">
-                                    <button type="button" class="action-btn btn-edit" onclick="editAddress('{{ $address->id }}')">
-                                        ✏️ Edit
-                                    </button>
-                                    @if(!$address->is_default)
-                                    <button type="button" class="action-btn btn-set-default" onclick="setDefaultAddress('{{ $address->id }}')">
-                                        ⭐ Set Default
-                                    </button>
-                                    @endif
-                                    <button type="button" class="action-btn btn-delete" onclick="deleteAddress('{{ $address->id }}')">
-                                        🗑️ Delete
-                                    </button>
-                                </div>
-                            </div>
-                            @endforeach
-                            @if($customer->addresses->where('type', 'shipping')->isEmpty())
                             <div class="no-addresses">
                                 <div class="empty-icon">📦</div>
                                 <p>No shipping addresses added yet</p>
                             </div>
-                            @endif
                         </div>
                     </div>
+
+                    <input type="hidden" name="billing_addresses" id="billing_addresses_input">
+                    <input type="hidden" name="shipping_addresses" id="shipping_addresses_input">
                 </div>
             </div>
         </div>
@@ -266,7 +225,7 @@
                         Next →
                     </button>
                     <button type="submit" class="btn-primary" id="submitBtn" style="display: none;">
-                        ✓ Update Customer
+                        ✓ Create {{ ucfirst($partyType) }}
                     </button>
                 </div>
             </div>
@@ -341,8 +300,7 @@
 
 @push('styles')
 <style>
-    /* Same styles as create.blade.php - Don't change */
-    .edit-customer-container {
+    .create-party-container {
         padding: 0 15px 80px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 13px;
@@ -386,6 +344,7 @@
         border-left: 3px solid #dc3545;
     }
 
+    /* Header */
     .page-header {
         margin-bottom: 15px;
         display: flex;
@@ -428,6 +387,7 @@
         margin: 0;
     }
 
+    /* Tab Container */
     .tab-container {
         background: white;
         border-radius: 6px;
@@ -506,6 +466,7 @@
         margin: 5px 0 0 0;
     }
 
+    /* Form Grid */
     .form-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -533,6 +494,7 @@
         color: #dc3545;
     }
 
+    /* Inputs */
     .form-input, .form-textarea, .form-select {
         padding: 6px 10px;
         border: 1px solid #ced4da;
@@ -568,6 +530,7 @@
         margin-top: 3px;
     }
 
+    /* Phone & Email Validation */
     .phone-validation-message, .email-validation-message {
         font-size: 9px;
         margin-top: 3px;
@@ -597,6 +560,7 @@
         border-left: 2px solid #007bff;
     }
 
+    /* Address Type Tabs */
     .address-type-tabs {
         margin-bottom: 15px;
     }
@@ -632,6 +596,7 @@
         color: white;
     }
 
+    /* Address Sections */
     .address-section {
         margin-top: 15px;
         padding: 15px;
@@ -693,6 +658,7 @@
         font-size: 12px;
     }
 
+    /* Addresses List */
     .addresses-list {
         display: flex;
         flex-direction: column;
@@ -830,6 +796,7 @@
         margin: 0;
     }
 
+    /* Form Actions */
     .form-actions {
         position: fixed;
         bottom: 0;
@@ -894,6 +861,7 @@
         background: #218838;
     }
 
+    /* Modal Styles */
     .modal {
         display: none;
         position: fixed;
@@ -1031,6 +999,7 @@
         transform: translateY(-1px);
     }
 
+    /* Checkbox */
     .form-checkbox {
         display: flex;
         align-items: center;
@@ -1082,6 +1051,7 @@
         font-style: italic;
     }
 
+    /* Responsive */
     @media (max-width: 768px) {
         .form-grid { grid-template-columns: 1fr; }
         .form-group.full-width { grid-column: span 1; }
@@ -1103,10 +1073,12 @@
 <script>
     // ========== GLOBAL VARIABLES ==========
     let currentTab = 0;
-    const tabs = ['customer-info', 'addresses'];
+    const tabs = ['party-info', 'addresses'];
+    let addresses = {
+        billing: [],
+        shipping: []
+    };
     let editingAddressId = null;
-    const customerId = @json($customer->id);
-
 
     // ========== ALERT SYSTEM ==========
     function showAlert(message, type = 'success') {
@@ -1143,7 +1115,6 @@
         const inputField = document.getElementById('phone');
         const messageDiv = document.getElementById('phone_message');
 
-        // Reset
         inputField.classList.remove('error', 'success');
         messageDiv.className = 'phone-validation-message';
         messageDiv.textContent = '';
@@ -1152,7 +1123,6 @@
             return;
         }
 
-        // Basic validation
         const phoneRegex = /^[6-9]\d{9}$/;
         if (!phoneRegex.test(phone)) {
             inputField.classList.add('error');
@@ -1171,7 +1141,6 @@
         const inputField = document.getElementById('email');
         const messageDiv = document.getElementById('email_message');
 
-        // Reset
         inputField.classList.remove('error', 'success');
         messageDiv.className = 'email-validation-message';
         messageDiv.textContent = '';
@@ -1180,7 +1149,6 @@
             return;
         }
 
-        // Basic validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             inputField.classList.add('error');
@@ -1194,20 +1162,6 @@
         messageDiv.textContent = '✓ Valid email';
     }
 
-    // ========== COMPANY FIELD TOGGLE ==========
-    function toggleCompanyField() {
-        const customerType = document.getElementById('customerType').value;
-        const companyField = document.getElementById('companyField');
-
-        if (customerType === 'business') {
-            companyField.style.display = 'block';
-            document.querySelector('[name="company_name"]').required = true;
-        } else {
-            companyField.style.display = 'none';
-            document.querySelector('[name="company_name"]').required = false;
-        }
-    }
-
     // ========== ADDRESS MANAGEMENT ==========
     function openAddressModal(type) {
         const modal = document.getElementById('addressModal');
@@ -1216,7 +1170,6 @@
         document.getElementById('addressType').value = type;
         title.textContent = type === 'billing' ? 'Add Billing Address' : 'Add Shipping Address';
 
-        // Reset form
         document.getElementById('addressForm').reset();
         document.getElementById('addressId').value = '';
         document.getElementById('country').value = 'India';
@@ -1231,419 +1184,212 @@
         editingAddressId = null;
     }
 
-    function editAddress(addressId) {
-        // Get address data via AJAX from server
-        fetch(`/admin/customers/${customerId}/addresses?type=${getAddressType(addressId)}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.addresses) {
-                    const address = data.addresses.find(addr => addr.id === addressId);
-                    if (!address) return;
+    function saveAddress() {
+        const type = document.getElementById('addressType').value;
+        const addressId = document.getElementById('addressId').value;
 
-                    const modal = document.getElementById('addressModal');
-                    const title = document.getElementById('modalTitle');
-                    const addressType = address.type;
+        const address = document.getElementById('address').value.trim();
+        const city = document.getElementById('city').value.trim();
+        const state = document.getElementById('state').value.trim();
+        const pincode = document.getElementById('pincode').value.trim();
+        const country = document.getElementById('country').value.trim();
 
-                    document.getElementById('addressType').value = addressType;
-                    title.textContent = `Edit ${addressType === 'billing' ? 'Billing' : 'Shipping'} Address`;
+        if (!address || !city || !state || !pincode || !country) {
+            showAlert('Please fill all required fields', 'error');
+            return false;
+        }
 
-                    document.getElementById('addressId').value = address.id;
-                    document.getElementById('contactPerson').value = address.contact_person || '';
-                    document.getElementById('contactNumber').value = address.contact_number || '';
-                    document.getElementById('address').value = address.address || '';
-                    document.getElementById('landmark').value = address.landmark || '';
-                    document.getElementById('city').value = address.city || '';
-                    document.getElementById('state').value = address.state || '';
-                    document.getElementById('pincode').value = address.pincode || '';
-                    document.getElementById('country').value = address.country || 'India';
-                    document.getElementById('isDefault').checked = address.is_default || false;
+        const addressData = {
+            id: addressId || 'addr_' + Date.now(),
+            contactPerson: document.getElementById('contactPerson').value.trim(),
+            contactNumber: document.getElementById('contactNumber').value.trim(),
+            address: address,
+            landmark: document.getElementById('landmark').value.trim(),
+            city: city,
+            state: state,
+            pincode: pincode,
+            country: country,
+            isDefault: document.getElementById('isDefault').checked,
+            type: type
+        };
 
-                    editingAddressId = addressId;
-                    modal.style.display = 'flex';
+        if (editingAddressId) {
+            const index = addresses[type].findIndex(addr => addr.id === editingAddressId);
+            if (index !== -1) {
+                if (addressData.isDefault) {
+                    addresses[type].forEach(addr => {
+                        addr.isDefault = false;
+                    });
                 }
-            })
-            .catch(error => {
-                console.error('Error fetching address:', error);
-                showAlert('Error loading address details', 'error');
-            });
+                addresses[type][index] = addressData;
+            }
+        } else {
+            if (addressData.isDefault) {
+                addresses[type].forEach(addr => {
+                    addr.isDefault = false;
+                });
+            }
+            addresses[type].push(addressData);
+        }
+
+        renderAddresses(type);
+        closeAddressModal();
+        updateAddressesInput();
+
+        showAlert(`${type.charAt(0).toUpperCase() + type.slice(1)} address ${editingAddressId ? 'updated' : 'added'} successfully`);
+
+        return false;
     }
 
-    function getAddressType(addressId) {
-        const addressCard = document.querySelector(`[data-id="${addressId}"]`);
-        return addressCard ? addressCard.getAttribute('data-type') : 'billing';
+    function editAddress(type, addressId) {
+        const address = addresses[type].find(addr => addr.id === addressId);
+        if (!address) return;
+
+        const modal = document.getElementById('addressModal');
+        const title = document.getElementById('modalTitle');
+
+        document.getElementById('addressType').value = type;
+        title.textContent = `Edit ${type === 'billing' ? 'Billing' : 'Shipping'} Address`;
+
+        document.getElementById('addressId').value = address.id;
+        document.getElementById('contactPerson').value = address.contactPerson || '';
+        document.getElementById('contactNumber').value = address.contactNumber || '';
+        document.getElementById('address').value = address.address || '';
+        document.getElementById('landmark').value = address.landmark || '';
+        document.getElementById('city').value = address.city || '';
+        document.getElementById('state').value = address.state || '';
+        document.getElementById('pincode').value = address.pincode || '';
+        document.getElementById('country').value = address.country || 'India';
+        document.getElementById('isDefault').checked = address.isDefault || false;
+
+        editingAddressId = addressId;
+        modal.style.display = 'flex';
     }
 
-    function deleteAddress(addressId) {
+    function deleteAddress(type, addressId) {
         if (!confirm('Are you sure you want to delete this address?')) {
             return;
         }
 
-        // Get address type
-        const addressCard = document.querySelector(`[data-id="${addressId}"]`);
-        if (!addressCard) return;
-
-        const addressType = addressCard.getAttribute('data-type');
-        const isDefault = addressCard.classList.contains('default');
-
-        // Send AJAX request to delete - FIXED ROUTE URL
-        const deleteUrl = `/admin/customers/addresses/${addressId}`;
-        fetch(deleteUrl, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Remove address from UI
-                addressCard.remove();
-
-                // Check if this was a default address
-                if (isDefault) {
-                    // Set the first remaining address as default
-                    const remainingAddresses = document.querySelectorAll(`[data-type="${addressType}"]`);
-                    if (remainingAddresses.length > 0) {
-                        const nextAddress = remainingAddresses[0];
-                        const nextAddressId = nextAddress.getAttribute('data-id');
-
-                        // Set as default via AJAX
-                        const defaultUrl = `/admin/customers/addresses/${nextAddressId}/default`;
-                        fetch(defaultUrl, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json'
-                            }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                // Update UI for the new default
-                                nextAddress.classList.add('default');
-                                const badge = nextAddress.querySelector('.address-badge');
-                                badge.classList.remove('badge-regular');
-                                badge.classList.add('badge-default');
-                                badge.textContent = 'DEFAULT';
-
-                                // Disable "Set Default" button for new default
-                                const setDefaultBtn = nextAddress.querySelector('.btn-set-default');
-                                if (setDefaultBtn) {
-                                    setDefaultBtn.style.display = 'none';
-                                }
-                            }
-                        });
-                    }
-                }
-
-                // Check if no addresses left
-                const addressList = document.getElementById(`${addressType}AddressesList`);
-                const addresses = addressList.querySelectorAll('.address-card');
-                if (addresses.length === 0) {
-                    addressList.innerHTML = `
-                        <div class="no-addresses">
-                            <div class="empty-icon">${addressType === 'billing' ? '🏢' : '📦'}</div>
-                            <p>No ${addressType} addresses added yet</p>
-                        </div>
-                    `;
-                }
-
-                showAlert('Address deleted successfully');
-            } else {
-                showAlert(data.message || 'Error deleting address', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('Error deleting address', 'error');
-        });
+        addresses[type] = addresses[type].filter(addr => addr.id !== addressId);
+        renderAddresses(type);
+        updateAddressesInput();
+        showAlert('Address deleted successfully');
     }
 
-    // ========== SET DEFAULT ADDRESS ==========
-    function setDefaultAddress(addressId) {
-        const defaultUrl = `/admin/customers/addresses/${addressId}/default`;
-        fetch(defaultUrl, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Get address type
-                const addressCard = document.querySelector(`[data-id="${addressId}"]`);
-                if (!addressCard) return;
-
-                const addressType = addressCard.getAttribute('data-type');
-
-                // Remove default from all addresses of this type
-                document.querySelectorAll(`[data-type="${addressType}"]`).forEach(card => {
-                    card.classList.remove('default');
-                    const badge = card.querySelector('.address-badge');
-                    if (badge) {
-                        badge.classList.remove('badge-default');
-                        badge.classList.add('badge-regular');
-                        badge.textContent = '';
-                    }
-
-                    // Show "Set Default" button
-                    const setDefaultBtn = card.querySelector('.btn-set-default');
-                    if (setDefaultBtn) {
-                        setDefaultBtn.style.display = 'flex';
-                    }
-                });
-
-                // Set new default
-                addressCard.classList.add('default');
-                const badge = addressCard.querySelector('.address-badge');
-                if (badge) {
-                    badge.classList.remove('badge-regular');
-                    badge.classList.add('badge-default');
-                    badge.textContent = 'DEFAULT';
-                }
-
-                // Hide "Set Default" button for new default
-                const setDefaultBtn = addressCard.querySelector('.btn-set-default');
-                if (setDefaultBtn) {
-                    setDefaultBtn.style.display = 'none';
-                }
-
-                showAlert('Address set as default');
-            } else {
-                showAlert(data.message || 'Error setting default address', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('Error setting default address', 'error');
+    function setDefaultAddress(type, addressId) {
+        addresses[type].forEach(addr => {
+            addr.isDefault = addr.id === addressId;
         });
+
+        renderAddresses(type);
+        updateAddressesInput();
+        showAlert('Address set as default');
     }
 
-    // ========== ADDRESS FORM SUBMISSION ==========
-    document.getElementById('addressForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+    function renderAddresses(type) {
+        const container = document.getElementById(`${type}AddressesList`);
+        const addressesList = addresses[type];
 
-        const addressId = document.getElementById('addressId').value;
-        const addressType = document.getElementById('addressType').value;
-
-        // FIXED: Use direct URLs instead of route helpers
-        const url = addressId
-            ? `/admin/customers/addresses/${addressId}`
-            : `/admin/customers/${customerId}/addresses`;
-
-        const method = addressId ? 'PUT' : 'POST';
-
-        const formData = {
-            type: addressType,
-            address: document.getElementById('address').value.trim(),
-            city: document.getElementById('city').value.trim(),
-            state: document.getElementById('state').value.trim(),
-            pincode: document.getElementById('pincode').value.trim(),
-            country: document.getElementById('country').value.trim(),
-            landmark: document.getElementById('landmark').value.trim(),
-            contact_person: document.getElementById('contactPerson').value.trim(),
-            contact_number: document.getElementById('contactNumber').value.trim(),
-            is_default: document.getElementById('isDefault').checked
-        };
-
-        // Validate required fields
-        if (!formData.address || !formData.city || !formData.state || !formData.pincode || !formData.country) {
-            showAlert('Please fill all required fields', 'error');
+        if (addressesList.length === 0) {
+            container.innerHTML = `
+                <div class="no-addresses">
+                    <div class="empty-icon">${type === 'billing' ? '🏢' : '📦'}</div>
+                    <p>No ${type} addresses added yet</p>
+                </div>
+            `;
             return;
         }
 
-        fetch(url, {
-            method: method,
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                closeAddressModal();
-
-                if (addressId) {
-                    // Update existing address in UI
-                    updateAddressInUI(addressType, addressId, data.address);
-                    showAlert('Address updated successfully');
-                } else {
-                    // Add new address to UI
-                    addAddressToUI(addressType, data.address);
-                    showAlert('Address added successfully');
-                }
-            } else {
-                showAlert(data.message || 'Error saving address', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('Error saving address', 'error');
+        let html = '';
+        addressesList.forEach(addr => {
+            const isDefault = addr.isDefault || false;
+            html += `
+                <div class="address-card ${isDefault ? 'default' : ''}">
+                    <div class="address-header">
+                        <h5 class="address-title">${addr.city}, ${addr.state}</h5>
+                        <span class="address-badge ${isDefault ? 'badge-default' : 'badge-regular'}">
+                            ${isDefault ? 'DEFAULT' : ''}
+                        </span>
+                    </div>
+                    <div class="address-details">
+                        ${addr.address}<br>
+                        ${addr.landmark ? addr.landmark + '<br>' : ''}
+                        ${addr.city}, ${addr.state} - ${addr.pincode}<br>
+                        ${addr.country}
+                    </div>
+                    ${(addr.contactPerson || addr.contactNumber) ? `
+                    <div class="address-contact">
+                        ${addr.contactPerson ? `<span>👤 ${addr.contactPerson}</span>` : ''}
+                        ${addr.contactNumber ? `<span>📱 ${addr.contactNumber}</span>` : ''}
+                    </div>
+                    ` : ''}
+                    <div class="address-actions">
+                        <button type="button" class="action-btn btn-edit" onclick="editAddress('${type}', '${addr.id}')">
+                            ✏️ Edit
+                        </button>
+                        ${!isDefault ? `
+                        <button type="button" class="action-btn btn-set-default" onclick="setDefaultAddress('${type}', '${addr.id}')">
+                            ⭐ Set Default
+                        </button>
+                        ` : ''}
+                        <button type="button" class="action-btn btn-delete" onclick="deleteAddress('${type}', '${addr.id}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `;
         });
-    });
 
-    function updateAddressInUI(type, addressId, addressData) {
-        const addressCard = document.querySelector(`[data-id="${addressId}"]`);
-        if (!addressCard) return;
-
-        // Update card content
-        addressCard.querySelector('.address-title').textContent = `${addressData.city}, ${addressData.state}`;
-
-        const detailsHTML = `
-            ${addressData.address}<br>
-            ${addressData.landmark ? addressData.landmark + '<br>' : ''}
-            ${addressData.city}, ${addressData.state} - ${addressData.pincode}<br>
-            ${addressData.country}
-        `;
-        addressCard.querySelector('.address-details').innerHTML = detailsHTML;
-
-        // Update contact info
-        let contactHTML = '';
-        if (addressData.contact_person || addressData.contact_number) {
-            contactHTML = '<div class="address-contact">';
-            if (addressData.contact_person) {
-                contactHTML += `<span>👤 ${addressData.contact_person}</span>`;
-            }
-            if (addressData.contact_number) {
-                contactHTML += `<span>📱 ${addressData.contact_number}</span>`;
-            }
-            contactHTML += '</div>';
-        }
-
-        const contactDiv = addressCard.querySelector('.address-contact');
-        if (contactDiv) {
-            if (addressData.contact_person || addressData.contact_number) {
-                contactDiv.innerHTML = contactHTML;
-            } else {
-                contactDiv.remove();
-            }
-        } else if (addressData.contact_person || addressData.contact_number) {
-            const detailsDiv = addressCard.querySelector('.address-details');
-            detailsDiv.insertAdjacentHTML('afterend', contactHTML);
-        }
-
-        // Update default status
-        if (addressData.is_default) {
-            // Remove default from all addresses of this type
-            document.querySelectorAll(`[data-type="${type}"]`).forEach(card => {
-                card.classList.remove('default');
-                const badge = card.querySelector('.address-badge');
-                if (badge) {
-                    badge.classList.remove('badge-default');
-                    badge.classList.add('badge-regular');
-                    badge.textContent = '';
-                }
-
-                const setDefaultBtn = card.querySelector('.btn-set-default');
-                if (setDefaultBtn) {
-                    setDefaultBtn.style.display = 'flex';
-                }
-            });
-
-            // Set this address as default
-            addressCard.classList.add('default');
-            const badge = addressCard.querySelector('.address-badge');
-            if (badge) {
-                badge.classList.remove('badge-regular');
-                badge.classList.add('badge-default');
-                badge.textContent = 'DEFAULT';
-            }
-
-            const setDefaultBtn = addressCard.querySelector('.btn-set-default');
-            if (setDefaultBtn) {
-                setDefaultBtn.style.display = 'none';
-            }
-        }
+        container.innerHTML = html;
     }
 
-    function addAddressToUI(type, addressData) {
-        const addressList = document.getElementById(`${type}AddressesList`);
+    function updateAddressesInput() {
+        const billingForBackend = addresses.billing.map(addr => ({
+            address: addr.address || '',
+            city: addr.city || '',
+            state: addr.state || '',
+            pincode: addr.pincode || '',
+            country: addr.country || 'India',
+            landmark: addr.landmark || '',
+            contactPerson: addr.contactPerson || '',
+            contactNumber: addr.contactNumber || '',
+            isDefault: addr.isDefault || false
+        }));
 
-        // Remove "no addresses" message if it exists
-        const noAddresses = addressList.querySelector('.no-addresses');
-        if (noAddresses) {
-            noAddresses.remove();
+        const shippingForBackend = addresses.shipping.map(addr => ({
+            address: addr.address || '',
+            city: addr.city || '',
+            state: addr.state || '',
+            pincode: addr.pincode || '',
+            country: addr.country || 'India',
+            landmark: addr.landmark || '',
+            contactPerson: addr.contactPerson || '',
+            contactNumber: addr.contactNumber || '',
+            isDefault: addr.isDefault || false
+        }));
+
+        document.getElementById('billing_addresses_input').value = JSON.stringify(billingForBackend);
+        document.getElementById('shipping_addresses_input').value = JSON.stringify(shippingForBackend);
+    }
+
+    function copyBillingToShipping() {
+        if (addresses.billing.length === 0) {
+            showAlert('Please add billing addresses first', 'error');
+            return;
         }
 
-        // Create new address card HTML
-        const addressCard = document.createElement('div');
-        addressCard.className = `address-card ${addressData.is_default ? 'default' : ''}`;
-        addressCard.setAttribute('data-id', addressData._id || addressData.id);
-        addressCard.setAttribute('data-type', type);
+        addresses.shipping = JSON.parse(JSON.stringify(addresses.billing));
 
-        let contactHTML = '';
-        if (addressData.contact_person || addressData.contact_number) {
-            contactHTML = '<div class="address-contact">';
-            if (addressData.contact_person) {
-                contactHTML += `<span>👤 ${addressData.contact_person}</span>`;
-            }
-            if (addressData.contact_number) {
-                contactHTML += `<span>📱 ${addressData.contact_number}</span>`;
-            }
-            contactHTML += '</div>';
-        }
+        addresses.shipping.forEach(addr => {
+            addr.type = 'shipping';
+            addr.id = 'ship_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        });
 
-        addressCard.innerHTML = `
-            <div class="address-header">
-                <h5 class="address-title">${addressData.city}, ${addressData.state}</h5>
-                <span class="address-badge ${addressData.is_default ? 'badge-default' : 'badge-regular'}">
-                    ${addressData.is_default ? 'DEFAULT' : ''}
-                </span>
-            </div>
-            <div class="address-details">
-                ${addressData.address}<br>
-                ${addressData.landmark ? addressData.landmark + '<br>' : ''}
-                ${addressData.city}, ${addressData.state} - ${addressData.pincode}<br>
-                ${addressData.country}
-            </div>
-            ${contactHTML}
-            <div class="address-actions">
-                <button type="button" class="action-btn btn-edit" onclick="editAddress('${addressData._id || addressData.id}')">
-                    ✏️ Edit
-                </button>
-                ${!addressData.is_default ? `
-                <button type="button" class="action-btn btn-set-default" onclick="setDefaultAddress('${addressData._id || addressData.id}')">
-                    ⭐ Set Default
-                </button>
-                ` : ''}
-                <button type="button" class="action-btn btn-delete" onclick="deleteAddress('${addressData._id || addressData.id}')">
-                    🗑️ Delete
-                </button>
-            </div>
-        `;
+        renderAddresses('shipping');
+        updateAddressesInput();
 
-        // Add to list
-        addressList.appendChild(addressCard);
-
-        // If this is default, update other addresses
-        if (addressData.is_default) {
-            document.querySelectorAll(`[data-type="${type}"]`).forEach(card => {
-                const cardId = card.getAttribute('data-id');
-                if (cardId !== (addressData._id || addressData.id)) {
-                    card.classList.remove('default');
-                    const badge = card.querySelector('.address-badge');
-                    if (badge) {
-                        badge.classList.remove('badge-default');
-                        badge.classList.add('badge-regular');
-                        badge.textContent = '';
-                    }
-
-                    const setDefaultBtn = card.querySelector('.btn-set-default');
-                    if (setDefaultBtn) {
-                        setDefaultBtn.style.display = 'flex';
-                    }
-                }
-            });
-        }
+        showAlert('Billing addresses copied to shipping');
     }
 
     // ========== FORM VALIDATION ==========
@@ -1668,10 +1414,7 @@
     }
 
     // ========== FORM SUBMISSION ==========
-    document.getElementById('customerForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        // Validate phone
+    function submitPartyForm() {
         const phone = document.getElementById('phone').value;
         const phoneRegex = /^[6-9]\d{9}$/;
         if (!phoneRegex.test(phone)) {
@@ -1680,7 +1423,6 @@
             return false;
         }
 
-        // Validate email if provided
         const email = document.getElementById('email').value;
         if (email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1691,34 +1433,25 @@
             }
         }
 
-        // Validate customer type
-        const customerType = document.getElementById('customerType').value;
-        if (customerType === 'business') {
-            const companyName = document.querySelector('[name="company_name"]').value;
-            if (!companyName.trim()) {
-                showAlert('Company name is required for business customers', 'error');
-                document.querySelector('[name="company_name"]').focus();
-                return false;
-            }
-        }
+        updateAddressesInput();
 
-        // Submit form
         const submitBtn = document.getElementById('submitBtn');
-        submitBtn.innerHTML = '⏳ Updating...';
+        submitBtn.innerHTML = '⏳ Creating...';
         submitBtn.disabled = true;
 
-        this.submit();
+        document.getElementById('partyForm').submit();
         return true;
-    });
+    }
 
     // ========== INITIALIZE ==========
     document.addEventListener('DOMContentLoaded', function() {
         showTab(0);
 
-        // Initialize company field
-        toggleCompanyField();
+        document.getElementById('addressForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveAddress();
+        });
 
-        // Tab buttons click
         document.querySelectorAll('.tab-btn').forEach((btn, index) => {
             btn.addEventListener('click', () => {
                 if (validateCurrentTab() || currentTab === index) {
@@ -1728,7 +1461,6 @@
             });
         });
 
-        // Next button
         document.getElementById('nextBtn').addEventListener('click', () => {
             if (!validateCurrentTab()) return;
 
@@ -1738,7 +1470,6 @@
             }
         });
 
-        // Back button
         document.getElementById('backBtn').addEventListener('click', () => {
             if (currentTab > 0) {
                 currentTab--;
@@ -1746,29 +1477,29 @@
             }
         });
 
-        // Address type tab switching
+        document.getElementById('partyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitPartyForm();
+        });
+
         document.querySelectorAll('.address-type-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const type = this.getAttribute('data-address-type');
 
-                // Update active button
                 document.querySelectorAll('.address-type-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
 
-                // Show/hide sections
                 document.getElementById('billingSection').style.display = type === 'billing' ? 'block' : 'none';
                 document.getElementById('shippingSection').style.display = type === 'shipping' ? 'block' : 'none';
             });
         });
 
-        // Close modal with Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeAddressModal();
             }
         });
 
-        // Show Laravel errors
         @if($errors->any())
             @foreach($errors->all() as $error)
                 showAlert('{{ $error }}', 'error');

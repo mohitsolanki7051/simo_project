@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\BarcodeController;
@@ -15,7 +16,8 @@ use App\Http\Controllers\Admin\SupplierPaymentController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\SalesInvoiceController;
 use App\Http\Controllers\Admin\InvoiceSettingController;
-
+use App\Http\Controllers\Admin\SalesPaymentController;
+use App\Http\Controllers\Admin\SalesmanController;
 // Redirect root URL based on authentication status
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -37,7 +39,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // Protected Routes
     Route::middleware('admin.auth')->group(function () {
-        Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        // Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
         // Product Routes
@@ -69,6 +72,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/products/low-stock-report', [ProductController::class, 'lowStockReport'])->name('products.low-stock-report');
         Route::get('/products/{id}/simple-warehouse-stock', [ProductController::class, 'getSimpleProductMainWarehouseStock'])->name('products.simple-warehouse-stock');
         Route::get('/products/{id}/variants-with-stock', [ProductController::class, 'getVariantsWithMainWarehouseStock'])->name('products.variants-with-stock');
+        Route::post('/pricing/update', [ProductController::class, 'updateprice'])
+            ->name('pricing.update');
+
 
         // Attribute Routes
         Route::get('/attributes', [AttributeController::class, 'index'])->name('attributes.index');
@@ -109,25 +115,52 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 
 
-        // Customer Routes
-        Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
-        Route::get('/customers/create', [CustomerController::class, 'create'])->name('customers.create');
-        Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
-        Route::get('/customers/{id}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
-        Route::put('/customers/{id}', [CustomerController::class, 'update'])->name('customers.update');
+        // PARTY ROUTES (Customers, Dealers, Distributors)
+        Route::prefix('parties')->name('parties.')->group(function () {
+            // Main party listing with type parameter
+            Route::get('/', [CustomerController::class, 'index'])->name('index');
+            Route::get('/{type}', [CustomerController::class, 'index'])->name('index.type');
 
-        // Customer Address Routes
-        Route::post('/customers/{id}/addresses', [CustomerController::class, 'storeAddress'])->name('customers.addresses.store');
-        Route::put('/customers/addresses/{addressId}', [CustomerController::class, 'updateAddress'])->name('customers.addresses.update');
-        Route::delete('/customers/addresses/{addressId}', [CustomerController::class, 'destroyAddress'])->name('customers.addresses.destroy');
-        Route::post('/customers/addresses/{addressId}/default', [CustomerController::class, 'setDefaultAddress'])->name('customers.addresses.default');
-        Route::get('/customers/{id}/addresses/{type}', [CustomerController::class, 'getAddresses'])->name('customers.addresses.list');
-        Route::post('/customers/bulk-update-status', [CustomerController::class, 'bulkUpdateStatus'])->name('customers.bulkUpdateStatus');
-        Route::get('/customers/{id}/ledger', [CustomerController::class, 'ledger'])
-            ->name('customers.ledger');
+            // Create - type in query parameter
+            Route::get('/create/new', [CustomerController::class, 'create'])->name('create');
+
+            // Store
+            Route::post('/', [CustomerController::class, 'store'])->name('store');
+
+            // Edit/Update
+            Route::get('/{id}/edit', [CustomerController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [CustomerController::class, 'update'])->name('update');
+
+            // Address Routes
+            Route::post('/{id}/addresses', [CustomerController::class, 'storeAddress'])->name('addresses.store');
+            Route::put('/addresses/{addressId}', [CustomerController::class, 'updateAddress'])->name('addresses.update');
+            Route::delete('/addresses/{addressId}', [CustomerController::class, 'destroyAddress'])->name('addresses.destroy');
+            Route::post('/addresses/{addressId}/default', [CustomerController::class, 'setDefaultAddress'])->name('addresses.default');
+            Route::get('/{id}/addresses/{type}', [CustomerController::class, 'getAddresses'])->name('addresses.list');
+
+            // Bulk Actions
+            Route::post('/bulk-update-status', [CustomerController::class, 'bulkUpdateStatus'])->name('bulkUpdateStatus');
+
+            // Ledger
+            Route::get('/{id}/ledger', [CustomerController::class, 'ledger'])->name('ledger');
+        });
+
+        // Keep old customer routes for backward compatibility (redirects to new parties routes)
+        Route::get('/customers', function() {
+            return redirect()->route('admin.parties.index.type', ['type' => 'customer']);
+        })->name('customers.index.old');
+
+        Route::get('/dealers', function() {
+            return redirect()->route('admin.parties.index.type', ['type' => 'dealer']);
+        })->name('dealers.index');
+
+        Route::get('/distributors', function() {
+            return redirect()->route('admin.parties.index.type', ['type' => 'distributor']);
+        })->name('distributors.index');
 
 
-       // Sales main
+
+        // Sales
         Route::get('/sales', [SalesInvoiceController::class, 'index'])->name('sales.index');
         Route::get('/sales/create', [SalesInvoiceController::class, 'create'])->name('sales.create');
         Route::post('/sales', [SalesInvoiceController::class, 'store'])->name('sales.store');
@@ -136,15 +169,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/sales/get-main-warehouse-products', [SalesInvoiceController::class, 'getMainWarehouseProducts'])
             ->name('sales.get-main-warehouse-products');
 
-        Route::get('/sales/get-customers-list', [SalesInvoiceController::class, 'getCustomersList'])
-            ->name('sales.customers.list');
+        // Updated routes for Party
+        Route::get('/sales/parties-list', [SalesInvoiceController::class, 'getPartiesList'])
+            ->name('sales.parties.list');
 
-        Route::get('/sales/get-customer-details/{id}', [SalesInvoiceController::class, 'getCustomerDetails'])
-            ->name('sales.get-customer-details');
+        Route::get('/sales/party-details/{id}', [SalesInvoiceController::class, 'getPartyDetails'])
+            ->name('sales.get-party-details');
 
-        Route::post('/sales/create-customer', [SalesInvoiceController::class, 'storeCustomerAjax']);
+        Route::post('/sales/create-party', [SalesInvoiceController::class, 'storePartyAjax'])
+            ->name('sales.create-party');
 
-        // Payment (still specific)
+        // Payment route
         Route::post('/sales/{id}/payment', [SalesInvoiceController::class, 'createPayment'])
             ->name('sales.create-payment');
 
@@ -159,6 +194,51 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->name('invoice-settings.store');
         Route::get('/invoice-settings/get', [InvoiceSettingController::class, 'getSettings'])
             ->name('invoice-settings.get');
+
+         // Payment In Routes
+        Route::get('/payments', [SalesPaymentController::class, 'index'])
+            ->name('payments.index');
+
+        // AJAX routes (specific routes first)
+        Route::get('/payments/get-customer-invoices', [SalesPaymentController::class, 'getCustomerInvoices'])
+            ->name('payments.get-customer-invoices');
+        Route::get('/payments/customer/{customerId}/payments', [SalesPaymentController::class, 'getCustomerPayments'])
+            ->name('payments.get-customer-payments');
+
+        // POST/DELETE routes
+        Route::post('/payments', [SalesPaymentController::class, 'store'])
+            ->name('payments.store');
+        Route::delete('/payments/{id}', [SalesPaymentController::class, 'destroy'])
+            ->name('payments.destroy');
+        Route::post('/payments/bulk-delete', [SalesPaymentController::class, 'bulkDestroy'])
+            ->name('payments.bulk-delete');
+        Route::get('/payments/get-party-invoices', [SalesPaymentController::class, 'getPartyInvoices'])
+            ->name('payments.get-party-invoices');
+
+        // Get party payment history
+        Route::get('/payments/party/{partyId}/payments', [SalesPaymentController::class, 'getPartyPayments'])
+            ->name('payments.get-party-payments');
+        Route::get('/payments/invoice/{id}', [SalesPaymentController::class, 'getInvoiceDetails'])
+            ->name('payments.invoice-details');
+
+
+        // Add these inside your admin middleware group
+        Route::prefix('salesmen')->name('salesmen.')->group(function () {
+            Route::get('/', [SalesmanController::class, 'index'])->name('index');
+            Route::get('/create', [SalesmanController::class, 'create'])->name('create');
+            Route::post('/', [SalesmanController::class, 'store'])->name('store');
+            Route::get('/{id}', [SalesmanController::class, 'show'])->name('show'); // View route
+            Route::get('/{id}/edit', [SalesmanController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [SalesmanController::class, 'update'])->name('update');
+            Route::post('/bulk-update-status', [SalesmanController::class, 'bulkUpdateStatus'])->name('bulk-update-status');
+            Route::get('/check-phone', [SalesmanController::class, 'checkPhone'])->name('check-phone');
+            Route::get('/check-email', [SalesmanController::class, 'checkEmail'])->name('check-email');
+
+            // AJAX routes
+            Route::get('/party-counts', [SalesmanController::class, 'getPartyCounts'])->name('party-counts');
+            Route::get('/{id}/parties', [SalesmanController::class, 'getAssignedParties'])->name('assigned-parties');
+        });
+
 
     });
 });

@@ -8,7 +8,7 @@
     <!-- Alert Container -->
     <div id="alertContainer"></div>
 
-    <!-- Warehouse Selector & Actions Bar - UPDATED FOR SINGLE ROW -->
+    <!-- Warehouse Selector & Actions Bar -->
     <div class="control-bar">
         <div class="control-grid">
             <!-- Left Side: Warehouse List -->
@@ -16,17 +16,21 @@
                 <div class="warehouse-selector">
                     <label>Warehouse List:</label>
                     <select id="warehouseSelect" class="select-warehouse" onchange="loadWarehouseStock()">
-                        @foreach($warehouses as $warehouse)
-                            <option value="{{ (string)$warehouse->_id }}" {{ $mainWarehouse && (string)$warehouse->_id == (string)$mainWarehouse->_id ? 'selected' : '' }}>
-                                {{ $warehouse->name }}
-                                @if($warehouse->is_main)
-                                    (Main)
-                                @endif
-                                @if($warehouse->status === 'inactive')
-                                    (Inactive)
-                                @endif
-                            </option>
-                        @endforeach
+                        @if($warehouses->isEmpty())
+                            <option value="">No warehouses available</option>
+                        @else
+                            @foreach($warehouses as $warehouse)
+                                <option value="{{ (string)$warehouse->_id }}" {{ $mainWarehouse && (string)$warehouse->_id == (string)$mainWarehouse->_id ? 'selected' : '' }}>
+                                    {{ $warehouse->name }}
+                                    @if($warehouse->is_main)
+                                        (Main)
+                                    @endif
+                                    @if($warehouse->status === 'inactive')
+                                        (Inactive)
+                                    @endif
+                                </option>
+                            @endforeach
+                        @endif
                     </select>
                 </div>
             </div>
@@ -56,13 +60,13 @@
                         <span>🔄</span> Transfer Stock
                     </button>
                     <button class="btn-primary" onclick="openCreateWarehouseModal()">
-                       + Create Warehouse
+                        + Create Warehouse
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Compact Warehouse Details - Now below the main row -->
+        <!-- Compact Warehouse Details -->
         <div class="warehouse-info-compact" id="warehouseInfoCompact">
             <div class="warehouse-info-row">
                 <span class="info-label">Name:</span>
@@ -81,21 +85,25 @@
                 <span class="info-value" id="infoAddress">-</span>
             </div>
             <div class="warehouse-info-row">
-                <span class="info-label">City:</span>
-                <span class="info-value" id="infoCity">-</span>
+                <span class="info-label">City/State:</span>
+                <span class="info-value" id="infoCityState">-</span>
             </div>
             <div class="warehouse-info-row">
                 <span class="info-label">Pincode:</span>
                 <span class="info-value" id="infoPincode">-</span>
             </div>
+            <div class="warehouse-info-row">
+                <span class="info-label">Phone:</span>
+                <span class="info-value" id="infoPhone">-</span>
+            </div>
             <div class="warehouse-actions-compact">
-                <button class="btn-icon btn-edit" onclick="openEditWarehouseModal()" title="Edit">
+                <button class="btn-icon btn-edit" onclick="openEditWarehouseModal()" title="Edit" {{ $warehouses->isEmpty() ? 'disabled' : '' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                     </svg>
                 </button>
-                <button class="btn-icon btn-delete" onclick="deleteWarehouse()" title="Delete">
+                <button class="btn-icon btn-delete" onclick="deleteWarehouse()" title="Delete" {{ $warehouses->isEmpty() ? 'disabled' : '' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M3 6h18"></path>
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -107,16 +115,16 @@
         </div>
     </div>
 
-      <!-- Stock Table -->
+    <!-- Stock Table -->
     <div class="table-card">
         <div class="table-header">
             <div class="table-header-left">
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Search products..." class="search-input">
+                    <input type="text" id="searchInput" placeholder="Search products..." class="search-input" {{ $warehouses->isEmpty() ? 'disabled' : '' }}>
                     <span class="search-icon">🔍</span>
                 </div>
                 <div class="status-filter">
-                    <select id="statusFilter" class="form-input" onchange="filterByStatus()">
+                    <select id="statusFilter" class="form-input" onchange="filterByStatus()" {{ $warehouses->isEmpty() ? 'disabled' : '' }}>
                         <option value="all">All Status</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
@@ -129,34 +137,49 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th width="50">
-                            <input type="checkbox" id="selectAll" class="checkbox" onchange="toggleSelectAll()">
+                        <th width="40">
+                            <input type="checkbox" id="selectAll" class="checkbox" onchange="toggleSelectAll()" {{ $warehouses->isEmpty() ? 'disabled' : '' }}>
                         </th>
-                        <th>Item Name</th>
+                        <th>Product</th>
                         <th>SKU</th>
                         <th>Unit</th>
                         <th>Status</th>
-                        <th style="padding-left: 20px;">Stock</th>
-                        <th>Min Stock</th>
-                        <th>Stock Value</th>
-                        <th>Sale Price</th>
-                        <th>Cost Price</th>
+                        <th class="text-right">Stock</th>
+                        <th class="text-right">Min Stock</th>
+                        <th class="text-right">Stock Value</th>
+                        <th class="text-right">Sale Price</th>
+                        <th class="text-right">Cost Price</th>
                     </tr>
                 </thead>
                 <tbody id="stockTableBody">
-                    <tr>
-                        <td colspan="10" class="loading-state">
-                            <div class="spinner"></div>
-                            <p>Loading stock data...</p>
-                        </td>
-                    </tr>
+                    @if($warehouses->isEmpty())
+                        <tr>
+                            <td colspan="10" class="empty-state">
+                                <div class="empty-state-content">
+                                    <span class="empty-icon">🏢</span>
+                                    <h3>No Warehouses Found</h3>
+                                    <p>Create your first warehouse to start managing inventory</p>
+                                    <button class="btn-primary" onclick="openCreateWarehouseModal()">
+                                        + Create Warehouse
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    @else
+                        <tr>
+                            <td colspan="10" class="loading-state">
+                                <div class="spinner"></div>
+                                <p>Loading stock data...</p>
+                            </td>
+                        </tr>
+                    @endif
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-<!-- Create Warehouse Modal - UPDATED VALIDATIONS -->
+<!-- Create Warehouse Modal -->
 <div class="modal" id="createWarehouseModal">
     <div class="modal-content modal-large">
         <div class="modal-header">
@@ -228,7 +251,7 @@
     </div>
 </div>
 
-<!-- Edit Warehouse Modal - UPDATED VALIDATIONS -->
+<!-- Edit Warehouse Modal -->
 <div class="modal" id="editWarehouseModal">
     <div class="modal-content modal-large">
         <div class="modal-header">
@@ -338,15 +361,42 @@
 
 @push('styles')
 <style>
-    .godown-container {background: #f5f5f5; min-height: 100vh; font-size: 14px; }
+    .godown-container {
+        background: #f5f5f5;
+        min-height: 100vh;
+        font-size: 14px;
+    }
 
-    #alertContainer { position: fixed; top: 70px; right: 20px; z-index: 9999; max-width: 350px; }
-    .alert { padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); animation: slideIn 0.3s ease; font-size: 13px; font-weight: 500; }
-    @keyframes slideIn { from { opacity: 0; transform: translateX(50px); } to { opacity: 1; transform: translateX(0); } }
+    #alertContainer {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 350px;
+    }
+
+    .alert {
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        animation: slideIn 0.3s ease;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(50px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
     .alert-success { background: #d4edda; color: #155724; border-left: 3px solid #28a745; }
     .alert-error { background: #f8d7da; color: #721c24; border-left: 3px solid #dc3545; }
 
-    /* Control Bar Layout - UPDATED */
+    /* Control Bar Layout */
     .control-bar {
         background: white;
         padding: 12px 15px;
@@ -365,21 +415,9 @@
         border-bottom: 1px dashed #e0e0e0;
     }
 
-    .control-left {
-        flex: 0 0 auto;
-        min-width: 250px;
-    }
-
-    .control-center {
-        flex: 1;
-        display: flex;
-        justify-content: center;
-    }
-
-    .control-right {
-        flex: 0 0 auto;
-        min-width: 200px;
-    }
+    .control-left { flex: 0 0 auto; min-width: 250px; }
+    .control-center { flex: 1; display: flex; justify-content: center; }
+    .control-right { flex: 0 0 auto; min-width: 200px; }
 
     .warehouse-selector {
         display: flex;
@@ -409,7 +447,7 @@
         border-color: #007bff;
     }
 
-    /* Stats Display - Centered */
+    /* Stats Display */
     .stats-display {
         display: flex;
         gap: 30px;
@@ -440,15 +478,8 @@
         color: #333;
     }
 
-    #lowStockItems {
-        color: #dc3545;
-        font-weight: 700;
-    }
-
-    #totalValue {
-        color: #28a745;
-        font-weight: 700;
-    }
+    #lowStockItems { color: #dc3545; font-weight: 700; }
+    #totalValue { color: #28a745; font-weight: 700; }
 
     /* Action Buttons */
     .action-buttons {
@@ -473,16 +504,11 @@
         color: white;
     }
 
-
-
     .btn-transfer {
-        background: #28a745;
+        background: #7c3aed;
         color: white;
     }
 
-    .btn-transfer:hover:not(:disabled) {
-        background: #218838;
-    }
 
     .btn-transfer:disabled {
         opacity: 0.5;
@@ -490,11 +516,11 @@
         background: #6c757d;
     }
 
-    /* Compact Warehouse Details - Below the main row */
+    /* Warehouse Info Compact */
     .warehouse-info-compact {
         display: flex;
         flex-wrap: wrap;
-        gap: 15px;
+        gap: 15px 20px;
         align-items: center;
         padding: 8px 0 0 0;
         margin-top: 8px;
@@ -522,10 +548,6 @@
         white-space: nowrap;
     }
 
-    #infoAddress {
-        max-width: 200px;
-    }
-
     .warehouse-actions-compact {
         display: flex;
         gap: 5px;
@@ -542,15 +564,13 @@
     }
 
     .status-active {
-        background: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
+        background: #d1fae5;
+        color: #065f46;
     }
 
     .status-inactive {
-        background: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
+        background: #f1f5f9;
+        color: #64748b;
     }
 
     /* Icon Buttons */
@@ -566,12 +586,17 @@
         transition: all 0.2s;
     }
 
+    .btn-icon:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
     .btn-edit {
         background: #e3f2fd;
         color: #1976d2;
     }
 
-    .btn-edit:hover {
+    .btn-edit:hover:not(:disabled) {
         background: #bbdefb;
     }
 
@@ -580,23 +605,63 @@
         color: #d32f2f;
     }
 
-    .btn-delete:hover {
+    .btn-delete:hover:not(:disabled) {
         background: #ffcdd2;
     }
 
     /* Table Styles */
-        /* Table Styles */
-    .table-card { background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-top: 15px; }
-    .table-header { padding: 10px 15px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
-    .table-header-left { display: flex; align-items: center; gap: 15px; flex: 1; }
+    .table-card {
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-top: 15px;
+    }
 
-    .search-box { position: relative; }
-    .search-input { padding: 6px 30px 6px 12px; border: 1px solid #ddd; border-radius: 4px; width: 250px; font-size: 14px; }
-    .search-input:focus { outline: none; border-color: #007bff; }
-    .search-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 14px; color: #999; }
+    .table-header {
+        padding: 10px 15px;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
 
-    .status-filter {
-        margin-left: 10px;
+    .table-header-left {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+
+    .search-box {
+        position: relative;
+    }
+
+    .search-input {
+        padding: 6px 30px 6px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 250px;
+        font-size: 14px;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: #007bff;
+    }
+
+    .search-input:disabled {
+        background: #f5f5f5;
+        cursor: not-allowed;
+    }
+
+    .search-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #999;
     }
 
     .status-filter select {
@@ -607,83 +672,263 @@
         min-width: 150px;
     }
 
-    .table-wrapper { overflow-x: auto; }
-    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .data-table thead { background: #f8f9fa; }
+    .status-filter select:disabled {
+        background: #f5f5f5;
+        cursor: not-allowed;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .data-table thead {
+        background: #f8f9fa;
+    }
+
     .data-table th {
-        padding: 8px 12px;
+        padding: 10px 12px;
         text-align: left;
         font-weight: 600;
         color: #495057;
         font-size: 12px;
         border-bottom: 2px solid #dee2e6;
-        white-space: nowrap; /* Add this for single line */
+        white-space: nowrap;
     }
+
     .data-table td {
-        padding: 8px 12px;
+        padding: 10px 12px;
         border-bottom: 1px solid #e9ecef;
         color: #333;
         font-size: 13px;
-        white-space: nowrap; /* Add this for single line */
+        white-space: nowrap;
     }
-    .data-table tbody tr { transition: background 0.2s; }
+
+    .data-table tbody tr {
+        transition: background 0.2s;
+    }
+
+    .data-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+
 
     /* Simple product rows */
-    .simple-row { background: white; }
-    .simple-row:hover { background: #f8f9fa; }
+    .simple-row {
+        background: white;
+    }
 
-    /* Variant group header - full row span */
+    /* Variant group header */
     .variant-group-header {
         background: #f0f8ff !important;
         border-top: 1px solid #cce7ff;
         border-bottom: 1px solid #cce7ff;
     }
+
     .variant-group-header td {
         padding: 10px 12px !important;
         font-weight: 600 !important;
         color: #0066cc !important;
         font-size: 13px !important;
+        background: #f0f8ff;
     }
+
     .variant-group-header:hover {
         background: #f0f8ff !important;
     }
 
     /* Variant product rows */
-    .variant-row { background: white; }
-    .variant-row:hover { background: #f7fafc; }
+    .variant-row {
+        background: white;
+    }
+
     .variant-row td:nth-child(2) {
         padding-left: 25px;
     }
 
-    .checkbox { width: 16px; height: 16px; cursor: pointer; }
-    .checkbox:disabled { cursor: not-allowed; opacity: 0.4; }
+    .checkbox {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
 
-    .loading-state, .empty-state { text-align: center; padding: 40px 20px; color: #666; }
-    .spinner { border: 3px solid #f0f0f0; border-top: 3px solid #007bff; border-radius: 50%; width: 30px; height: 30px; animation: spin 0.8s linear infinite; margin: 0 auto 15px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .checkbox:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+    }
 
-    /* Number and currency formatting */
-    .number-cell { text-align: right; }
-    .currency-cell { text-align: right; font-weight: 500; }
+    /* Empty and Loading States */
+    .loading-state,
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+
+    .empty-state-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .empty-icon {
+        font-size: 48px;
+        margin-bottom: 10px;
+    }
+
+    .empty-state h3 {
+        font-size: 18px;
+        color: #333;
+        margin: 0;
+    }
+
+    .empty-state p {
+        font-size: 14px;
+        color: #666;
+        margin: 5px 0 15px;
+    }
+
+    .spinner {
+        border: 3px solid #f0f0f0;
+        border-top: 3px solid #007bff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
 
     /* Modal Styles */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center; }
-    .modal.show { display: flex; }
-    .modal-content { background: white; border-radius: 6px; max-width: 700px; width: 90%; max-height: 90vh; overflow: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-    .modal-large { max-width: 800px; }
-    .modal-header { padding: 12px 15px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
-    .modal-title { font-size: 16px; font-weight: 600; color: #333; }
-    .modal-close { background: none; border: none; font-size: 24px; color: #999; cursor: pointer; line-height: 1; padding: 0; width: 30px; height: 30px; }
-    .modal-close:hover { color: #333; }
-    .modal-body { padding: 15px; }
-    .modal-footer { padding: 12px 15px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 10px; }
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+    }
 
-    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-    .form-group { display: flex; flex-direction: column; gap: 5px; }
-    .form-group.full-width { grid-column: 1 / -1; }
-    .form-label { font-size: 13px; color: #495057; font-weight: 600; }
-    .form-input { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-    .form-input:focus { outline: none; border-color: #007bff; }
+    .modal.show {
+        display: flex;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 6px;
+        max-width: 700px;
+        width: 90%;
+        max-height: 90vh;
+        overflow: auto;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .modal-large {
+        max-width: 800px;
+    }
+
+    .modal-header {
+        padding: 12px 15px;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 1;
+    }
+
+    .modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #999;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+    }
+
+    .modal-close:hover {
+        color: #333;
+    }
+
+    .modal-body {
+        padding: 15px;
+    }
+
+    .modal-footer {
+        padding: 12px 15px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        position: sticky;
+        bottom: 0;
+        background: white;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-label {
+        font-size: 13px;
+        color: #495057;
+        font-weight: 600;
+    }
+
+    .form-input {
+        padding: 6px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #007bff;
+    }
+
+    .form-input[readonly] {
+        background: #f5f5f5;
+        cursor: not-allowed;
+    }
 
     .form-help {
         font-size: 12px;
@@ -691,34 +936,115 @@
         margin-top: 3px;
     }
 
-    .checkbox-group { align-items: flex-start; }
-    .checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+    .checkbox-group {
+        align-items: flex-start;
+    }
 
-    .btn-secondary { padding: 6px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; }
-    .btn-secondary:hover { background: #5a6268; }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 14px;
+    }
 
-    .transfer-items-section { margin-top: 20px; }
-    .section-title { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0; }
-    .transfer-item { padding: 12px; background: #f8f9fa; border-radius: 4px; margin-bottom: 12px; border: 1px solid #e9ecef; }
-    .transfer-item-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 600; color: #333; font-size: 14px; }
-    .transfer-item-body { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .btn-secondary {
+        padding: 6px 15px;
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+
+    .transfer-items-section {
+        margin-top: 20px;
+    }
+
+    .section-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .transfer-item {
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        margin-bottom: 12px;
+        border: 1px solid #e9ecef;
+    }
+
+    .transfer-item-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+        font-size: 14px;
+    }
+
+    .transfer-item-body {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
 
     @media (max-width: 1024px) {
-        .control-grid { flex-wrap: wrap; gap: 15px; }
-        .control-left, .control-center, .control-right { width: 100%; min-width: auto; }
-        .stats-display { justify-content: flex-start; }
-        .action-buttons { justify-content: flex-start; }
+        .control-grid {
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .control-left, .control-center, .control-right {
+            width: 100%;
+            min-width: auto;
+        }
+        .stats-display {
+            justify-content: flex-start;
+        }
+        .action-buttons {
+            justify-content: flex-start;
+        }
     }
 
     @media (max-width: 768px) {
-        .form-grid, .transfer-item-body { grid-template-columns: 1fr; }
-        .stats-display { flex-wrap: wrap; gap: 15px; }
-        .warehouse-selector { flex-direction: column; align-items: flex-start; }
-        .select-warehouse { width: 100%; }
-        .action-buttons { flex-wrap: wrap; }
-        .btn-primary, .btn-transfer { width: 100%; }
-        .warehouse-info-row { width: 100%; justify-content: space-between; }
-        .warehouse-actions-compact { margin-left: 0; margin-top: 10px; }
+        .form-grid, .transfer-item-body {
+            grid-template-columns: 1fr;
+        }
+        .stats-display {
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .warehouse-selector {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .select-warehouse {
+            width: 100%;
+        }
+        .action-buttons {
+            flex-wrap: wrap;
+        }
+        .btn-primary, .btn-transfer {
+            width: 100%;
+        }
+        .warehouse-info-row {
+            width: 100%;
+            justify-content: space-between;
+        }
+        .warehouse-actions-compact {
+            margin-left: 0;
+            margin-top: 10px;
+        }
     }
 </style>
 @endpush
@@ -733,11 +1059,21 @@
     let currentStockData = [];
 
     document.addEventListener('DOMContentLoaded', function() {
+        initializeWarehouseData();
+    });
+
+    function initializeWarehouseData() {
         const selectElement = document.getElementById('warehouseSelect');
+
         if (selectElement) {
+            // Clear existing data
+            warehouses = [];
+            warehouseDataMap = {};
+
             @foreach($warehouses as $warehouse)
                 warehouseDataMap['{{ (string)$warehouse->_id }}'] = {
                     _id: '{{ (string)$warehouse->_id }}',
+                    id: '{{ (string)$warehouse->_id }}',
                     name: '{{ addslashes($warehouse->name) }}',
                     code: '{{ addslashes($warehouse->code) }}',
                     address: '{{ addslashes($warehouse->address) }}',
@@ -752,19 +1088,31 @@
                 };
             @endforeach
 
-            warehouses = Array.from(selectElement.options).map(option => ({
-                _id: option.value,
-                name: option.textContent.replace(' (Main)', '').replace(' (Inactive)', ''),
-                is_main: option.textContent.includes('(Main)'),
-                status: option.textContent.includes('(Inactive)') ? 'inactive' : 'active'
-            }));
-        }
+            // Build warehouses array from options
+            Array.from(selectElement.options).forEach(option => {
+                if (option.value) {
+                    const text = option.textContent;
+                    warehouses.push({
+                        _id: option.value,
+                        name: text.replace(' (Main)', '').replace(' (Inactive)', ''),
+                        is_main: text.includes('(Main)'),
+                        status: text.includes('(Inactive)') ? 'inactive' : 'active'
+                    });
+                }
+            });
 
-        if (currentWarehouseId) {
-            loadWarehouseStock();
-            loadWarehouseDetails();
+            if (currentWarehouseId && warehouseDataMap[currentWarehouseId]) {
+                loadWarehouseStock();
+                loadWarehouseDetails();
+            } else if (warehouses.length > 0) {
+                // Select first warehouse if current not found
+                currentWarehouseId = warehouses[0]._id;
+                selectElement.value = currentWarehouseId;
+                loadWarehouseStock();
+                loadWarehouseDetails();
+            }
         }
-    });
+    }
 
     function showAlert(message, type = 'success') {
         const container = document.getElementById('alertContainer');
@@ -775,11 +1123,16 @@
         setTimeout(() => alert.remove(), 5000);
     }
 
-   function loadWarehouseStock() {
+    function loadWarehouseStock() {
         const warehouseId = document.getElementById('warehouseSelect').value;
+
+        if (!warehouseId) {
+            return;
+        }
+
         currentWarehouseId = warehouseId;
 
-        // FIX: Clear selected items when warehouse changes
+        // Clear selected items when warehouse changes
         selectedItems = [];
         document.getElementById('selectAll').checked = false;
         updateTransferButton();
@@ -819,7 +1172,11 @@
             console.error('Error:', error);
             tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Failed to load stock data</td></tr>`;
         });
+
+        // Also load warehouse details
+        loadWarehouseDetails();
     }
+
     function loadWarehouseDetails() {
         const warehouse = warehouseDataMap[currentWarehouseId];
 
@@ -827,7 +1184,6 @@
             currentWarehouseData = warehouse;
             updateWarehouseDetails(warehouse);
         } else {
-            console.error('Warehouse data not found in local map');
             resetWarehouseDetails();
         }
     }
@@ -836,19 +1192,41 @@
         document.getElementById('infoName').textContent = warehouse.name || '-';
         document.getElementById('infoCode').textContent = warehouse.code || '-';
         document.getElementById('infoAddress').textContent = warehouse.address || '-';
-        document.getElementById('infoCity').textContent = warehouse.city || '-';
+        document.getElementById('infoCityState').textContent = (warehouse.city || '') + (warehouse.city && warehouse.state ? ', ' : '') + (warehouse.state || '');
         document.getElementById('infoPincode').textContent = warehouse.pincode || '-';
+        document.getElementById('infoPhone').textContent = warehouse.phone || '-';
 
         const statusElement = document.getElementById('infoStatus');
         statusElement.textContent = warehouse.status === 'active' ? 'Active' : 'Inactive';
         statusElement.className = `info-value status-badge ${warehouse.status === 'active' ? 'status-active' : 'status-inactive'}`;
     }
 
- function renderStockTable(stockData) {
+    function resetWarehouseDetails() {
+        document.getElementById('infoName').textContent = '-';
+        document.getElementById('infoCode').textContent = '-';
+        document.getElementById('infoAddress').textContent = '-';
+        document.getElementById('infoCityState').textContent = '-';
+        document.getElementById('infoPincode').textContent = '-';
+        document.getElementById('infoPhone').textContent = '-';
+        document.getElementById('infoStatus').textContent = '-';
+        document.getElementById('infoStatus').className = 'info-value';
+    }
+
+    function renderStockTable(stockData) {
         const tbody = document.getElementById('stockTableBody');
 
         if (!stockData || stockData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="empty-state">No stock data available</td></tr>`;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="empty-state">
+                        <div class="empty-state-content">
+                            <span class="empty-icon">📦</span>
+                            <h3>No Stock Available</h3>
+                            <p>This warehouse currently has no products in stock</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
             return;
         }
 
@@ -874,21 +1252,27 @@
                             ${item.quantity === 0 ? 'disabled' : ''}
                             onchange="handleCheckboxChange(this)">
                     </td>
-                    <td>${item.product_name}</td>
-                    <td>${item.sku}</td>
+                    <td>
+                        <div class="product-info">
+                            <span class="product-name">${item.product_name}</span>
+                        </div>
+                    </td>
+                    <td><span class="sku-code">${item.sku}</span></td>
                     <td>${item.unit}</td>
                     <td>
                         <span class="status-badge ${productStatus === 'active' ? 'status-active' : 'status-inactive'}">
                             ${productStatus === 'active' ? 'Active' : 'Inactive'}
                         </span>
                     </td>
-                    <td class="number-cell">
-                        ${item.quantity.toLocaleString('en-IN')}
+                    <td class="text-right">
+                        <span class="stock-quantity ${item.quantity <= item.min_stock_alert ? 'low-stock' : ''}">
+                            ${item.quantity.toLocaleString('en-IN')}
+                        </span>
                     </td>
-                    <td class="number-cell">${item.min_stock_alert}</td>
-                    <td class="currency-cell">₹${item.stock_value.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    <td class="currency-cell">₹${item.sale_price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    <td class="currency-cell">₹${item.cost_price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td class="text-right">${item.min_stock_alert}</td>
+                    <td class="text-right stock-value">₹${item.stock_value.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td class="text-right price">₹${item.sale_price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td class="text-right price">₹${item.cost_price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                 </tr>
             `;
         });
@@ -902,13 +1286,16 @@
             // Variant group header
             html += `
                 <tr class="variant-group-header" data-status="${productStatus}">
-                    <td colspan="10">▸ ${item.product_name} (Variant Product)</td>
+                    <td colspan="10">
+                        <span class="variant-group-icon">▶</span>
+                        ${item.product_name} <span class="variant-badge">Variant Product</span>
+                    </td>
                 </tr>
             `;
 
             // Variant rows
             item.variants.forEach(variant => {
-                const displayName = variant.variant_name || `Variant ${variant.variant_id + 1}`;
+                const displayName = variant.variant_name || `Variant`;
 
                 html += `
                     <tr class="variant-row" data-stock-id="${variant.stock_id || ''}" data-status="${productStatus}">
@@ -927,21 +1314,27 @@
                                 onchange="handleCheckboxChange(this)">
                             ` : ''}
                         </td>
-                        <td>${displayName}</td>
-                        <td>${variant.sku}</td>
+                        <td>
+                            <div class="product-info">
+                                <span class="variant-name">↳ ${displayName}</span>
+                            </div>
+                        </td>
+                        <td><span class="sku-code">${variant.sku}</span></td>
                         <td>${variant.unit}</td>
                         <td>
                             <span class="status-badge ${productStatus === 'active' ? 'status-active' : 'status-inactive'}">
                                 ${productStatus === 'active' ? 'Active' : 'Inactive'}
                             </span>
                         </td>
-                        <td class="number-cell">
-                            ${variant.quantity.toLocaleString('en-IN')}
+                        <td class="text-right">
+                            <span class="stock-quantity ${variant.quantity <= variant.min_stock_alert ? 'low-stock' : ''}">
+                                ${variant.quantity.toLocaleString('en-IN')}
+                            </span>
                         </td>
-                        <td class="number-cell">${variant.min_stock_alert}</td>
-                        <td class="currency-cell">₹${variant.stock_value.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td class="currency-cell">₹${variant.sale_price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td class="currency-cell">₹${variant.cost_price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="text-right">${variant.min_stock_alert}</td>
+                        <td class="text-right stock-value">₹${variant.stock_value.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="text-right price">₹${variant.sale_price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="text-right price">₹${variant.cost_price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     </tr>
                 `;
             });
@@ -949,6 +1342,7 @@
 
         tbody.innerHTML = html;
     }
+
     function filterByStatus() {
         const statusFilter = document.getElementById('statusFilter').value;
         const allRows = document.querySelectorAll('#stockTableBody tr');
@@ -987,14 +1381,6 @@
         });
     }
 
-    function resetWarehouseDetails() {
-        document.getElementById('infoName').textContent = '-';
-        document.getElementById('infoCode').textContent = '-';
-        document.getElementById('infoAddress').textContent = '-';
-        document.getElementById('infoCity').textContent = '-';
-        document.getElementById('infoPincode').textContent = '-';
-    }
-
     function updateStats(stats) {
         document.getElementById('totalProducts').textContent = stats.total_products;
         document.getElementById('totalValue').textContent = '₹' + parseFloat(stats.total_value).toLocaleString('en-IN', { minimumFractionDigits: 2 });
@@ -1031,7 +1417,17 @@
         allCheckboxes.forEach(cb => {
             cb.checked = selectAll.checked;
             if (selectAll.checked) {
-                handleCheckboxChange(cb);
+                const data = {
+                    stock_id: cb.dataset.stockId,
+                    product_id: cb.dataset.productId,
+                    product_type: cb.dataset.productType,
+                    variant_id: cb.dataset.variantId || null,
+                    quantity: parseInt(cb.dataset.quantity),
+                    product_name: cb.dataset.productName,
+                    variant_name: cb.dataset.variantName || null,
+                    sku: cb.dataset.sku,
+                };
+                selectedItems.push(data);
             }
         });
 
@@ -1222,6 +1618,11 @@
             return;
         }
 
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = 'Creating...';
+        submitBtn.disabled = true;
+
         fetch('/admin/warehouses/create', {
             method: 'POST',
             headers: {
@@ -1232,16 +1633,59 @@
         })
         .then(response => response.json())
         .then(data => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+
             if (data.success) {
                 showAlert(data.message, 'success');
                 closeCreateWarehouseModal();
-                setTimeout(() => location.reload(), 1000);
+
+                // Add to warehouseDataMap
+                if (data.warehouse) {
+                    warehouseDataMap[data.warehouse._id] = data.warehouse;
+
+                    // Remove "No warehouses available" option if it exists
+                    const select = document.getElementById('warehouseSelect');
+                    if (select.options.length === 1 && select.options[0].value === '') {
+                        select.innerHTML = '';
+                    }
+
+                    // Add to dropdown
+                    const option = document.createElement('option');
+                    option.value = data.warehouse._id;
+                    let optionText = data.warehouse.name;
+                    if (data.warehouse.is_main) optionText += ' (Main)';
+                    if (data.warehouse.status === 'inactive') optionText += ' (Inactive)';
+                    option.textContent = optionText;
+                    select.appendChild(option);
+
+                    // Update warehouses array
+                    warehouses.push({
+                        _id: data.warehouse._id,
+                        name: data.warehouse.name,
+                        is_main: data.warehouse.is_main,
+                        status: data.warehouse.status
+                    });
+
+                    // Select the new warehouse
+                    select.value = data.warehouse._id;
+                    currentWarehouseId = data.warehouse._id;
+
+                    // Enable buttons and inputs
+                    document.querySelectorAll('.btn-edit, .btn-delete, #searchInput, #statusFilter, #selectAll').forEach(el => {
+                        el.disabled = false;
+                    });
+
+                    loadWarehouseStock();
+                }
             } else {
                 showAlert(data.message, 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
             showAlert('Failed to create warehouse', 'error');
         });
     }
@@ -1272,119 +1716,105 @@
         document.getElementById('editWarehouseModal').classList.remove('show');
     }
 
- function handleEditWarehouse(event) {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    const warehouseId = formData.get('id');
+    function handleEditWarehouse(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const warehouseId = formData.get('id');
 
-    // Validate inputs
-    const code = formData.get('code');
-    const pincode = formData.get('pincode');
-    const phone = formData.get('phone');
+        // Validate inputs
+        const code = formData.get('code');
+        const pincode = formData.get('pincode');
+        const phone = formData.get('phone');
 
-    if (!/^\d{4}$/.test(code)) {
-        showAlert('Warehouse code must be exactly 4 digits', 'error');
-        return;
-    }
-
-    if (!/^\d{6}$/.test(pincode)) {
-        showAlert('Pincode must be exactly 6 digits', 'error');
-        return;
-    }
-
-    if (!/^\d{10}$/.test(phone)) {
-        showAlert('Phone number must be exactly 10 digits', 'error');
-        return;
-    }
-
-    const submitBtn = event.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = 'Updating...';
-    submitBtn.disabled = true;
-
-    fetch(`/admin/warehouses/${warehouseId}`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Accept': 'application/json'
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-
-        if (data.success) {
-            showAlert(data.message, 'success');
-            closeEditWarehouseModal();
-
-            // ✅ UPDATE DROPDOWN WITHOUT PAGE RELOAD
-            const warehouseSelect = document.getElementById('warehouseSelect');
-            const warehouseOption = warehouseSelect.querySelector(`option[value="${warehouseId}"]`);
-
-            if (warehouseOption) {
-                const warehouseName = document.getElementById('editName').value;
-                const isMain = document.getElementById('editIsMain').checked;
-                const status = document.getElementById('editStatus').value;
-
-                let newText = warehouseName;
-                if (isMain) {
-                    newText += ' (Main)';
-                }
-                if (status === 'inactive') {
-                    newText += ' (Inactive)';
-                }
-
-                warehouseOption.textContent = newText;
-            }
-
-            // ✅ Update local warehouseDataMap
-            if (warehouseDataMap[warehouseId]) {
-                warehouseDataMap[warehouseId] = {
-                    ...warehouseDataMap[warehouseId],
-                    name: document.getElementById('editName').value,
-                    code: document.getElementById('editCode').value,
-                    address: document.getElementById('editAddress').value,
-                    city: document.getElementById('editCity').value,
-                    state: document.getElementById('editState').value,
-                    pincode: document.getElementById('editPincode').value,
-                    phone: document.getElementById('editPhone').value,
-                    email: document.getElementById('editEmail').value,
-                    manager_name: document.getElementById('editManagerName').value,
-                    status: document.getElementById('editStatus').value,
-                    is_main: document.getElementById('editIsMain').checked
-                };
-
-                // ✅ Reload current warehouse details if it's the same warehouse
-                if (currentWarehouseId === warehouseId) {
-                    loadWarehouseDetails();
-                }
-            }
-
-            // ✅ Update warehouses array
-            const warehouseIndex = warehouses.findIndex(w => w._id === warehouseId);
-            if (warehouseIndex !== -1) {
-                warehouses[warehouseIndex] = {
-                    _id: warehouseId,
-                    name: document.getElementById('editName').value,
-                    is_main: document.getElementById('editIsMain').checked,
-                    status: document.getElementById('editStatus').value
-                };
-            }
-        } else {
-            showAlert(data.message, 'error');
+        if (!/^\d{4}$/.test(code)) {
+            showAlert('Warehouse code must be exactly 4 digits', 'error');
+            return;
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-        showAlert('Failed to update warehouse', 'error');
-    });
-}
+
+        if (!/^\d{6}$/.test(pincode)) {
+            showAlert('Pincode must be exactly 6 digits', 'error');
+            return;
+        }
+
+        if (!/^\d{10}$/.test(phone)) {
+            showAlert('Phone number must be exactly 10 digits', 'error');
+            return;
+        }
+
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = 'Updating...';
+        submitBtn.disabled = true;
+
+        fetch(`/admin/warehouses/${warehouseId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+
+            if (data.success) {
+                showAlert(data.message, 'success');
+                closeEditWarehouseModal();
+
+                // Update local data
+                if (data.warehouse) {
+                    // Update warehouseDataMap
+                    warehouseDataMap[warehouseId] = data.warehouse;
+
+                    // Update dropdown option
+                    const warehouseSelect = document.getElementById('warehouseSelect');
+                    const warehouseOption = warehouseSelect.querySelector(`option[value="${warehouseId}"]`);
+
+                    if (warehouseOption) {
+                        let newText = data.warehouse.name;
+                        if (data.warehouse.is_main) newText += ' (Main)';
+                        if (data.warehouse.status === 'inactive') newText += ' (Inactive)';
+                        warehouseOption.textContent = newText;
+                    }
+
+                    // Update warehouses array
+                    const warehouseIndex = warehouses.findIndex(w => w._id === warehouseId);
+                    if (warehouseIndex !== -1) {
+                        warehouses[warehouseIndex] = {
+                            _id: warehouseId,
+                            name: data.warehouse.name,
+                            is_main: data.warehouse.is_main,
+                            status: data.warehouse.status
+                        };
+                    }
+
+                    // Reload current warehouse details
+                    if (currentWarehouseId === warehouseId) {
+                        currentWarehouseData = data.warehouse;
+                        updateWarehouseDetails(data.warehouse);
+                    }
+                }
+            } else {
+                showAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            showAlert('Failed to update warehouse', 'error');
+        });
+    }
+
     function deleteWarehouse() {
-        if (!currentWarehouseId || !confirm('Are you sure you want to delete this warehouse?')) {
+        if (!currentWarehouseId) {
+            showAlert('No warehouse selected', 'error');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this warehouse?')) {
             return;
         }
 
@@ -1399,7 +1829,76 @@
         .then(data => {
             if (data.success) {
                 showAlert(data.message, 'success');
-                setTimeout(() => location.reload(), 1000);
+
+                const select = document.getElementById('warehouseSelect');
+
+                // Remove from dropdown
+                const option = select.querySelector(`option[value="${currentWarehouseId}"]`);
+                if (option) {
+                    option.remove();
+                }
+
+                // Remove from warehouses array and map
+                warehouses = warehouses.filter(w => w._id !== currentWarehouseId);
+                delete warehouseDataMap[currentWarehouseId];
+
+                if (warehouses.length > 0) {
+                    // If new main warehouse was set
+                    if (data.newMainWarehouseId) {
+                        // Update main status in dropdown
+                        warehouses.forEach(w => {
+                            const opt = select.querySelector(`option[value="${w._id}"]`);
+                            if (opt) {
+                                let text = w.name;
+                                if (w._id === data.newMainWarehouseId) {
+                                    w.is_main = true;
+                                    text += ' (Main)';
+                                }
+                                if (w.status === 'inactive') text += ' (Inactive)';
+                                opt.textContent = text;
+                            }
+                        });
+
+                        // Select the new main warehouse
+                        select.value = data.newMainWarehouseId;
+                        currentWarehouseId = data.newMainWarehouseId;
+                    } else {
+                        // Select first available warehouse
+                        select.value = warehouses[0]._id;
+                        currentWarehouseId = warehouses[0]._id;
+                    }
+
+                    loadWarehouseStock();
+                } else {
+                    // No warehouses left - show empty state
+                    currentWarehouseId = null;
+                    currentWarehouseData = null;
+                    resetWarehouseDetails();
+
+                    // Add "No warehouses available" option
+                    select.innerHTML = '<option value="">No warehouses available</option>';
+
+                    // Disable buttons and inputs
+                    document.querySelectorAll('.btn-edit, .btn-delete, #searchInput, #statusFilter, #selectAll').forEach(el => {
+                        el.disabled = true;
+                    });
+
+                    const tbody = document.getElementById('stockTableBody');
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="empty-state">
+                                <div class="empty-state-content">
+                                    <span class="empty-icon">🏢</span>
+                                    <h3>No Warehouses Found</h3>
+                                    <p>Create your first warehouse to start managing inventory</p>
+                                    <button class="btn-primary" onclick="openCreateWarehouseModal()">
+                                        + Create Warehouse
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
             } else {
                 showAlert(data.message, 'error');
             }
@@ -1450,8 +1949,10 @@
 
     document.getElementById('warehouseSelect').addEventListener('change', function() {
         const warehouseId = this.value;
-        currentWarehouseId = warehouseId;
-        loadWarehouseDetails();
+        if (warehouseId) {
+            currentWarehouseId = warehouseId;
+            loadWarehouseStock();
+        }
     });
 
     @if(session('success'))

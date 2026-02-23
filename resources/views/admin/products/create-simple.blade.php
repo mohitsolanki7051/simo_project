@@ -177,8 +177,8 @@
 
 
                         <div class="form-group full-width">
-                            <label class="form-label">Description <span class="required">*</span></label>
-                            <textarea class="form-textarea" name="description" rows="4" placeholder="Enter product description with features and specifications" required>{{ old('description') }}</textarea>
+                            <label class="form-label">Description </label>
+                            <textarea class="form-textarea" name="description" rows="4" placeholder="Enter product description with features and specifications">{{ old('description') }}</textarea>
                             @error('description')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -220,21 +220,7 @@
                             @enderror
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Dealer Price (₹) <span class="required">*</span></label>
-                            <input type="number" step="0.01" class="form-input" id="dealer_price" name="dealer_price" value="{{ old('dealer_price') }}" placeholder="0.00" min="0" required>
-                            @error('dealer_price')
-                                <div class="error-message">{{ $message }}</div>
-                            @enderror
-                        </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Distributor Price (₹) <span class="required">*</span></label>
-                            <input type="number" step="0.01" class="form-input" id="distributor_price" name="distributor_price" value="{{ old('distributor_price') }}" placeholder="0.00" min="0" required>
-                            @error('distributor_price')
-                                <div class="error-message">{{ $message }}</div>
-                            @enderror
-                        </div>
                         <div class="form-group">
                             <label class="form-label">Unit <span class="required">*</span></label>
                             <select class="form-select" name="unit" required>
@@ -332,7 +318,7 @@
                         Next →
                     </button>
                     <button type="submit" class="btn-primary" id="submitBtn" style="display: none;">
-                        ✓ Create Product
+                        Create Product
                     </button>
                 </div>
             </div>
@@ -415,7 +401,7 @@
     .back-btn {
         color: #fa8128;
         text-decoration: none;
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 500;
         padding: 5px 10px;
         border-radius: 4px;
@@ -792,7 +778,7 @@
         display: flex;
         align-items: center;
         gap: 4px;
-        font-size: 11px;
+        font-size: 14px;
     }
 
     .btn-back:hover, .btn-next:hover {
@@ -811,7 +797,7 @@
         display: flex;
         align-items: center;
         gap: 4px;
-        font-size: 11px;
+        font-size: 14px;
     }
 
     .btn-primary:hover {

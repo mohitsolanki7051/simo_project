@@ -18,27 +18,28 @@ class WarehouseController extends Controller
      * Display warehouse management page
      */
     public function index()
-{
-    try {
-        // ✅ CHANGE: Remove where('status', 'active') condition
-        // Get ALL warehouses for dropdown (active and inactive both)
-        $warehouses = Warehouse::orderBy('is_main', 'desc')
-            ->orderBy('name', 'asc')
-            ->get(); // ✅ No status filter here
+    {
+        try {
+            // Get ALL warehouses for dropdown (active and inactive both)
+            $warehouses = Warehouse::orderBy('is_main', 'desc')
+                ->orderBy('name', 'asc')
+                ->get();
 
-        // Get main warehouse for default selection
-        $mainWarehouse = Warehouse::main()->first();
+            // Get main warehouse for default selection
+            $mainWarehouse = Warehouse::main()->first();
 
-        return view('admin.warehouses.index', [
-            'warehouses' => $warehouses, // ✅ Now shows ALL warehouses
-            'mainWarehouse' => $mainWarehouse
-        ]);
+            // If no warehouses exist, mainWarehouse will be null
+            return view('admin.warehouses.index', [
+                'warehouses' => $warehouses,
+                'mainWarehouse' => $mainWarehouse,
+                'hasWarehouses' => $warehouses->count() > 0
+            ]);
 
-    } catch (\Exception $e) {
-        Log::error('Warehouse index error: ' . $e->getMessage());
-        return back()->with('error', 'Failed to load warehouse page');
+        } catch (\Exception $e) {
+            Log::error('Warehouse index error: ' . $e->getMessage());
+            return back()->with('error', 'Failed to load warehouse page');
+        }
     }
-}
 
     /**
      * Get warehouse stock data (AJAX)
@@ -58,6 +59,18 @@ class WarehouseController extends Controller
 
             // Get all stocks for this warehouse
             $stocks = WarehouseStock::where('warehouse_id', (string)$warehouseId)->get();
+
+            if ($stocks->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'stock' => [],
+                    'stats' => [
+                        'total_products' => 0,
+                        'total_value' => '0.00',
+                        'low_stock_items' => 0,
+                    ]
+                ]);
+            }
 
             $stockData = [];
             $totalValue = 0;
@@ -81,7 +94,6 @@ class WarehouseController extends Controller
 
                 if ($simpleProduct) {
                     // This is a simple product
-                    // Find stock without variant_id (should be only one)
                     foreach ($productStocks as $stock) {
                         if ($stock->variant_id === null) {
                             $salePrice = $this->convertToFloat($simpleProduct->sale_price ?? 0);
@@ -348,26 +360,26 @@ class WarehouseController extends Controller
                 'string',
                 'max:4',
                 'min:4',
-                'regex:/^\d{4}$/', // Only 4 numeric digits
+                'regex:/^\d{4}$/',
                 'unique:warehouses,code'
             ],
             'address' => 'required|string|max:500',
             'city' => 'required|string|max:100',
             'state' => 'required|string|max:100',
             'pincode' => [
-            'required',
-            'string',
-            'max:6',
-            'min:6',
-            'regex:/^\d{6}$/', // Exactly 6 digits
-        ],
-        'phone' => [
-            'required',
-            'string',
-            'max:10',
-            'min:10',
-            'regex:/^\d{10}$/', // Exactly 10 digits
-        ],
+                'required',
+                'string',
+                'max:6',
+                'min:6',
+                'regex:/^\d{6}$/',
+            ],
+            'phone' => [
+                'required',
+                'string',
+                'max:10',
+                'min:10',
+                'regex:/^\d{10}$/',
+            ],
             'email' => 'nullable|email|max:255',
             'manager_name' => 'nullable|string|max:255',
             'status' => 'required|in:active,inactive',
@@ -394,9 +406,17 @@ class WarehouseController extends Controller
                 'success' => true,
                 'message' => $message,
                 'warehouse' => [
+                    '_id' => (string)$warehouse->_id,
                     'id' => (string)$warehouse->_id,
                     'name' => $warehouse->name,
                     'code' => $warehouse->code,
+                    'address' => $warehouse->address,
+                    'city' => $warehouse->city,
+                    'state' => $warehouse->state,
+                    'pincode' => $warehouse->pincode,
+                    'phone' => $warehouse->phone,
+                    'email' => $warehouse->email,
+                    'manager_name' => $warehouse->manager_name,
                     'is_main' => $warehouse->is_main,
                     'status' => $warehouse->status,
                 ]
@@ -406,7 +426,7 @@ class WarehouseController extends Controller
             Log::error('Warehouse creation failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create warehouse'
+                'message' => 'Failed to create warehouse: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -450,20 +470,20 @@ class WarehouseController extends Controller
             'address' => 'required|string|max:500',
             'city' => 'required|string|max:100',
             'state' => 'required|string|max:100',
-             'pincode' => [
-            'required',
-            'string',
-            'max:6',
-            'min:6',
-            'regex:/^\d{6}$/',
-        ],
-        'phone' => [
-            'required',
-            'string',
-            'max:10',
-            'min:10',
-            'regex:/^\d{10}$/',
-        ],
+            'pincode' => [
+                'required',
+                'string',
+                'max:6',
+                'min:6',
+                'regex:/^\d{6}$/',
+            ],
+            'phone' => [
+                'required',
+                'string',
+                'max:10',
+                'min:10',
+                'regex:/^\d{10}$/',
+            ],
             'email' => 'nullable|email|max:255',
             'manager_name' => 'nullable|string|max:255',
             'status' => 'required|in:active,inactive',
@@ -471,17 +491,39 @@ class WarehouseController extends Controller
         ]);
 
         try {
+            // Check if setting as main and it's not already main
+            if ($request->has('is_main') && $request->is_main == true && !$warehouse->is_main) {
+                Warehouse::where('is_main', true)->update(['is_main' => false]);
+                $validated['is_main'] = true;
+            }
+
             $warehouse->update($validated);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Warehouse updated successfully!'
+                'message' => 'Warehouse updated successfully!',
+                'warehouse' => [
+                    '_id' => (string)$warehouse->_id,
+                    'id' => (string)$warehouse->_id,
+                    'name' => $warehouse->name,
+                    'code' => $warehouse->code,
+                    'address' => $warehouse->address,
+                    'city' => $warehouse->city,
+                    'state' => $warehouse->state,
+                    'pincode' => $warehouse->pincode,
+                    'phone' => $warehouse->phone,
+                    'email' => $warehouse->email,
+                    'manager_name' => $warehouse->manager_name,
+                    'is_main' => $warehouse->is_main,
+                    'status' => $warehouse->status,
+                ]
             ]);
 
         } catch (\Exception $e) {
             Log::error('Warehouse update failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update warehouse'
+                'message' => 'Failed to update warehouse: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -489,37 +531,58 @@ class WarehouseController extends Controller
     /**
      * Delete warehouse
      */
-    public function destroy($id)
-    {
-        try {
-            $warehouse = Warehouse::findOrFail($id);
+/**
+ * Delete warehouse
+ */
+public function destroy($id)
+{
+    try {
+        $warehouse = Warehouse::findOrFail($id);
 
-            $stockCount = WarehouseStock::where('warehouse_id', $id)
-                ->where('quantity', '>', 0)
-                ->count();
+        // Check if warehouse has ANY stock with quantity > 0
+        $stockCount = WarehouseStock::where('warehouse_id', $id)
+            ->where('quantity', '>', 0)  // Only check products with quantity
+            ->count();
 
-            if ($stockCount > 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete warehouse with existing stock'
-                ], 400);
-            }
-
-            $warehouse->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Warehouse deleted successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Warehouse deletion failed: ' . $e->getMessage());
+        if ($stockCount > 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete warehouse'
-            ], 500);
+                'message' => 'Cannot delete warehouse with existing stock. Please transfer or remove all products first.'
+            ], 400);
         }
+
+        // Delete all zero-quantity stock records for this warehouse
+        WarehouseStock::where('warehouse_id', $id)->delete();
+
+        // Check if this is the main warehouse
+        $isMain = $warehouse->is_main;
+
+        // Delete the warehouse
+        $warehouse->delete();
+
+        // If this was the main warehouse, set another warehouse as main
+        if ($isMain) {
+            $nextWarehouse = Warehouse::first();
+            if ($nextWarehouse) {
+                $nextWarehouse->is_main = true;
+                $nextWarehouse->save();
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Warehouse deleted successfully',
+            'newMainWarehouseId' => $isMain && Warehouse::exists() ? (string)Warehouse::where('is_main', true)->first()->_id : null
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Warehouse deletion failed: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to delete warehouse: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Set warehouse as main

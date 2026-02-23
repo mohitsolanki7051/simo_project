@@ -67,10 +67,12 @@
                         <span class="info-label">Brand:</span>
                         <span class="info-value">{{ $product->brand ?? 'N/A' }}</span>
                     </div>
+                    @if($product instanceof \App\Models\SimpleProduct)
                     <div class="info-row">
                         <span class="info-label">Body Type:</span>
                         <span class="info-value">{{ $product->body_type ?? 'N/A' }}</span>
                     </div>
+                    @endif
                     <div class="info-row">
                         <span class="info-label">Status:</span>
                         <span class="info-value">
@@ -360,11 +362,10 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
+        margin-bottom: 15px;
         border-bottom: 2px solid #e5e7eb;
     }
-
+    
     .page-title {
         font-size: 18px;
         font-weight: 600;
@@ -381,7 +382,7 @@
         padding: 6px 12px;
         border: 1px solid #d1d5db;
         border-radius: 4px;
-        font-size: 11px;
+        font-size: 14px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.2s;
@@ -396,15 +397,11 @@
     }
 
     .btn-edit {
-        background: #3b82f6;
+        background: #f98824;
         color: white;
-        border-color: #3b82f6;
     }
 
-    .btn-edit:hover {
-        background: #2563eb;
-        border-color: #2563eb;
-    }
+
 
     /* Layout Grid */
     .details-layout {

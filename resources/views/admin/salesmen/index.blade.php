@@ -1,38 +1,63 @@
 @extends('layouts.admin')
 
-@section('title', 'Customers - Admin Panel')
-@section('header-title', 'Customers Management')
+@section('title', 'Salesmen - Admin Panel')
+@section('header-title', 'Salesman Management')
 
 @section('content')
-<div class="customers-container">
+<div class="salesmen-container">
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
-            <h2 class="page-title">Customer List</h2>
+            <h2 class="page-title">Salesmen List</h2>
         </div>
         <div class="header-right">
-            <a href="{{ route('admin.customers.create') }}" class="btn-small btn-primary">
-                <span class="btn-icon">+</span> Add Customer
+            <a href="{{ route('admin.salesmen.create') }}" class="btn-small btn-primary">
+                <span class="btn-icon">+</span> Add Salesman
             </a>
         </div>
     </div>
-
-    <!-- Report Summary Cards -->
+    <!-- Updated Report Summary Cards -->
     <div class="report-cards">
-        <div class="report-card">
-            <div class="card-icon" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">👥</div>
+        {{-- <div class="report-card">
+            <div class="card-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">👥</div>
             <div class="card-info">
-                <div class="card-title">Total Customers</div>
-                <div class="card-value" id="totalCustomers">{{ $customers->count() }}</div>
-                <div class="card-desc">{{ $customers->where('status', 'active')->count() }} active, {{ $customers->where('status', 'inactive')->count() }} inactive</div>
+                <div class="card-title">Total Salesmen</div>
+                <div class="card-value" id="totalSalesmen">{{ $salesmen->count() }}</div>
+                <div class="card-desc">{{ $salesmen->where('status', 'active')->count() }} active, {{ $salesmen->where('status', 'inactive')->count() }} inactive</div>
+            </div>
+        </div> --}}
+        <div class="report-card">
+            <div class="card-icon" style="background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);">📊</div>
+            <div class="card-info">
+                <div class="card-title">Total Parties with Salesman</div>
+                <div class="card-value">{{ $totalPartiesWithSalesman }}</div>
+                <div class="card-desc">Customers + Dealers + Distributors</div>
             </div>
         </div>
         <div class="report-card">
-            <div class="card-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">🏢</div>
+            <div class="card-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">👥</div>
             <div class="card-info">
-                <div class="card-title">Business Customers</div>
-                <div class="card-value">{{ $customers->where('customer_type', 'business')->count() }}</div>
-                <div class="card-desc">{{ $customers->where('customer_type', 'individual')->count() }} individual</div>
+                <div class="card-title">Total Customers</div>
+                <div class="card-value">{{ $totalCustomers }}</div>
+                <div class="card-desc">Across all salesmen</div>
+            </div>
+        </div>
+
+        <div class="report-card">
+            <div class="card-icon" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">👥</div>
+            <div class="card-info">
+                <div class="card-title">Total Dealers</div>
+                <div class="card-value">{{ $totalDealers }}</div>
+                <div class="card-desc">Across all salesmen</div>
+            </div>
+        </div>
+
+        <div class="report-card">
+            <div class="card-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);">👥</div>
+            <div class="card-info">
+                <div class="card-title">Total Distributors</div>
+                <div class="card-value">{{ $totalDistributors }}</div>
+                <div class="card-desc">Across all salesmen</div>
             </div>
         </div>
     </div>
@@ -41,12 +66,12 @@
     <div class="table-filters">
         <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" class="search-input" placeholder="Search customers..." id="searchInput">
+            <input type="text" class="search-input" placeholder="Search salesmen..." id="searchInput">
         </div>
         <div class="filter-buttons">
-            <button class="filter-btn active" data-filter="all">All ({{ $customers->count() }})</button>
-            <button class="filter-btn" data-filter="active">Active ({{ $customers->where('status', 'active')->count() }})</button>
-            <button class="filter-btn" data-filter="inactive">Inactive ({{ $customers->where('status', 'inactive')->count() }})</button>
+            <button class="filter-btn active" data-filter="all">All ({{ $salesmen->count() }})</button>
+            <button class="filter-btn" data-filter="active">Active ({{ $salesmen->where('status', 'active')->count() }})</button>
+            <button class="filter-btn" data-filter="inactive">Inactive ({{ $salesmen->where('status', 'inactive')->count() }})</button>
         </div>
         <div class="bulk-actions">
             <select class="bulk-select" id="bulkActionSelect" disabled>
@@ -58,96 +83,120 @@
         </div>
     </div>
 
-    <!-- Customers Table -->
+    <!-- Salesmen Table - Updated with Customer instead of Retailer -->
     <div class="table-wrapper">
         <table class="compact-table">
             <thead>
                 <tr>
                     <th class="th-checkbox"><input type="checkbox" id="selectAll"></th>
                     <th class="th-sno">S.No.</th>
-                    <th class="th-name">Customer Name</th>
+                    <th class="th-name">Salesman Name</th>
                     <th class="th-contact">Contact Info</th>
-                    <th class="th-type">Type</th>
-                    <th class="th-address">Address</th>
+                    <th class="th-date">Joining Date</th>
+                    <th class="th-salary">Salary Type</th>
+                    <th class="th-amount">Fixed Salary (Monthly)</th>
+                    <th class="th-commission">Commission (%)</th>
                     <th class="th-status">Status</th>
                     <th class="th-actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($customers as $index => $customer)
+                @forelse($salesmen as $index => $salesman)
                 <tr class="table-row"
-                    data-status="{{ $customer->status }}"
-                    data-customer-id="{{ $customer->id }}">
+                    data-status="{{ $salesman->status }}"
+                    data-salesman-id="{{ $salesman->id }}">
                     <td class="td-checkbox">
-                        <input type="checkbox" class="row-checkbox" value="{{ $customer->id }}">
+                        <input type="checkbox" class="row-checkbox" value="{{ $salesman->id }}">
                     </td>
                     <td class="td-sno">{{ $index + 1 }}</td>
                     <td class="td-name">
-                        <div class="customer-name">{{ $customer->name }}</div>
-                        @if($customer->customer_type == 'business')
-                            <div class="customer-company">{{ $customer->company_name }}</div>
+                        <div class="salesman-name">{{ $salesman->name }}</div>
+                        @if($salesman->notes)
+                            <div class="salesman-notes" title="{{ $salesman->notes }}">📝</div>
                         @endif
                     </td>
                     <td class="td-contact">
                         <div class="contact-info">
-                            <div class="contact-phone">📱 {{ $customer->phone }}</div>
-                            @if($customer->email)
-                                <div class="contact-email">✉️ {{ $customer->email }}</div>
+                            <div class="contact-phone">📱 {{ $salesman->phone }}</div>
+                            @if($salesman->email)
+                                <div class="contact-email">✉️ {{ $salesman->email }}</div>
                             @endif
                         </div>
                     </td>
-                    <td class="td-type">
-                        <span class="type-badge type-{{ $customer->customer_type }}">
-                            {{ ucfirst($customer->customer_type) }}
-                        </span>
+                    <td class="td-date">
+                        <span class="date-value">{{ $salesman->formatted_joining_date }}</span>
                     </td>
-                    <td class="td-address">
-                        @php
-                            $defaultBilling = $customer->addresses->where('type', 'billing')->where('is_default', true)->first();
-                            $defaultShipping = $customer->addresses->where('type', 'shipping')->where('is_default', true)->first();
-                        @endphp
-                        @if($defaultBilling)
-                            <div class="address-info">
-                                <span class="address-type">Billing:</span>
-                                <span class="address-text">{{ Str::limit($defaultBilling->city . ', ' . $defaultBilling->state, 25) }}</span>
-                            </div>
+                    <td class="td-salary">
+                        <span class="salary-type">{{ $salesman->salary_type_text }}</span>
+                    </td>
+                    <td class="td-amount">
+                        @if($salesman->salary_type != 'commission')
+                            <span class="amount-value">{{ $salesman->formatted_fixed_salary }}</span>
+                            <span class="amount-period">/month</span>
+                        @else
+                            <span class="amount-value text-muted">—</span>
                         @endif
-                        @if($defaultShipping)
-                            <div class="address-info">
-                                <span class="address-type">Shipping:</span>
-                                <span class="address-text">{{ Str::limit($defaultShipping->city . ', ' . $defaultShipping->state, 25) }}</span>
+                    </td>
+                    <td class="td-commission">
+                        @if($salesman->commission_enabled && $salesman->salary_type != 'fixed')
+                            <div class="commission-badge enabled">
+                                <div class="commission-tooltip">
+                                    @if($salesman->customer_commission_percent > 0)
+                                        <span class="commission-item">
+                                            <span class="commission-party">Customer:</span>
+                                            <span class="commission-value">{{ $salesman->customer_commission_percent }}%</span>
+                                        </span>
+                                    @endif
+                                    @if($salesman->dealer_commission_percent > 0)
+                                        <span class="commission-item">
+                                            <span class="commission-party">Dealer:</span>
+                                            <span class="commission-value">{{ $salesman->dealer_commission_percent }}%</span>
+                                        </span>
+                                    @endif
+                                    @if($salesman->distributor_commission_percent > 0)
+                                        <span class="commission-item">
+                                            <span class="commission-party">Distributor:</span>
+                                            <span class="commission-value">{{ $salesman->distributor_commission_percent }}%</span>
+                                        </span>
+                                    @endif
+                                </div>
+                                <span class="commission-summary">
+                                    @if($salesman->customer_commission_percent > 0) C:{{ $salesman->customer_commission_percent }}% @endif
+                                    @if($salesman->dealer_commission_percent > 0) D:{{ $salesman->dealer_commission_percent }}% @endif
+                                    @if($salesman->distributor_commission_percent > 0) Di:{{ $salesman->distributor_commission_percent }}% @endif
+                                </span>
                             </div>
+                        @else
+                            <span class="commission-badge disabled">Not Available</span>
                         @endif
                     </td>
                     <td class="td-status">
-                        <span class="status-badge status-{{ $customer->status }}">
-                            {{ ucfirst($customer->status) }}
+                        <span class="status-badge status-{{ $salesman->status }}">
+                            {{ ucfirst($salesman->status) }}
                         </span>
                     </td>
                     <td class="td-actions">
                         <div class="action-icons">
-                            <!-- View Ledger -->
-                            <a href="{{ route('admin.customers.ledger', $customer->id) }}"
-                            class="icon-btn icon-view" title="View Ledger">
-                                📒
+                            <!-- View -->
+                            <a href="{{ route('admin.salesmen.show', $salesman->id) }}"
+                               class="icon-btn icon-view" title="View Details">
+                                👁️
                             </a>
-
                             <!-- Edit -->
-                            <a href="{{ route('admin.customers.edit', $customer->id) }}"
-                            class="icon-btn icon-edit" title="Edit">
+                            <a href="{{ route('admin.salesmen.edit', $salesman->id) }}"
+                               class="icon-btn icon-edit" title="Edit">
                                 ✏️
                             </a>
                         </div>
-
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="empty-state">
+                    <td colspan="10" class="empty-state">
                         <div class="empty-content">
                             <div class="empty-icon">👥</div>
-                            <h4>No Customers Found</h4>
-                            <p>Start by adding your first customer</p>
+                            <h4>No Salesmen Found</h4>
+                            <p>Start by adding your first salesman</p>
                         </div>
                     </td>
                 </tr>
@@ -156,10 +205,10 @@
         </table>
     </div>
 
-    @if($customers->count() > 0)
+    @if($salesmen->count() > 0)
     <div class="table-footer">
         <div class="footer-info">
-            Showing {{ $customers->count() }} customers
+            Showing {{ $salesmen->count() }} salesman{{ $salesmen->count() > 1 ? 's' : '' }}
         </div>
     </div>
     @endif
@@ -185,7 +234,7 @@
 @push('styles')
 <style>
     /* Main Container */
-    .customers-container {
+    .salesmen-container {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 12px;
         line-height: 1.4;
@@ -235,13 +284,13 @@
 
     /* Report Cards */
     .report-cards {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
         gap: 15px;
         margin-bottom: 15px;
     }
 
     .report-card {
-        flex: 1;
         display: flex;
         align-items: center;
         gap: 15px;
@@ -251,7 +300,6 @@
         border-radius: 8px;
         transition: all 0.2s;
         cursor: default;
-        min-width: 300px;
     }
 
     .report-card:hover {
@@ -448,12 +496,14 @@
     /* Column widths */
     .th-checkbox { width: 30px; }
     .th-sno { width: 50px; }
-    .th-name { width: 180px; }
+    .th-name { width: 150px; }
     .th-contact { width: 150px; }
-    .th-type { width: 70px; }
-    .th-address { width: 150px; }
+    .th-date { width: 90px; }
+    .th-salary { width: 100px; }
+    .th-amount { width: 100px; }
+    .th-commission { width: 150px; }
     .th-status { width: 70px; }
-    .th-actions { width: 90px; }
+    .th-actions { width: 80px; }
 
     /* Checkbox */
     input[type="checkbox"] {
@@ -471,18 +521,19 @@
         text-align: center;
     }
 
-    /* Customer Name */
-    .customer-name {
+    /* Salesman Name */
+    .salesman-name {
         font-weight: 600;
         color: #1f2937;
         line-height: 1.3;
         font-size: 12px;
     }
 
-    .customer-company {
-        font-size: 11px;
-        color: #6b7280;
-        margin-top: 2px;
+    .salesman-notes {
+        display: inline-block;
+        margin-left: 4px;
+        cursor: help;
+        opacity: 0.6;
     }
 
     /* Contact Info */
@@ -500,44 +551,111 @@
         gap: 4px;
     }
 
-    /* Type Badge */
-    .type-badge {
-        display: inline-block;
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-size: 9px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
+    /* Date */
+    .date-value {
+        font-size: 11px;
+        color: #4b5563;
     }
 
-    .type-business {
+    /* Salary Type */
+    .salary-type {
+        font-size: 11px;
+        font-weight: 500;
+        color: #1f2937;
+        padding: 2px 6px;
+        background: #f3f4f6;
+        border-radius: 10px;
+        display: inline-block;
+    }
+
+    /* Amount */
+    .amount-value {
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .amount-period {
+        font-size: 9px;
+        color: #6b7280;
+        margin-left: 2px;
+    }
+
+    .text-muted {
+        color: #9ca3af;
+    }
+
+    /* Commission */
+    .commission-badge {
+        position: relative;
+        display: inline-block;
+    }
+
+    .commission-badge.enabled {
         background: #dbeafe;
         color: #1e40af;
+        padding: 4px 8px;
+        border-radius: 12px;
+        cursor: help;
     }
 
-    .type-individual {
-        background: #f3e8ff;
-        color: #6b21a8;
-    }
-
-    /* Address Info */
-    .address-info {
-        font-size: 11px;
-        margin-bottom: 3px;
-        line-height: 1.3;
-    }
-
-    .address-type {
-        font-weight: 600;
+    .commission-badge.disabled {
+        background: #f3f4f6;
         color: #6b7280;
-        font-size: 9px;
-        text-transform: uppercase;
+        padding: 4px 8px;
+        border-radius: 12px;
     }
 
-    .address-text {
-        color: #4b5563;
-        margin-left: 4px;
+    .commission-summary {
+        font-size: 10px;
+        font-weight: 500;
+    }
+
+    .commission-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1f2937;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 10px;
+        white-space: nowrap;
+        display: none;
+        margin-bottom: 8px;
+        z-index: 10;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .commission-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 5px;
+        border-style: solid;
+        border-color: #1f2937 transparent transparent transparent;
+    }
+
+    .commission-badge.enabled:hover .commission-tooltip {
+        display: block;
+    }
+
+    .commission-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        margin: 3px 0;
+    }
+
+    .commission-party {
+        color: #9ca3af;
+    }
+
+    .commission-value {
+        font-weight: 600;
+        color: #34d399;
     }
 
     /* Status Badge */
@@ -599,16 +717,6 @@
 
     .icon-edit:hover {
         background: #fde68a;
-        transform: scale(1.1);
-    }
-
-    .icon-status {
-        color: #8b5cf6;
-        background: #ede9fe;
-    }
-
-    .icon-status:hover {
-        background: #ddd6fe;
         transform: scale(1.1);
     }
 
@@ -686,10 +794,6 @@
         box-shadow: 0 20px 40px rgba(0,0,0,0.1);
     }
 
-    .modal-compact {
-        max-width: 400px;
-    }
-
     @keyframes modalFadeIn {
         from { opacity: 0; transform: scale(0.95) translateY(20px); }
         to { opacity: 1; transform: scale(1) translateY(0); }
@@ -712,7 +816,7 @@
         margin: 0;
     }
 
-     .modal-close {
+    .modal-close {
         background: none;
         border: none;
         font-size: 24px;
@@ -747,17 +851,15 @@
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
 
-    /* Status Options Modal */
-    .modal-body {
+    .modal-text {
         padding: 24px;
+        margin: 0;
+        font-size: 13px;
+        color: #6b7280;
+        line-height: 1.5;
     }
 
-
-
-
-
-    /* Modal Buttons */
-    .modal-actions, .modal-footer {
+    .modal-actions {
         display: flex;
         justify-content: flex-end;
         gap: 10px;
@@ -800,18 +902,15 @@
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
     }
 
-    /* Bulk Action Modal */
-    .modal-text {
-        padding: 0 24px;
-        margin: 0 0 24px;
-        font-size: 13px;
-        color: #6b7280;
-        line-height: 1.5;
+    /* Responsive */
+    @media (max-width: 1024px) {
+        .report-cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
     }
 
-    /* Responsive */
     @media (max-width: 768px) {
-        .customers-container {
+        .salesmen-container {
             padding: 10px;
         }
 
@@ -822,11 +921,10 @@
         }
 
         .report-cards {
-            flex-direction: column;
+            grid-template-columns: 1fr;
         }
 
         .report-card {
-            min-width: auto;
             width: 100%;
         }
 
@@ -851,25 +949,9 @@
             width: calc(100% - 40px);
             max-height: calc(100vh - 40px);
         }
-
-        .modal-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-        }
     }
 
     @media (max-width: 480px) {
-        .modal-body {
-            padding: 16px;
-        }
-
         .modal-actions {
             flex-direction: column;
             gap: 8px;
@@ -884,9 +966,23 @@
 
 @push('scripts')
 <script>
-    // ========== BULK ACTIONS ONLY ==========
+    // ========== FETCH PARTY COUNTS ==========
+    async function fetchPartyCounts() {
+        try {
+            const response = await fetch('/admin/salesmen/party-counts');
+            const data = await response.json();
+
+            document.getElementById('totalCustomers').textContent = data.customers || 0;
+            document.getElementById('totalDealers').textContent = data.dealers || 0;
+            document.getElementById('totalDistributors').textContent = data.distributors || 0;
+        } catch (error) {
+            console.error('Error fetching party counts:', error);
+        }
+    }
+
+    // ========== BULK ACTIONS ==========
     let selectedAction = '';
-    let selectedCustomerIds = [];
+    let selectedSalesmanIds = [];
 
     // Select all checkbox
     document.getElementById('selectAll').addEventListener('change', function() {
@@ -896,13 +992,11 @@
     });
 
     // Individual checkboxes
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.row-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                const allChecked = Array.from(document.querySelectorAll('.row-checkbox')).every(cb => cb.checked);
-                document.getElementById('selectAll').checked = allChecked;
-                updateBulkActionButtons();
-            });
+    document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const allChecked = Array.from(document.querySelectorAll('.row-checkbox')).every(cb => cb.checked);
+            document.getElementById('selectAll').checked = allChecked;
+            updateBulkActionButtons();
         });
     });
 
@@ -927,15 +1021,14 @@
             return;
         }
 
-        selectedCustomerIds = [];
+        selectedSalesmanIds = [];
 
-        // Collect selected customer IDs
         document.querySelectorAll('.row-checkbox:checked').forEach(checkbox => {
-            selectedCustomerIds.push(checkbox.value);
+            selectedSalesmanIds.push(checkbox.value);
         });
 
-        if (selectedCustomerIds.length === 0) {
-            alert('Please select at least one customer');
+        if (selectedSalesmanIds.length === 0) {
+            alert('Please select at least one salesman');
             return;
         }
 
@@ -950,8 +1043,8 @@
         }[action];
 
         const actionMessage = {
-            'active': `Are you sure you want to set ${selectedCustomerIds.length} customer(s) as active?`,
-            'inactive': `Are you sure you want to set ${selectedCustomerIds.length} customer(s) as inactive?`
+            'active': `Are you sure you want to set ${selectedSalesmanIds.length} salesman(s) as active?`,
+            'inactive': `Are you sure you want to set ${selectedSalesmanIds.length} salesman(s) as inactive?`
         }[action];
 
         modalTitle.textContent = actionText;
@@ -961,7 +1054,7 @@
 
     // Confirm bulk action
     document.getElementById('confirmBulkAction').addEventListener('click', async function() {
-        if (selectedCustomerIds.length === 0 || !selectedAction) return;
+        if (selectedSalesmanIds.length === 0 || !selectedAction) return;
 
         const modal = document.getElementById('bulkActionModal');
         const confirmBtn = this;
@@ -971,7 +1064,7 @@
         confirmBtn.textContent = 'Processing...';
 
         try {
-            const url = '{{ route("admin.customers.bulkUpdateStatus") }}';
+            const url = '{{ route("admin.salesmen.bulk-update-status") }}';
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -981,7 +1074,7 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({
-                    customer_ids: selectedCustomerIds,
+                    salesman_ids: selectedSalesmanIds,
                     status: selectedAction
                 })
             });
@@ -989,7 +1082,6 @@
             const data = await response.json();
 
             if (data.success) {
-                // Success message show करें और reload करें
                 alert('Status updated successfully!');
                 window.location.reload();
             } else {
@@ -1008,13 +1100,11 @@
     function closeBulkActionModal() {
         document.getElementById('bulkActionModal').style.display = 'none';
         selectedAction = '';
-        selectedCustomerIds = [];
+        selectedSalesmanIds = [];
 
-        // Reset bulk select
         const bulkSelect = document.getElementById('bulkActionSelect');
         bulkSelect.value = '';
 
-        // Reset checkboxes
         document.getElementById('selectAll').checked = false;
         document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
         updateBulkActionButtons();
@@ -1034,16 +1124,13 @@
             if (isVisible) visibleCount++;
         });
 
-        // Update total customers count
-        document.getElementById('totalCustomers').textContent = visibleCount;
+        document.getElementById('totalSalesmen').textContent = visibleCount;
     });
 
     // ========== FILTER FUNCTIONALITY ==========
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            // Remove active class from all buttons
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            // Add active class to clicked button
             this.classList.add('active');
 
             const filter = this.getAttribute('data-filter');
@@ -1059,12 +1146,10 @@
 
                 let shouldShow = true;
 
-                // Apply filter
                 if (filter !== 'all' && status !== filter) {
                     shouldShow = false;
                 }
 
-                // Apply search
                 if (searchTerm && !rowText.includes(searchTerm)) {
                     shouldShow = false;
                 }
@@ -1074,8 +1159,7 @@
                 if (shouldShow) visibleCount++;
             });
 
-            // Update total customers count
-            document.getElementById('totalCustomers').textContent = visibleCount;
+            document.getElementById('totalSalesmen').textContent = visibleCount;
         });
     });
 
@@ -1095,6 +1179,8 @@
             }
         });
     });
+
+
 </script>
 @endpush
 @endsection

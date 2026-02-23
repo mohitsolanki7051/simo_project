@@ -88,15 +88,15 @@ class AuthController extends Controller
         return redirect()->route('admin.login')->with('success', 'Logged out successfully!');
     }
 
-    public function dashboard()
-    {
-        // Get authenticated admin user
-        $admin = Auth::guard('admin')->user();
+    // public function dashboard()
+    // {
+    //     // Get authenticated admin user
+    //     $admin = Auth::guard('admin')->user();
 
-        return view('admin.dashboard', [
-            'user' => $admin // Pass user to view
-        ]);
-    }
+    //     return view('admin.dashboard', [
+    //         'user' => $admin // Pass user to view
+    //     ]);
+    // }
 public function sendOtp(Request $request)
 {
     $request->validate([

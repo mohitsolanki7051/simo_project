@@ -1,31 +1,32 @@
 @extends('layouts.admin')
 
-@section('title', 'Create Customer - Admin Panel')
-@section('header-title', 'Create Customer')
+@section('title', 'Edit ' . ucfirst($party->party_type) . ' - Admin Panel')
+@section('header-title', 'Edit ' . ucfirst($party->party_type))
 
 @section('content')
-<div class="create-customer-container">
+<div class="edit-party-container">
     <!-- Alert Messages -->
     <div id="alertContainer"></div>
 
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
-            <h2 class="page-title">Add New Customer</h2>
+            <h2 class="page-title">Edit {{ ucfirst($party->party_type) }}: {{ $party->name }}</h2>
         </div>
         <div class="header-right">
-            <a href="{{ route('admin.customers.index') }}" class="back-btn">← Back to Customers</a>
+            <a href="{{ route('admin.parties.index.type', $party->party_type) }}" class="back-btn">← Back to {{ ucfirst($party->party_type) }}s</a>
         </div>
     </div>
 
-    <form action="{{ route('admin.customers.store') }}" method="POST" id="customerForm">
+    <form action="{{ route('admin.parties.update', $party->id) }}" method="POST" id="partyForm">
         @csrf
+        @method('PUT')
 
         <!-- Tab Navigation -->
         <div class="tab-container">
             <div class="tab-nav">
-                <button type="button" class="tab-btn active" data-tab="customer-info">
-                    👤 Customer Info
+                <button type="button" class="tab-btn active" data-tab="party-info">
+                    👤 {{ ucfirst($party->party_type) }} Info
                 </button>
                 <button type="button" class="tab-btn" data-tab="addresses">
                     📍 Billing & Shipping
@@ -34,16 +35,16 @@
 
             <!-- Tab Content -->
             <div class="tab-content-wrapper">
-                <!-- Tab 1: Customer Information -->
-                <div class="tab-content active" id="customer-info">
+                <!-- Tab 1: Party Information -->
+                <div class="tab-content active" id="party-info">
                     <div class="tab-header">
-                        <h3 class="tab-title">Customer Information</h3>
+                        <h3 class="tab-title">{{ ucfirst($party->party_type) }} Information</h3>
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group">
                             <label class="form-label">Full Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="name" value="{{ old('name') }}" placeholder="e.g., John Doe" required>
+                            <input type="text" class="form-input" name="name" value="{{ old('name', $party->name) }}" placeholder="e.g., John Doe" required>
                             @error('name')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -51,7 +52,7 @@
 
                         <div class="form-group">
                             <label class="form-label">Phone Number <span class="required">*</span></label>
-                            <input type="text" class="form-input" id="phone" name="phone" value="{{ old('phone') }}" placeholder="e.g., 9876543210" maxlength="10" required oninput="validatePhone(this.value)">
+                            <input type="text" class="form-input" id="phone" name="phone" value="{{ old('phone', $party->phone) }}" placeholder="e.g., 9876543210" maxlength="10" required oninput="validatePhone(this.value)">
                             <div class="phone-validation-message" id="phone_message"></div>
                             @error('phone')
                                 <div class="error-message">{{ $message }}</div>
@@ -60,7 +61,7 @@
 
                         <div class="form-group">
                             <label class="form-label">Email Address</label>
-                            <input type="email" class="form-input" id="email" name="email" value="{{ old('email') }}" placeholder="e.g., john@example.com" oninput="validateEmail(this.value)">
+                            <input type="email" class="form-input" id="email" name="email" value="{{ old('email', $party->email) }}" placeholder="e.g., john@example.com" oninput="validateEmail(this.value)">
                             <div class="email-validation-message" id="email_message"></div>
                             @error('email')
                                 <div class="error-message">{{ $message }}</div>
@@ -68,28 +69,55 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Customer Type <span class="required">*</span></label>
-                            <select class="form-select" name="customer_type" id="customerType" required onchange="toggleCompanyField()">
-                                <option value="">Select Type</option>
-                                <option value="individual" {{ old('customer_type') == 'individual' ? 'selected' : '' }}>Individual</option>
-                                <option value="business" {{ old('customer_type') == 'business' ? 'selected' : '' }}>Business</option>
-                            </select>
-                            @error('customer_type')
+                            <label class="form-label">Opening Balance</label>
+                            <input type="number" step="0.01" min="0" class="form-input" name="opening_balance" value="{{ old('opening_balance', $party->opening_balance ?? 0) }}" placeholder="0.00">
+                            @error('opening_balance')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
                         </div>
 
-                        <div class="form-group" id="companyField" style="display: none;">
-                            <label class="form-label">Company Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="company_name" value="{{ old('company_name') }}" placeholder="e.g., ABC Enterprises">
-                            @error('company_name')
+                        <div class="form-group">
+                            <label class="form-label">Credit Limit</label>
+                            <input type="number" step="0.01" min="0" class="form-input" name="credit_limit" value="{{ old('credit_limit', $party->credit_limit) }}" placeholder="e.g., 50000">
+                            @error('credit_limit')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        @if($party->party_type === 'dealer')
+                        <div class="form-group">
+                            <label class="form-label">Parent Distributor</label>
+                            <select class="form-select" name="parent_party_id">
+                                <option value="">None (Independent Dealer)</option>
+                                @foreach($distributors as $distributor)
+                                    <option value="{{ $distributor->_id }}" {{ old('parent_party_id', $party->parent_party_id) == $distributor->_id ? 'selected' : '' }}>
+                                        {{ $distributor->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('parent_party_id')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        @endif
+                        <div class="form-group">
+                            <label class="form-label">Salesman</label>
+                            <select class="form-select" name="salesman_id">
+                                <option value="">None</option>
+                                @foreach($salesmen as $salesman)
+                                    <option value="{{ $salesman->_id }}" {{ old('salesman_id', $party->salesman_id) == $salesman->_id ? 'selected' : '' }}>
+                                        {{ $salesman->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('salesman_id')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">GST Number</label>
-                            <input type="text" class="form-input" name="gst_number" value="{{ old('gst_number') }}" placeholder="e.g., 27ABCDE1234F1Z5" maxlength="15" oninput="this.value = this.value.toUpperCase()">
+                            <input type="text" class="form-input" name="gst_number" value="{{ old('gst_number', $party->gst_number) }}" placeholder="e.g., 27ABCDE1234F1Z5" maxlength="15" oninput="this.value = this.value.toUpperCase()">
                             @error('gst_number')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -97,7 +125,7 @@
 
                         <div class="form-group">
                             <label class="form-label">PAN Number</label>
-                            <input type="text" class="form-input" name="pan_number" value="{{ old('pan_number') }}" placeholder="e.g., ABCDE1234F" maxlength="10" oninput="this.value = this.value.toUpperCase()">
+                            <input type="text" class="form-input" name="pan_number" value="{{ old('pan_number', $party->pan_number) }}" placeholder="e.g., ABCDE1234F" maxlength="10" oninput="this.value = this.value.toUpperCase()">
                             @error('pan_number')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -106,8 +134,8 @@
                         <div class="form-group">
                             <label class="form-label">Status <span class="required">*</span></label>
                             <select class="form-select" name="status" required>
-                                <option value="active" {{ old('status') == 'active' ? 'selected' : 'active' }}>Active</option>
-                                <option value="inactive" {{ old('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                <option value="active" {{ old('status', $party->status) == 'active' ? 'selected' : '' }}>Active</option>
+                                <option value="inactive" {{ old('status', $party->status) == 'inactive' ? 'selected' : '' }}>Inactive</option>
                             </select>
                             @error('status')
                                 <div class="error-message">{{ $message }}</div>
@@ -116,7 +144,7 @@
 
                         <div class="form-group full-width">
                             <label class="form-label">Notes</label>
-                            <textarea class="form-textarea" name="notes" rows="3" placeholder="Any additional notes about the customer">{{ old('notes') }}</textarea>
+                            <textarea class="form-textarea" name="notes" rows="3" placeholder="Any additional notes about the {{ $party->party_type }}">{{ old('notes', $party->notes) }}</textarea>
                             @error('notes')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
@@ -128,7 +156,7 @@
                 <div class="tab-content" id="addresses">
                     <div class="tab-header">
                         <h3 class="tab-title">Billing & Shipping Addresses</h3>
-                        <p class="tab-subtitle">You can add multiple billing and shipping addresses</p>
+                        <p class="tab-subtitle">Manage multiple billing and shipping addresses</p>
                     </div>
 
                     <!-- Address Type Tabs -->
@@ -153,11 +181,7 @@
                         </div>
 
                         <div class="addresses-list" id="billingAddressesList">
-                            <!-- Billing addresses will be loaded here -->
-                            <div class="no-addresses">
-                                <div class="empty-icon">🏢</div>
-                                <p>No billing addresses added yet</p>
-                            </div>
+                            <div class="loading">Loading addresses...</div>
                         </div>
                     </div>
 
@@ -174,20 +198,11 @@
                         </div>
 
                         <div class="addresses-list" id="shippingAddressesList">
-                            <!-- Shipping addresses will be loaded here -->
-                            <div class="no-addresses">
-                                <div class="empty-icon">📦</div>
-                                <p>No shipping addresses added yet</p>
-                            </div>
+                            <div class="loading">Loading addresses...</div>
                         </div>
                     </div>
 
-                    <!-- Hidden inputs to store selected default addresses -->
-                    <input type="hidden" id="defaultBillingAddress" name="default_billing_address">
-                    <input type="hidden" id="defaultShippingAddress" name="default_shipping_address">
-                    <!-- Add these hidden inputs before the form actions section -->
-                    <input type="hidden" name="billing_addresses" id="billing_addresses_input">
-                    <input type="hidden" name="shipping_addresses" id="shipping_addresses_input">
+                    <!-- Hidden inputs removed since addresses are managed via AJAX for existing parties -->
                 </div>
             </div>
         </div>
@@ -203,7 +218,7 @@
                         Next →
                     </button>
                     <button type="submit" class="btn-primary" id="submitBtn" style="display: none;">
-                        ✓ Create Customer
+                        ✓ Update {{ ucfirst($party->party_type) }}
                     </button>
                 </div>
             </div>
@@ -278,7 +293,8 @@
 
 @push('styles')
 <style>
-    .create-customer-container {
+    /* Copy all styles from create view */
+    .edit-party-container {
         padding: 0 15px 80px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 13px;
@@ -757,7 +773,7 @@
         background: #a7f3d0;
     }
 
-    .no-addresses {
+    .no-addresses, .loading {
         text-align: center;
         padding: 30px;
         color: #6c757d;
@@ -1051,13 +1067,12 @@
 <script>
     // ========== GLOBAL VARIABLES ==========
     let currentTab = 0;
-    const tabs = ['customer-info', 'addresses'];
+    const tabs = ['party-info', 'addresses'];
+    let partyId = '{{ $party->id }}';
     let addresses = {
         billing: [],
         shipping: []
     };
-    let editingAddressId = null;
-
     // ========== ALERT SYSTEM ==========
     function showAlert(message, type = 'success') {
         const container = document.getElementById('alertContainer');
@@ -1093,7 +1108,6 @@
         const inputField = document.getElementById('phone');
         const messageDiv = document.getElementById('phone_message');
 
-        // Reset
         inputField.classList.remove('error', 'success');
         messageDiv.className = 'phone-validation-message';
         messageDiv.textContent = '';
@@ -1102,7 +1116,6 @@
             return;
         }
 
-        // Basic validation
         const phoneRegex = /^[6-9]\d{9}$/;
         if (!phoneRegex.test(phone)) {
             inputField.classList.add('error');
@@ -1121,7 +1134,6 @@
         const inputField = document.getElementById('email');
         const messageDiv = document.getElementById('email_message');
 
-        // Reset
         inputField.classList.remove('error', 'success');
         messageDiv.className = 'email-validation-message';
         messageDiv.textContent = '';
@@ -1130,7 +1142,6 @@
             return;
         }
 
-        // Basic validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             inputField.classList.add('error');
@@ -1144,160 +1155,40 @@
         messageDiv.textContent = '✓ Valid email';
     }
 
-    // ========== COMPANY FIELD TOGGLE ==========
-    function toggleCompanyField() {
-        const customerType = document.getElementById('customerType').value;
-        const companyField = document.getElementById('companyField');
-
-        if (customerType === 'business') {
-            companyField.style.display = 'block';
-            document.querySelector('[name="company_name"]').required = true;
-        } else {
-            companyField.style.display = 'none';
-            document.querySelector('[name="company_name"]').required = false;
-        }
-    }
-
     // ========== ADDRESS MANAGEMENT ==========
-    function openAddressModal(type) {
-        const modal = document.getElementById('addressModal');
-        const title = document.getElementById('modalTitle');
-
-        document.getElementById('addressType').value = type;
-        title.textContent = type === 'billing' ? 'Add Billing Address' : 'Add Shipping Address';
-
-        // Reset form
-        document.getElementById('addressForm').reset();
-        document.getElementById('addressId').value = '';
-        document.getElementById('country').value = 'India';
-        editingAddressId = null;
-
-        modal.style.display = 'flex';
-    }
-
-    function closeAddressModal() {
-        document.getElementById('addressModal').style.display = 'none';
-        document.getElementById('addressForm').reset();
-        editingAddressId = null;
-    }
-
-   function saveAddress() {
-    const type = document.getElementById('addressType').value;
-    const addressId = document.getElementById('addressId').value;
-
-    // Validate required fields
-    const address = document.getElementById('address').value.trim();
-    const city = document.getElementById('city').value.trim();
-    const state = document.getElementById('state').value.trim();
-    const pincode = document.getElementById('pincode').value.trim();
-    const country = document.getElementById('country').value.trim();
-
-    if (!address || !city || !state || !pincode || !country) {
-        showAlert('Please fill all required fields', 'error');
-        return false;
-    }
-
-    // Create address object - सभी keys lowercase में रखें या वैसे ही जैसे controller में expect कर रहा है
-    const addressData = {
-        id: addressId || 'addr_' + Date.now(),
-        contactPerson: document.getElementById('contactPerson').value.trim(),
-        contactNumber: document.getElementById('contactNumber').value.trim(),
-        address: address,
-        landmark: document.getElementById('landmark').value.trim(),
-        city: city,
-        state: state,
-        pincode: pincode,
-        country: country,
-        isDefault: document.getElementById('isDefault').checked,
-        type: type
-    };
-
-    if (editingAddressId) {
-        // Update existing address
-        const index = addresses[type].findIndex(addr => addr.id === editingAddressId);
-        if (index !== -1) {
-            // If setting as default, remove default from other addresses of same type
-            if (addressData.isDefault) {
-                addresses[type].forEach(addr => {
-                    addr.isDefault = false;
-                });
-            }
-            addresses[type][index] = addressData;
+function loadAddresses() {
+    // Load billing addresses
+    fetch(`/admin/parties/${partyId}/addresses/billing`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
         }
-    } else {
-        // Add new address
-        // If setting as default, remove default from other addresses of same type
-        if (addressData.isDefault) {
-            addresses[type].forEach(addr => {
-                addr.isDefault = false;
-            });
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addresses.billing = data.addresses;  // ← STORE IN addresses.billing
+            renderAddresses('billing', data.addresses);
         }
-        addresses[type].push(addressData);
-    }
+    });
 
-    // Update UI
-    renderAddresses(type);
-    closeAddressModal();
-
-    // Update hidden inputs for addresses
-    updateAddressesInput();
-
-    showAlert(`${type.charAt(0).toUpperCase() + type.slice(1)} address ${editingAddressId ? 'updated' : 'added'} successfully`);
-
-    return false;
+    // Load shipping addresses
+    fetch(`/admin/parties/${partyId}/addresses/shipping`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addresses.shipping = data.addresses;  // ← STORE IN addresses.shipping
+            renderAddresses('shipping', data.addresses);
+        }
+    });
 }
-    function editAddress(type, addressId) {
-        const address = addresses[type].find(addr => addr.id === addressId);
-        if (!address) return;
-
-        const modal = document.getElementById('addressModal');
-        const title = document.getElementById('modalTitle');
-
-        document.getElementById('addressType').value = type;
-        title.textContent = `Edit ${type === 'billing' ? 'Billing' : 'Shipping'} Address`;
-
-        // Fill form with address data
-        document.getElementById('addressId').value = address.id;
-        document.getElementById('contactPerson').value = address.contactPerson || '';
-        document.getElementById('contactNumber').value = address.contactNumber || '';
-        document.getElementById('address').value = address.address || '';
-        document.getElementById('landmark').value = address.landmark || '';
-        document.getElementById('city').value = address.city || '';
-        document.getElementById('state').value = address.state || '';
-        document.getElementById('pincode').value = address.pincode || '';
-        document.getElementById('country').value = address.country || 'India';
-        document.getElementById('isDefault').checked = address.isDefault || false;
-
-        editingAddressId = addressId;
-        modal.style.display = 'flex';
-    }
-
-    function deleteAddress(type, addressId) {
-        if (!confirm('Are you sure you want to delete this address?')) {
-            return;
-        }
-
-        addresses[type] = addresses[type].filter(addr => addr.id !== addressId);
-        renderAddresses(type);
-        updateAddressesInput();
-        showAlert('Address deleted successfully');
-    }
-
-    function setDefaultAddress(type, addressId) {
-        addresses[type].forEach(addr => {
-            addr.isDefault = addr.id === addressId;
-        });
-
-        renderAddresses(type);
-        updateAddressesInput();
-        showAlert('Address set as default');
-    }
-
-    function renderAddresses(type) {
+    function renderAddresses(type, addresses) {
         const container = document.getElementById(`${type}AddressesList`);
-        const addressesList = addresses[type];
 
-        if (addressesList.length === 0) {
+        if (!addresses || addresses.length === 0) {
             container.innerHTML = `
                 <div class="no-addresses">
                     <div class="empty-icon">${type === 'billing' ? '🏢' : '📦'}</div>
@@ -1308,8 +1199,8 @@
         }
 
         let html = '';
-        addressesList.forEach(addr => {
-            const isDefault = addr.isDefault || false;
+        addresses.forEach(addr => {
+            const isDefault = addr.is_default || false;
             html += `
                 <div class="address-card ${isDefault ? 'default' : ''}">
                     <div class="address-header">
@@ -1324,10 +1215,10 @@
                         ${addr.city}, ${addr.state} - ${addr.pincode}<br>
                         ${addr.country}
                     </div>
-                    ${(addr.contactPerson || addr.contactNumber) ? `
+                    ${(addr.contact_person || addr.contact_number) ? `
                     <div class="address-contact">
-                        ${addr.contactPerson ? `<span>👤 ${addr.contactPerson}</span>` : ''}
-                        ${addr.contactNumber ? `<span>📱 ${addr.contactNumber}</span>` : ''}
+                        ${addr.contact_person ? `<span>👤 ${addr.contact_person}</span>` : ''}
+                        ${addr.contact_number ? `<span>📱 ${addr.contact_number}</span>` : ''}
                     </div>
                     ` : ''}
                     <div class="address-actions">
@@ -1350,61 +1241,252 @@
         container.innerHTML = html;
     }
 
-    function updateAddressesInput() {
-    // Format addresses for backend - keys को controller के according बनाएं
-    const billingForBackend = addresses.billing.map(addr => ({
-        address: addr.address || '',
-        city: addr.city || '',
-        state: addr.state || '',
-        pincode: addr.pincode || '',
-        country: addr.country || 'India',
-        landmark: addr.landmark || '',
-        contactPerson: addr.contactPerson || '', // यह वही key है जो controller में check हो रही है
-        contactNumber: addr.contactNumber || '', // यह वही key है जो controller में check हो रही है
-        isDefault: addr.isDefault || false
-    }));
+    function openAddressModal(type) {
+        const modal = document.getElementById('addressModal');
+        const title = document.getElementById('modalTitle');
 
-    const shippingForBackend = addresses.shipping.map(addr => ({
-        address: addr.address || '',
-        city: addr.city || '',
-        state: addr.state || '',
-        pincode: addr.pincode || '',
-        country: addr.country || 'India',
-        landmark: addr.landmark || '',
-        contactPerson: addr.contactPerson || '', // यह वही key है जो controller में check हो रही है
-        contactNumber: addr.contactNumber || '', // यह वही key है जो controller में check हो रही है
-        isDefault: addr.isDefault || false
-    }));
+        document.getElementById('addressType').value = type;
+        title.textContent = type === 'billing' ? 'Add Billing Address' : 'Add Shipping Address';
 
-    // Debug के लिए console में देखें
-    console.log('Billing for backend:', billingForBackend);
-    console.log('Shipping for backend:', shippingForBackend);
+        document.getElementById('addressForm').reset();
+        document.getElementById('addressId').value = '';
+        document.getElementById('country').value = 'India';
+        editingAddressId = null;
 
-    // Update hidden inputs
-    document.getElementById('billing_addresses_input').value = JSON.stringify(billingForBackend);
-    document.getElementById('shipping_addresses_input').value = JSON.stringify(shippingForBackend);
+        modal.style.display = 'flex';
+    }
+
+    function closeAddressModal() {
+        document.getElementById('addressModal').style.display = 'none';
+        document.getElementById('addressForm').reset();
+        editingAddressId = null;
+    }
+
+    function saveAddress() {
+        const type = document.getElementById('addressType').value;
+        const addressId = document.getElementById('addressId').value;
+
+        const address = document.getElementById('address').value.trim();
+        const city = document.getElementById('city').value.trim();
+        const state = document.getElementById('state').value.trim();
+        const pincode = document.getElementById('pincode').value.trim();
+        const country = document.getElementById('country').value.trim();
+
+        if (!address || !city || !state || !pincode || !country) {
+            showAlert('Please fill all required fields', 'error');
+            return false;
+        }
+
+        const addressData = {
+            address: address,
+            city: city,
+            state: state,
+            pincode: pincode,
+            country: country,
+            landmark: document.getElementById('landmark').value.trim(),
+            contact_person: document.getElementById('contactPerson').value.trim(),
+            contact_number: document.getElementById('contactNumber').value.trim(),
+            is_default: document.getElementById('isDefault').checked,
+            type: type
+        };
+
+        const url = addressId
+            ? `/admin/parties/addresses/${addressId}`
+            : `/admin/parties/${partyId}/addresses`;
+
+        const method = addressId ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(addressData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message);
+                closeAddressModal();
+                loadAddresses();
+            } else {
+                showAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('An error occurred', 'error');
+        });
+
+        return false;
+    }
+
+function editAddress(type, addressId) {
+    // AB YE KAAM KAREGA because addresses array defined hai
+    const address = addresses[type].find(addr => addr.id === addressId || addr._id === addressId);
+    if (!address) {
+        showAlert('Address not found', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('addressModal');
+    const title = document.getElementById('modalTitle');
+
+    document.getElementById('addressType').value = type;
+    title.textContent = `Edit ${type === 'billing' ? 'Billing' : 'Shipping'} Address`;
+
+    // Fill form with address data - MongoDB _id ya id dono handle karo
+    document.getElementById('addressId').value = address._id || address.id;
+    document.getElementById('contactPerson').value = address.contact_person || address.contactPerson || '';
+    document.getElementById('contactNumber').value = address.contact_number || address.contactNumber || '';
+    document.getElementById('address').value = address.address || '';
+    document.getElementById('landmark').value = address.landmark || '';
+    document.getElementById('city').value = address.city || '';
+    document.getElementById('state').value = address.state || '';
+    document.getElementById('pincode').value = address.pincode || '';
+    document.getElementById('country').value = address.country || 'India';
+    document.getElementById('isDefault').checked = address.is_default || address.isDefault || false;
+
+    editingAddressId = addressId;
+    modal.style.display = 'flex';
 }
-    function copyBillingToShipping() {
-        if (addresses.billing.length === 0) {
-            showAlert('Please add billing addresses first', 'error');
+
+    function deleteAddress(type, addressId) {
+        if (!confirm('Are you sure you want to delete this address?')) {
             return;
         }
 
-        // Copy all billing addresses to shipping
-        addresses.shipping = JSON.parse(JSON.stringify(addresses.billing));
-
-        // Change type to shipping and generate new IDs
-        addresses.shipping.forEach(addr => {
-            addr.type = 'shipping';
-            addr.id = 'ship_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        fetch(`/admin/parties/addresses/${addressId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Address deleted successfully');
+                loadAddresses();
+            } else {
+                showAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('An error occurred', 'error');
         });
-
-        // Render shipping addresses
-        renderAddresses('shipping');
-        updateAddressesInput();
-
-        showAlert('Billing addresses copied to shipping');
     }
+
+    function setDefaultAddress(type, addressId) {
+        fetch(`/admin/parties/addresses/${addressId}/default`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Address set as default');
+                loadAddresses();
+            } else {
+                showAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('An error occurred', 'error');
+        });
+    }
+
+function copyBillingToShipping() {
+    if (addresses.billing.length === 0) {
+        showAlert('Please add billing addresses first', 'error');
+        return;
+    }
+
+    if (!confirm('Copy all billing addresses to shipping? This will replace existing shipping addresses.')) {
+        return;
+    }
+
+    // Step 1: Pehle saari existing shipping addresses delete karo
+    deleteAllShippingAddresses()
+        .then(() => {
+            // Step 2: Fir billing addresses ko shipping mein copy karo
+            return copyBillingToShippingOnServer();
+        })
+        .then(() => {
+            showAlert('Billing addresses copied to shipping successfully');
+            loadAddresses(); // Refresh addresses
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error copying addresses', 'error');
+        });
+}
+
+function deleteAllShippingAddresses() {
+    const deletePromises = addresses.shipping.map(addr => {
+        const addressId = addr._id || addr.id;
+        return fetch(`/admin/parties/addresses/${addressId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+    });
+
+    return Promise.all(deletePromises);
+}
+
+function copyBillingToShippingOnServer() {
+    // Saari billing addresses ko shipping mein create karo
+    const createPromises = addresses.billing.map(addr => {
+        const addressData = {
+            type: 'shipping',
+            address: addr.address,
+            city: addr.city,
+            state: addr.state,
+            pincode: addr.pincode,
+            country: addr.country,
+            landmark: addr.landmark || '',
+            contact_person: addr.contact_person || addr.contactPerson || '',
+            contact_number: addr.contact_number || addr.contactNumber || '',
+            is_default: false // Shipping default reset karo
+        };
+
+        return fetch(`/admin/parties/${partyId}/addresses`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(addressData)
+        });
+    });
+
+    return Promise.all(createPromises);
+}
+function saveShippingAddressesToServer() {
+    // Har address ko server par save karo
+    addresses.shipping.forEach(addr => {
+        fetch(`/admin/parties/${partyId}/addresses`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(addr)
+        });
+    });
+}
 
     // ========== FORM VALIDATION ==========
     function validateCurrentTab() {
@@ -1427,70 +1509,16 @@
         return isValid;
     }
 
-    // ========== FORM SUBMISSION ==========
-   function submitCustomerForm() {
-    // Validate phone
-    const phone = document.getElementById('phone').value;
-    const phoneRegex = /^[6-9]\d{9}$/;
-    if (!phoneRegex.test(phone)) {
-        showAlert('Please enter a valid phone number', 'error');
-        document.getElementById('phone').focus();
-        return false;
-    }
-
-    // Validate email if provided
-    const email = document.getElementById('email').value;
-    if (email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            showAlert('Please enter a valid email address', 'error');
-            document.getElementById('email').focus();
-            return false;
-        }
-    }
-
-    // Validate customer type
-    const customerType = document.getElementById('customerType').value;
-    if (customerType === 'business') {
-        const companyName = document.querySelector('[name="company_name"]').value;
-        if (!companyName.trim()) {
-            showAlert('Company name is required for business customers', 'error');
-            document.querySelector('[name="company_name"]').focus();
-            return false;
-        }
-    }
-
-
-    // Update addresses input before submission
-    updateAddressesInput();
-
-    console.log('Form submitting with addresses:');
-    console.log('Billing:', document.getElementById('billing_addresses_input').value);
-    console.log('Shipping:', document.getElementById('shipping_addresses_input').value);
-
-    // Submit form
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.innerHTML = '⏳ Creating...';
-    submitBtn.disabled = true;
-
-    // Submit the form
-    document.getElementById('customerForm').submit();
-    return true;
-}
     // ========== INITIALIZE ==========
     document.addEventListener('DOMContentLoaded', function() {
         showTab(0);
+        loadAddresses();
 
-        // Initialize company field
-        toggleCompanyField();
-
-        // Address form submission
         document.getElementById('addressForm').addEventListener('submit', function(e) {
             e.preventDefault();
             saveAddress();
         });
 
-        // Tab buttons click
         document.querySelectorAll('.tab-btn').forEach((btn, index) => {
             btn.addEventListener('click', () => {
                 if (validateCurrentTab() || currentTab === index) {
@@ -1500,7 +1528,6 @@
             });
         });
 
-        // Next button
         document.getElementById('nextBtn').addEventListener('click', () => {
             if (!validateCurrentTab()) return;
 
@@ -1510,7 +1537,6 @@
             }
         });
 
-        // Back button
         document.getElementById('backBtn').addEventListener('click', () => {
             if (currentTab > 0) {
                 currentTab--;
@@ -1518,35 +1544,24 @@
             }
         });
 
-        // Form submission
-        document.getElementById('customerForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            submitCustomerForm();
-        });
-
-        // Address type tab switching
         document.querySelectorAll('.address-type-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const type = this.getAttribute('data-address-type');
 
-                // Update active button
                 document.querySelectorAll('.address-type-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
 
-                // Show/hide sections
                 document.getElementById('billingSection').style.display = type === 'billing' ? 'block' : 'none';
                 document.getElementById('shippingSection').style.display = type === 'shipping' ? 'block' : 'none';
             });
         });
 
-        // Close modal with Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeAddressModal();
             }
         });
 
-        // Show Laravel errors
         @if($errors->any())
             @foreach($errors->all() as $error)
                 showAlert('{{ $error }}', 'error');

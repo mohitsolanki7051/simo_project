@@ -8,19 +8,19 @@
     <!-- Alert Messages -->
     <div id="alertContainer"></div>
 
-    <!-- Header -->
+    <!-- Header with Action Buttons - Exactly like product index -->
     <div class="page-header">
         <div class="header-left">
             <h2 class="page-title">Attribute List</h2>
         </div>
         <div class="header-right">
-            <a href="{{ route('admin.attributes.create') }}" class="btn-small btn-primary">
-                <span class="btn-icon">+</span> Add Attribute
+            <a href="{{ route('admin.attributes.create') }}" class="btn-add">
+                <span>Add Attribute</span>
             </a>
         </div>
     </div>
 
-    <!-- Report Summary Cards -->
+    <!-- Report Summary Cards - Exactly like product index -->
     <div class="report-cards">
         <div class="report-card">
             <div class="card-icon" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">📊</div>
@@ -40,24 +40,28 @@
         </div>
     </div>
 
-    <!-- Search -->
+    <!-- Filters and Search - Exactly like product index -->
     <div class="table-filters">
         <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" class="search-input" placeholder="Search attributes..." id="searchInput">
+            <input type="text"
+                   class="search-input"
+                   placeholder="Search attributes..."
+                   id="searchInput"
+                   autocomplete="off">
         </div>
     </div>
 
-    <!-- Attributes Table -->
+    <!-- Attributes Table - Exactly like product index styling -->
     <div class="table-wrapper">
-        <table class="compact-table">
+        <table class="products-table">
             <thead>
                 <tr>
-                    <th class="th-sno">S.No.</th>
-                    <th class="th-type">Attribute Type</th>
-                    <th class="th-values">Values</th>
-                    <th class="th-status">Status</th>
-                    <th class="th-actions">Actions</th>
+                    <th width="120">S.No.</th>
+                    <th>Attribute Type</th>
+                    <th width="400">Values</th>
+                    <th width="200">Status</th>
+                    <th width="120">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -71,48 +75,50 @@
                     data-status="{{ $attribute->status }}"
                     data-type="{{ $attribute->type }}"
                     data-values="{{ $attribute->items->pluck('value')->implode(',') }}">
-                    <td class="td-sno">{{ $index + 1 }}</td>
-                    <td class="td-type">
-                        <div class="attribute-name">{{ ucwords(str_replace('_', ' ', $attribute->type)) }}</div>
+                    <td>{{ $index + 1 }}</td>
+                    <td>
+                        <div class="product-name">{{ ucwords(str_replace('_', ' ', $attribute->type)) }}</div>
                     </td>
-                    <td class="td-values">
-                        <div class="values-display">
+                    <td>
+                        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 4px;">
                             @php
                                 $values = $attribute->items->take(3)->pluck('value')->toArray();
                                 $remaining = $totalItems - 3;
                             @endphp
 
                             @foreach($values as $value)
-                                <span class="value-tag">{{ $value }}</span>
+                                <span style="padding: 3px 10px; background: #e0e7ff; color: #3730a3; border-radius: 12px; font-size: 12px; font-weight: 500; border: 1px solid #c7d2fe;">{{ $value }}</span>
                             @endforeach
 
                             @if($remaining > 0)
-                                <span class="value-more" onclick="viewAttributeValues('{{ $attribute->type }}', {{ $attribute->items->pluck('value') }}, '{{ $activeItemsCount }}', '{{ $inactiveItemsCount }}')">
+                                <span onclick="viewAttributeValues('{{ $attribute->type }}', {{ $attribute->items->pluck('value') }}, '{{ $activeItemsCount }}', '{{ $inactiveItemsCount }}')"
+                                      style="padding: 3px 10px; background: #f3f4f6; color: #6b7280; border-radius: 12px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e5e7eb;">
                                     +{{ $remaining }} more
                                 </span>
                             @endif
                         </div>
-                        <div class="values-stats">
-                            <span class="stat-item stat-active">{{ $activeItemsCount }} active</span>
-                            <span class="stat-item stat-inactive">{{ $inactiveItemsCount }} inactive</span>
+                        <div style="display: flex; gap: 8px; font-size: 12px;">
+                            <span style="background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 12px;">{{ $activeItemsCount }} active</span>
+                            <span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 12px;">{{ $inactiveItemsCount }} inactive</span>
                         </div>
                     </td>
-                    <td class="td-status">
+                    <td>
                         <span class="status-badge status-{{ $attribute->status }}">
                             {{ ucfirst($attribute->status) }}
                         </span>
                     </td>
-                    <td class="td-actions">
+                    <td>
                         <div class="action-icons">
                             <button type="button"
-                                    class="icon-btn icon-view"
+                                    class="action-btn view"
                                     onclick="viewAttributeValues('{{ $attribute->type }}', {{ $attribute->items->pluck('value') }}, '{{ $activeItemsCount }}', '{{ $inactiveItemsCount }}')"
                                     title="View All Values">
-                                👁️
+                                <span>👁️</span>
                             </button>
                             <a href="{{ route('admin.attributes.edit', $attribute->_id) }}"
-                               class="icon-btn icon-edit" title="Edit Attribute">
-                                ✏️
+                               class="action-btn edit"
+                               title="Edit Attribute">
+                                <span>✏️</span>
                             </a>
                         </div>
                     </td>
@@ -124,6 +130,9 @@
                             <div class="empty-icon">🎨</div>
                             <h4>No Attributes Found</h4>
                             <p>Start by adding your first attribute</p>
+                            <a href="{{ route('admin.attributes.create') }}" class="btn-add-product">
+                                + Add Attribute
+                            </a>
                         </div>
                     </td>
                 </tr>
@@ -134,14 +143,14 @@
 
     @if($attributes->count() > 0)
     <div class="table-footer">
-        <div class="footer-info">
+        <div class="pagination-info">
             Showing {{ $attributes->count() }} attributes
         </div>
     </div>
     @endif
 </div>
 
-<!-- Values View Modal -->
+<!-- Values View Modal - Keep as is, it's fine -->
 <div class="modal" id="valuesModal">
     <div class="modal-overlay" onclick="closeValuesModal()"></div>
     <div class="modal-content">
@@ -180,90 +189,94 @@
 
 @push('styles')
 <style>
-    /* Main Container - Product Index se same */
+    /* Use EXACT same styles as product index - only keeping what's needed */
     .products-container {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 12px;
-        line-height: 1.4;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        background: #f8fafc;
+        min-height: 100vh;
     }
 
-    /* Header */
+    /* Header - exactly like product index */
     .page-header {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #e2e8f0;
+        align-items: center;
+        margin-bottom: 10px;
+        padding: 0px 5px;
+    }
+
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
     }
 
     .page-title {
-        font-size: 16px;
+        font-size: 20px;
         font-weight: 600;
-        color: #2d3748;
-        margin: 0 0 4px 0;
+        color: #1e293b;
+        margin: 0;
     }
 
-    .btn-small {
-        padding: 6px 12px;
-        background: #fa8427;
-        color: white;
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .btn-add {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
         border: none;
-        border-radius: 4px;
-        font-size: 11px;
+        border-radius: 6px;
+        font-size: 13px;
         font-weight: 500;
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
         transition: all 0.2s;
+        color: white;
+        background: linear-gradient(135deg, #fa8427 0%, #e97317 100%);
         text-decoration: none;
     }
 
-    .btn-small:hover {
-        background: #e97317;
+    .btn-add:hover {
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(250, 132, 39, 0.3);
     }
 
-    .btn-icon {
-        font-size: 12px;
-    }
-
-    /* Report Cards */
+    /* Report Cards - exactly like product index */
     .report-cards {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
         gap: 15px;
         margin-bottom: 15px;
     }
 
     .report-card {
-        flex: 1;
         display: flex;
         align-items: center;
         gap: 15px;
         padding: 15px;
         background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         transition: all 0.2s;
-        cursor: default;
-        min-width: 300px;
     }
 
     .report-card:hover {
-        border-color: #667eea;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
-        transform: translateY(-2px);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.05);
     }
 
     .card-icon {
         width: 48px;
         height: 48px;
-        border-radius: 10px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 20px;
+        font-size: 24px;
         color: white;
         flex-shrink: 0;
     }
@@ -274,201 +287,119 @@
 
     .card-title {
         font-size: 12px;
-        color: #6b7280;
-        font-weight: 500;
+        color: #64748b;
         margin-bottom: 4px;
     }
 
     .card-value {
         font-size: 20px;
         font-weight: 700;
-        color: #1f2937;
+        color: #1e293b;
         margin-bottom: 2px;
+        line-height: 1.2;
     }
 
     .card-desc {
         font-size: 11px;
-        color: #9ca3af;
+        color: #94a3b8;
     }
 
-    /* Filters */
+    /* Filters - exactly like product index */
     .table-filters {
         display: flex;
-        gap: 8px;
-        margin-bottom: 10px;
         align-items: center;
-        flex-wrap: wrap;
-        justify-content: space-between;
+        gap: 15px;
+        margin-bottom: 5px;
+        background: white;
+        padding: 10px 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
     .search-box {
         flex: 1;
-        max-width: 200px;
+        max-width: 300px;
         position: relative;
     }
 
     .search-icon {
         position: absolute;
-        left: 8px;
+        left: 12px;
         top: 50%;
         transform: translateY(-50%);
-        font-size: 12px;
-        color: #718096;
+        color: #94a3b8;
+        font-size: 14px;
     }
 
     .search-input {
         width: 100%;
-        padding: 6px 8px 6px 24px;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        font-size: 11px;
-        background: #f9fafb;
+        padding: 8px 12px 8px 36px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        transition: all 0.2s;
+        background: #f8fafc;
     }
 
     .search-input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: #8b5cf6;
         background: white;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
     }
 
-    /* Compact Table */
+    /* Table - exactly like product index */
     .table-wrapper {
-        overflow-x: auto;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
         background: white;
-        margin-top: 10px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        overflow-x: auto;
+        margin-bottom: 15px;
     }
 
-    .compact-table {
+    .products-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 11px;
+        font-size: 13px;
     }
 
-    .compact-table th {
+    .products-table th {
         background: #f8fafc;
-        padding: 8px 10px;
+        padding: 12px 15px;
         text-align: left;
         font-weight: 600;
-        color: #4b5563;
+        color: #475569;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
         border-bottom: 1px solid #e2e8f0;
         white-space: nowrap;
     }
 
-    .compact-table td {
-        padding: 8px 10px;
-        border-bottom: 1px solid #f3f4f6;
+    .products-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
     }
 
-    .compact-table tr:last-child td {
-        border-bottom: none;
+    .products-table tr:hover td {
+        background: #f8fafc;
     }
 
-    .compact-table tr:hover {
-        background: #f9fafb;
-    }
-
-    /* Column widths */
-    .th-sno { width: 50px; }
-    .th-type { width: 150px; }
-    .th-values { width: 250px; }
-    .th-status { width: 80px; }
-    .th-actions { width: 90px; }
-
-    /* S.No. */
-    .td-sno {
-        font-size: 11px;
-        color: #6b7280;
+    /* Product name style - reused for attribute name */
+    .product-name {
         font-weight: 500;
-        text-align: center;
+        color: #1e293b;
+        font-size: 13px;
     }
 
-    /* Attribute Name */
-    .attribute-name {
-        font-weight: 600;
-        color: #1f2937;
-        line-height: 1.3;
-        font-size: 12px;
-    }
-
-    /* Values Display */
-    .td-values {
-        min-width: 250px;
-    }
-
-    .values-display {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 4px;
-        margin-bottom: 4px;
-    }
-
-    .value-tag {
-        padding: 3px 8px;
-        background: #e0e7ff;
-        color: #3730a3;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: 500;
-        white-space: nowrap;
-        border: 1px solid #c7d2fe;
-    }
-
-    .value-more {
-        padding: 3px 8px;
-        background: #f3f4f6;
-        color: #6b7280;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        border: 1px solid #e5e7eb;
-    }
-
-    .value-more:hover {
-        background: #e5e7eb;
-        color: #374151;
-        transform: translateY(-1px);
-    }
-
-    .values-stats {
-        display: flex;
-        gap: 8px;
-        font-size: 10px;
-    }
-
-    .stat-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        padding: 2px 6px;
-        border-radius: 10px;
-        font-weight: 500;
-    }
-
-    .stat-item.stat-active {
-        background: #d1fae5;
-        color: #065f46;
-    }
-
-    .stat-item.stat-inactive {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    /* Status Badge */
+    /* Status badge - exactly like product index */
     .status-badge {
         display: inline-block;
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-size: 9px;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 11px;
         font-weight: 600;
-        text-transform: capitalize;
     }
 
     .status-active {
@@ -477,91 +408,108 @@
     }
 
     .status-inactive {
-        background: #f3f4f6;
-        color: #6b7280;
+        background: #f1f5f9;
+        color: #64748b;
     }
 
-    /* Action Icons */
+    /* Action icons - exactly like product index */
     .action-icons {
         display: flex;
         gap: 6px;
     }
 
-    .icon-btn {
-        width: 26px;
-        height: 26px;
-        border-radius: 5px;
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
         border: none;
-        background: none;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 12px;
+        font-size: 14px;
         transition: all 0.2s;
-        padding: 0;
         text-decoration: none;
     }
 
-    .icon-view {
-        color: #8b5cf6;
+    .action-btn.view {
         background: #ede9fe;
+        color: #7c3aed;
     }
 
-    .icon-view:hover {
-        background: #ddd6fe;
-        transform: scale(1.1);
-    }
-
-    .icon-edit {
-        color: #3b82f6;
+    .action-btn.edit {
         background: #dbeafe;
+        color: #2563eb;
     }
 
-    .icon-edit:hover {
-        background: #bfdbfe;
-        transform: scale(1.1);
+    .action-btn:hover {
+        transform: translateY(-1px);
     }
 
-    /* Empty State */
+    /* Footer - exactly like product index */
+    .table-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .pagination-info {
+        font-size: 13px;
+        color: #64748b;
+    }
+
+    /* Empty state - exactly like product index */
     .empty-state {
-        padding: 40px 20px;
         text-align: center;
+        padding: 60px 20px;
     }
 
     .empty-content {
-        display: inline-block;
+        max-width: 300px;
+        margin: 0 auto;
     }
 
     .empty-icon {
-        font-size: 32px;
-        margin-bottom: 10px;
-        opacity: 0.5;
+        font-size: 48px;
+        margin-bottom: 15px;
+        opacity: 0.3;
     }
 
     .empty-content h4 {
-        font-size: 14px;
-        color: #374151;
-        margin-bottom: 5px;
+        font-size: 16px;
+        color: #334155;
+        margin-bottom: 8px;
     }
 
     .empty-content p {
-        font-size: 11px;
-        color: #6b7280;
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 20px;
     }
 
-    /* Table Footer */
-    .table-footer {
-        padding: 10px 15px;
-        border-top: 1px solid #e2e8f0;
-        background: #f8fafc;
-        font-size: 11px;
-        color: #6b7280;
-        border-radius: 0 0 6px 6px;
-        text-align: center;
+    .btn-add-product {
+        padding: 10px 20px;
+        background: #8b5cf6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
     }
 
-    /* Modal Styles */
+    .btn-add-product:hover {
+        background: #7c3aed;
+    }
+
+    /* Keep modal styles as they were - they're fine */
     .modal {
         display: none;
         position: fixed;
@@ -665,9 +613,39 @@
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
 
-    /* Values Modal Specific */
     .modal-body {
         padding: 24px;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 20px 24px;
+        border-top: 1px solid #e5e7eb;
+        background: #fafafa;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .btn-modal {
+        padding: 8px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 80px;
+    }
+
+    .btn-cancel {
+        background: #f3f4f6;
+        color: #4b5563;
+        border: 1px solid #e5e7eb;
+    }
+
+    .btn-cancel:hover {
+        background: #e5e7eb;
     }
 
     .values-stats-card {
@@ -681,22 +659,18 @@
         border-radius: 8px;
     }
 
-    .stat-item {
+    .values-stats-card .stat-item {
         text-align: center;
     }
 
-    .stat-value {
+    .values-stats-card .stat-value {
         font-size: 24px;
         font-weight: 700;
         color: #1f2937;
         margin-bottom: 4px;
     }
 
-    #activeCount { color: #10b981; }
-    #inactiveCount { color: #ef4444; }
-    #totalCount { color: #8b5cf6; }
-
-    .stat-label {
+    .values-stats-card .stat-label {
         font-size: 11px;
         color: #6b7280;
         text-transform: uppercase;
@@ -740,121 +714,18 @@
         box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
     }
 
-    /* Modal Buttons */
-    .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        padding: 20px 24px;
-        border-top: 1px solid #e5e7eb;
-        background: #fafafa;
-        border-radius: 0 0 12px 12px;
-    }
-
-    .btn-modal {
-        padding: 8px 20px;
-        border: none;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        min-width: 80px;
-    }
-
-    .btn-cancel {
-        background: #f3f4f6;
-        color: #4b5563;
-        border: 1px solid #e5e7eb;
-    }
-
-    .btn-cancel:hover {
-        background: #e5e7eb;
-    }
-
-    .btn-confirm {
-        background: #667eea;
-        color: white;
-        border: 1px solid #667eea;
-    }
-
-    .btn-confirm:hover {
-        background: #5a67d8;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-    }
-
-    /* Responsive */
     @media (max-width: 768px) {
-        .products-container {
-            padding: 10px;
-        }
-
-        .page-header {
-            flex-direction: column;
-            gap: 10px;
-            align-items: stretch;
-        }
-
         .report-cards {
-            flex-direction: column;
-        }
-
-        .report-card {
-            min-width: auto;
-            width: 100%;
+            grid-template-columns: 1fr;
         }
 
         .table-filters {
             flex-direction: column;
             align-items: stretch;
-            gap: 10px;
         }
 
         .search-box {
             max-width: 100%;
-        }
-
-        .modal-content {
-            margin: 20px;
-            width: calc(100% - 40px);
-            max-height: calc(100vh - 40px);
-        }
-
-        .values-stats-card {
-            grid-template-columns: 1fr;
-            gap: 10px;
-        }
-
-        .modal-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .modal-body {
-            padding: 16px;
-        }
-
-        .modal-actions {
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .btn-modal {
-            width: 100%;
-        }
-
-        .values-list {
-            grid-template-columns: repeat(2, 1fr);
         }
     }
 </style>
