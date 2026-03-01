@@ -484,100 +484,240 @@ public function edit($id)
         }
     }
 
-    public function ledger($id)
-    {
-        $party = Customer::findOrFail($id);
+public function ledger($id)
+{
+    $party = Customer::with(['addresses'])->findOrFail($id);
 
-        $sales = SalesInvoice::where('customer_id', $id)
-            ->get()
-            ->map(function ($invoice) {
-                return [
-                    'date' => $invoice->invoice_date,
-                    'type' => 'Sale',
-                    'ref'  => $invoice->invoice_number,
-                    'invoice_id' => $invoice->_id,
-                    'debit' => (float) $invoice->grand_total,
-                    'credit' => 0,
-                ];
-            });
+    // Get all sales invoices for this party
+    $salesInvoices = SalesInvoice::where('party_id', $id)
+        ->with(['items.product'])
+        ->orderBy('invoice_date', 'desc')
+        ->get();
 
-        $invoiceIds = SalesInvoice::where('customer_id', $id)
-            ->get()
-            ->map(function ($invoice) {
-                return (string) $invoice->_id;
-            })
-            ->toArray();
+    $invoiceIds = $salesInvoices->pluck('_id')->map(function($id) {
+        return (string) $id;
+    })->toArray();
 
-        $payments = SalesPayment::whereIn('sales_invoice_id', $invoiceIds)
-            ->where('status', 'completed')
-            ->get()
-            ->map(function ($payment) {
-                return [
-                    'date' => $payment->payment_date,
-                    'type' => 'Payment',
-                    'ref'  => $payment->reference_no ?? '-',
-                    'debit' => 0,
-                    'credit' => (float) $payment->amount,
-                ];
-            });
+    // Get all payments (both against invoices and advance)
+    $payments = SalesPayment::where(function($query) use ($id, $invoiceIds) {
+            $query->whereIn('sales_invoice_id', $invoiceIds)
+                  ->orWhere(function($q) use ($id) {
+                      $q->whereNull('sales_invoice_id')
+                        ->where('customer_id', $id);
+                  });
+        })
+        ->where('status', 'completed')
+        ->orderBy('payment_date', 'desc')
+        ->get();
 
-        $advance = SalesPayment::whereNull('sales_invoice_id')
-            ->where('status', 'completed')
-            ->where('customer_id', $id)
-            ->get()
-            ->map(function ($payment) {
-                return [
-                    'date' => $payment->payment_date,
-                    'type' => 'Advance',
-                    'ref'  => $payment->reference_no ?? 'ADV',
-                    'debit' => 0,
-                    'credit' => (float) $payment->amount,
-                ];
-            });
+    // ========== 1. LEDGER ENTRIES (For Ledger Tab) ==========
+    $ledgerEntries = collect();
 
-        $discounts = SalesInvoice::where('customer_id', $id)
-            ->where('extra_discount', '>', 0)
-            ->get()
-            ->map(function ($invoice) {
-                return [
-                    'date' => $invoice->invoice_date,
-                    'type' => 'Discount',
-                    'ref'  => $invoice->invoice_number,
-                    'debit' => 0,
-                    'credit' => (float) $invoice->extra_discount,
-                ];
-            });
+    // Add opening balance as first entry
+    $ledgerEntries->push([
+        'date' => null,
+        'voucher_type' => 'Opening Balance',
+        'voucher_no' => '-',
+        'debit' => 0,
+        'credit' => 0,
+        'balance' => (float) ($party->opening_balance ?? 0),
+        'is_opening' => true
+    ]);
 
-        $charges = SalesInvoice::where('customer_id', $id)
-            ->where('extra_charge', '>', 0)
-            ->get()
-            ->map(function ($invoice) {
-                return [
-                    'date' => $invoice->invoice_date,
-                    'type' => $invoice->charge_name ?? 'Charge',
-                    'ref'  => $invoice->invoice_number,
-                    'debit' => (float) $invoice->extra_charge,
-                    'credit' => 0,
-                ];
-            });
-
-        $ledger = collect()
-            ->merge($sales)
-            ->merge($payments)
-            ->merge($advance)
-            ->merge($discounts)
-            ->merge($charges)
-            ->sortBy('date')
-            ->values();
-
-        $balance = 0;
-        $ledger = $ledger->map(function ($row) use (&$balance) {
-            $balance += $row['debit'];
-            $balance -= $row['credit'];
-            $row['balance'] = $balance;
-            return $row;
-        });
-
-        return view('admin.parties.ledger', compact('party', 'ledger'));
+    // Add sales invoices
+    foreach ($salesInvoices as $invoice) {
+        $ledgerEntries->push([
+            'date' => $invoice->invoice_date,
+            'voucher_type' => 'Sales Invoice',
+            'voucher_no' => $invoice->invoice_number,
+            'debit' => (float) $invoice->grand_total,
+            'credit' => 0,
+            'balance' => 0, // Will calculate later
+            'reference_id' => (string) $invoice->_id,
+            'is_opening' => false
+        ]);
     }
+
+    // Add payments
+    foreach ($payments as $payment) {
+        $voucherType = $payment->sales_invoice_id ? 'Payment Received' : 'Advance Payment';
+        $voucherNo = $payment->reference_no ?? ($payment->sales_invoice_id ? 'PAY-'.substr((string)$payment->_id, -6) : 'ADV-'.substr((string)$payment->_id, -6));
+
+        $ledgerEntries->push([
+            'date' => $payment->payment_date,
+            'voucher_type' => $voucherType,
+            'voucher_no' => $voucherNo,
+            'debit' => 0,
+            'credit' => (float) $payment->amount,
+            'balance' => 0, // Will calculate later
+            'reference_id' => (string) $payment->_id,
+            'is_opening' => false
+        ]);
+    }
+
+    // Add discounts (credit notes)
+    foreach ($salesInvoices as $invoice) {
+        if ($invoice->extra_discount > 0) {
+            $ledgerEntries->push([
+                'date' => $invoice->invoice_date,
+                'voucher_type' => 'Discount',
+                'voucher_no' => $invoice->invoice_number,
+                'debit' => 0,
+                'credit' => (float) $invoice->extra_discount,
+                'balance' => 0,
+                'reference_id' => (string) $invoice->_id,
+                'is_opening' => false
+            ]);
+        }
+    }
+
+    // Add charges
+    foreach ($salesInvoices as $invoice) {
+        if ($invoice->extra_charge > 0) {
+            $ledgerEntries->push([
+                'date' => $invoice->invoice_date,
+                'voucher_type' => $invoice->charge_name ?? 'Extra Charge',
+                'voucher_no' => $invoice->invoice_number,
+                'debit' => (float) $invoice->extra_charge,
+                'credit' => 0,
+                'balance' => 0,
+                'reference_id' => (string) $invoice->_id,
+                'is_opening' => false
+            ]);
+        }
+    }
+
+    // Sort by date and calculate running balance
+    $ledgerEntries = $ledgerEntries->sortBy(function($entry) {
+        return $entry['date'] ?? now()->subYears(100); // Put opening balance first
+    })->values();
+
+    $balance = 0;
+    $ledgerEntries = $ledgerEntries->map(function($entry) use (&$balance) {
+        if ($entry['is_opening']) {
+            $balance = $entry['balance'];
+        } else {
+            $balance += $entry['debit'];
+            $balance -= $entry['credit'];
+            $entry['balance'] = $balance;
+        }
+        return $entry;
+    });
+
+    // ========== 2. TRANSACTIONS (For Transactions Tab) ==========
+    $transactions = collect();
+
+    // Add sales invoices as transactions
+    foreach ($salesInvoices as $invoice) {
+        $transactions->push([
+            'date' => $invoice->invoice_date,
+            'type' => 'Sales Invoice',
+            'type_badge' => 'sale',
+            'reference' => $invoice->invoice_number,
+            'amount' => (float) $invoice->grand_total,
+            'status' => $invoice->payment_status,
+            'status_badge' => $invoice->payment_status,
+            'details' => [
+                'subtotal' => $invoice->subtotal,
+                'discount' => $invoice->discount_total,
+                'tax' => $invoice->tax_total,
+                'items_count' => $invoice->items->count()
+            ],
+            'link' => route('admin.sales.show', $invoice->_id)
+        ]);
+    }
+
+    // Add payments as transactions
+    foreach ($payments as $payment) {
+        $type = $payment->sales_invoice_id ? 'Payment Received' : 'Advance Payment';
+        $reference = $payment->reference_no ?? ($payment->sales_invoice_id ? 'Against Invoice' : 'Advance');
+
+        $transactions->push([
+            'date' => $payment->payment_date,
+            'type' => $type,
+            'type_badge' => 'payment',
+            'reference' => $reference,
+            'amount' => (float) $payment->amount,
+            'status' => $payment->status,
+            'status_badge' => $payment->status,
+            'details' => [
+                'method' => $payment->payment_method,
+                'invoice_no' => $payment->sales_invoice_id ?
+                    ($salesInvoices->firstWhere('_id', $payment->sales_invoice_id)?->invoice_number ?? '-') : '-'
+            ]
+        ]);
+    }
+
+    // Sort transactions by date (newest first)
+    $transactions = $transactions->sortByDesc('date')->values();
+
+    // ========== 3. ITEM WISE REPORT (For Item Wise Tab) ==========
+    $itemWiseReport = collect();
+    $productSummary = [];
+
+    foreach ($salesInvoices as $invoice) {
+        foreach ($invoice->items as $item) {
+            $productId = (string) ($item->product_id ?? $item->variant_id ?? 'unknown');
+            $productName = $item->product_name ?? $item->variant_name ?? 'Unknown Product';
+            $sku = $item->sku ?? '-';
+            $hsn = $item->hsn_sac ?? '-';
+
+            if (!isset($productSummary[$productId])) {
+                $productSummary[$productId] = [
+                    'product_name' => $productName,
+                    'sku' => $sku,
+                    'hsn' => $hsn,
+                    'total_quantity' => 0,
+                    'total_amount' => 0,
+                    'invoices' => []
+                ];
+            }
+
+            $productSummary[$productId]['total_quantity'] += (float) $item->quantity;
+            $productSummary[$productId]['total_amount'] += (float) $item->total;
+            $productSummary[$productId]['invoices'][] = [
+                'invoice_no' => $invoice->invoice_number,
+                'date' => $invoice->invoice_date,
+                'quantity' => (float) $item->quantity,
+                'price' => (float) $item->price,
+                'total' => (float) $item->total
+            ];
+        }
+    }
+
+    foreach ($productSummary as $productId => $summary) {
+        $itemWiseReport->push([
+            'product_id' => $productId,
+            'product_name' => $summary['product_name'],
+            'sku' => $summary['sku'],
+            'hsn' => $summary['hsn'],
+            'total_quantity' => $summary['total_quantity'],
+            'total_amount' => $summary['total_amount'],
+            'invoices' => collect($summary['invoices'])->sortByDesc('date')->values()
+        ]);
+    }
+
+    $itemWiseReport = $itemWiseReport->sortByDesc('total_amount')->values();
+
+    // Calculate summary statistics
+    $totalSales = $salesInvoices->sum('grand_total');
+    $totalPayments = $payments->sum('amount');
+    $totalDiscounts = $salesInvoices->sum('extra_discount');
+    $totalItems = $salesInvoices->sum(function($invoice) {
+        return $invoice->items->sum('quantity');
+    });
+
+    return view('admin.parties.ledger', compact(
+        'party',
+        'ledgerEntries',
+        'transactions',
+        'itemWiseReport',
+        'salesInvoices',
+        'payments',
+        'totalSales',
+        'totalPayments',
+        'totalDiscounts',
+        'totalItems'
+    ));
+}
 }

@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\SupplierPaymentController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\SalesInvoiceController;
 use App\Http\Controllers\Admin\InvoiceSettingController;
+use App\Http\Controllers\Admin\CashMemoInvoiceSettingController;
 use App\Http\Controllers\Admin\SalesPaymentController;
 use App\Http\Controllers\Admin\SalesmanController;
 // Redirect root URL based on authentication status
@@ -160,32 +161,32 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 
 
-        // Sales
-        Route::get('/sales', [SalesInvoiceController::class, 'index'])->name('sales.index');
-        Route::get('/sales/create', [SalesInvoiceController::class, 'create'])->name('sales.create');
-        Route::post('/sales', [SalesInvoiceController::class, 'store'])->name('sales.store');
+ Route::prefix('sales')->name('sales.')->group(function () {
+        // List all invoices
+        Route::get('/', [SalesInvoiceController::class, 'index'])->name('index');
 
-        // AJAX / helper routes (ALWAYS ABOVE {id})
-        Route::get('/sales/get-main-warehouse-products', [SalesInvoiceController::class, 'getMainWarehouseProducts'])
-            ->name('sales.get-main-warehouse-products');
+        // Create new invoice (draft)
+        Route::get('/create', [SalesInvoiceController::class, 'create'])->name('create');
+        Route::post('/', [SalesInvoiceController::class, 'store'])->name('store');
 
-        // Updated routes for Party
-        Route::get('/sales/parties-list', [SalesInvoiceController::class, 'getPartiesList'])
-            ->name('sales.parties.list');
+        // AJAX / helper routes (MUST come before {id} routes)
+        Route::get('/get-main-warehouse-products', [SalesInvoiceController::class, 'getMainWarehouseProducts'])
+            ->name('get-main-warehouse-products');
+        Route::get('/parties-list', [SalesInvoiceController::class, 'getPartiesList'])
+            ->name('parties.list');
+        Route::get('/party-details/{id}', [SalesInvoiceController::class, 'getPartyDetails'])
+            ->name('get-party-details');
+        Route::post('/create-party', [SalesInvoiceController::class, 'storePartyAjax'])
+            ->name('create-party');
 
-        Route::get('/sales/party-details/{id}', [SalesInvoiceController::class, 'getPartyDetails'])
-            ->name('sales.get-party-details');
-
-        Route::post('/sales/create-party', [SalesInvoiceController::class, 'storePartyAjax'])
-            ->name('sales.create-party');
-
-        // Payment route
-        Route::post('/sales/{id}/payment', [SalesInvoiceController::class, 'createPayment'])
-            ->name('sales.create-payment');
-
-        // Dynamic routes LAST
-        Route::get('/sales/{id}', [SalesInvoiceController::class, 'show'])->name('sales.show');
-        Route::delete('/sales/{id}', [SalesInvoiceController::class, 'destroy'])->name('sales.destroy');
+        // Dynamic routes with {id} parameter (these go LAST)
+        Route::get('/{id}', [SalesInvoiceController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [SalesInvoiceController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [SalesInvoiceController::class, 'update'])->name('update');
+        Route::post('/{id}/generate', [SalesInvoiceController::class, 'generate'])->name('generate');
+        Route::post('/{id}/payment', [SalesInvoiceController::class, 'createPayment'])->name('create-payment');
+        Route::delete('/{id}', [SalesInvoiceController::class, 'destroy'])->name('destroy');
+    });
 
         // Invoice Settings Routes
         Route::get('/invoice-settings', [InvoiceSettingController::class, 'index'])
@@ -194,6 +195,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->name('invoice-settings.store');
         Route::get('/invoice-settings/get', [InvoiceSettingController::class, 'getSettings'])
             ->name('invoice-settings.get');
+
+         // Cash Memo Invoice Settings Routes
+        Route::get('/cashmemo-invoice-settings', [CashMemoInvoiceSettingController::class, 'index'])
+            ->name('cashmemo-invoice-settings.index');
+        Route::post('/cashmemo-invoice-settings', [CashMemoInvoiceSettingController::class, 'store'])
+        ->name('cashmemo-invoice-settings.store');
+        Route::get('/cashmemo-invoice-settings/get', [CashMemoInvoiceSettingController::class, 'getSettings'])
+            ->name('cashmemo-invoice-settings.get');
+
 
          // Payment In Routes
         Route::get('/payments', [SalesPaymentController::class, 'index'])
@@ -238,6 +248,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/party-counts', [SalesmanController::class, 'getPartyCounts'])->name('party-counts');
             Route::get('/{id}/parties', [SalesmanController::class, 'getAssignedParties'])->name('assigned-parties');
         });
+
+
+// Payment In Routes
+Route::prefix('payment-in')->name('payment-in.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Admin\PaymentInController::class, 'index'])->name('index');
+    Route::get('/create', [App\Http\Controllers\Admin\PaymentInController::class, 'create'])->name('create');
+    Route::get('/search-parties', [App\Http\Controllers\Admin\PaymentInController::class, 'searchParties'])->name('search-parties');
+    Route::get('/get-party-details', [App\Http\Controllers\Admin\PaymentInController::class, 'getPartyDetails'])->name('get-party-details');
+    Route::get('/search-invoice', [App\Http\Controllers\Admin\PaymentInController::class, 'searchInvoice'])->name('search-invoice');
+    Route::post('/', [App\Http\Controllers\Admin\PaymentInController::class, 'store'])->name('store');
+    Route::get('/{id}', [App\Http\Controllers\Admin\PaymentInController::class, 'show'])->name('show');
+});
 
 
     });

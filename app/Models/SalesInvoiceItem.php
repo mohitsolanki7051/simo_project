@@ -20,7 +20,7 @@ class SalesInvoiceItem extends Model
         'variant_name',
         'sku',
         'barcode',
-        'hsn_sac',
+        'hsn_sac', // Will be empty/null for cash memo
 
         'quantity',
         'unit',
@@ -28,11 +28,11 @@ class SalesInvoiceItem extends Model
         'mrp_price',
         'price',
         'discount',
-        'tax_percent',
-        'tax_amount',
-        'cgst_amount',      // New - CGST portion
-        'sgst_amount',      // New - SGST portion
-        'igst_amount',      // New - IGST portion
+        'tax_percent', // Will be 0 for cash memo
+        'tax_amount', // Will be 0 for cash memo
+        'cgst_amount',
+        'sgst_amount',
+        'igst_amount',
         'total',
 
         'warranty_type',

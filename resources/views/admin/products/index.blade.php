@@ -280,7 +280,7 @@
                                step="0.01"
                                name="dealer_percentage"
                                class="form-input"
-                               value="{{ $pricing->dealer_percentage ?? 50 }}"
+                               value="{{ old('dealer_percentage', $pricing->dealer_percentage ?? '') }}"
                                min="0"
                                max="100"
                                required>
@@ -298,7 +298,7 @@
                                step="0.01"
                                name="distributor_percentage"
                                class="form-input"
-                               value="{{ $pricing->distributor_percentage ?? 60 }}"
+                               value="{{ old('distributor_percentage', $pricing->distributor_percentage ?? '') }}"
                                min="0"
                                max="100"
                                required>
@@ -310,11 +310,11 @@
                     <div class="preview-title">Preview Calculation</div>
                     <div class="preview-row">
                         <span class="preview-label">Dealer Price =</span>
-                        <span class="preview-value">MRP × <span id="dealerPreview">{{ $pricing->dealer_percentage ?? 50 }}</span>%</span>
+                        <span class="preview-value">MRP × <span id="dealerPreview">{{ $pricing->dealer_percentage ?? '—' }}</span>%</span>
                     </div>
                     <div class="preview-row">
                         <span class="preview-label">Distributor Price =</span>
-                        <span class="preview-value">MRP × <span id="distributorPreview">{{ $pricing->distributor_percentage ?? 60 }}</span>%</span>
+                        <span class="preview-value">MRP × <span id="distributorPreview">{{ $pricing->distributor_percentage ?? '—' }}</span>%</span>
                     </div>
                 </div>
             </div>
@@ -1593,6 +1593,16 @@
     // Modal Functions
     function openPricingModal() {
         document.getElementById('pricingModal').style.display = 'flex';
+
+        const dealerInput = document.querySelector('input[name="dealer_percentage"]');
+        const distributorInput = document.querySelector('input[name="distributor_percentage"]');
+
+        if (!dealerInput.value) {
+            document.getElementById('dealerPreview').textContent = '—';
+        }
+        if (!distributorInput.value) {
+            document.getElementById('distributorPreview').textContent = '—';
+        }
     }
 
     function closePricingModal() {

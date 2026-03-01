@@ -286,8 +286,8 @@ class ProductController extends Controller
             ========================== */
             $pricing = PricingSetting::first();
 
-            $dealerPercentage = $pricing ? $pricing->dealer_percentage : 0;
-            $distributorPercentage = $pricing ? $pricing->distributor_percentage : 0;
+            $dealerPercentage = $pricing->dealer_percentage ?? 0;
+            $distributorPercentage = $pricing->distributor_percentage ?? 0;
 
             $dealerPrice = $request->mrp_price - ($request->mrp_price * $dealerPercentage / 100);
             $distributorPrice = $request->mrp_price - ($request->mrp_price * $distributorPercentage / 100);
@@ -439,8 +439,8 @@ class ProductController extends Controller
             ========================= */
             $variantsArray = [];
             $pricing = PricingSetting::first();
-            $dealerPercentage = $pricing ? $pricing->dealer_percentage : 0;
-            $distributorPercentage = $pricing ? $pricing->distributor_percentage : 0;
+            $dealerPercentage = $pricing->dealer_percentage ?? 0;
+            $distributorPercentage = $pricing->distributor_percentage ?? 0;
 
             foreach ($request->variants as $i => $variantData) {
                 $variantId = new ObjectId(); // REAL VARIANT ID
@@ -930,8 +930,8 @@ public function updateprice(Request $request)
             // ✅ CRITICAL FIX: Prepare variants array properly
             $updatedVariants = [];
             $pricing = PricingSetting::first();
-           $dealerPercentage = $pricing ? $pricing->dealer_percentage : 0;
-            $distributorPercentage = $pricing ? $pricing->distributor_percentage : 0;
+            $dealerPercentage = $pricing->dealer_percentage ?? 0;
+            $distributorPercentage = $pricing->distributor_percentage ?? 0;
 
             if ($request->has('variants') && is_array($request->variants)) {
                 foreach ($request->variants as $index => $variantData) {

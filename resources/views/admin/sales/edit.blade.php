@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Create Sales Invoice - Admin Panel')
-@section('header-title', 'Create Sales Invoice')
+@section('title', 'Edit Sales Invoice - Admin Panel')
+@section('header-title', 'Edit Sales Invoice #' . $invoice->invoice_number)
 
 @section('content')
 <div class="products-container">
@@ -11,25 +11,30 @@
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
-            <h2 class="page-title">Create Sales Invoice</h2>
+            <h2 class="page-title">Edit Sales Invoice</h2>
+            <span style="background: #f3f4f6; color: #374151; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-left: 8px;">
+                DRAFT
+            </span>
         </div>
         <div class="header-right">
-            <a href="{{ route('admin.sales.index') }}" class="btn-small btn-secondary">
-                ← Back to Sales
+            <a href="{{ route('admin.sales.show', $invoice->_id) }}" class="btn-small btn-secondary">
+                ← Back to Invoice
             </a>
         </div>
     </div>
 
     <!-- Invoice Form -->
     <div class="invoice-form-wrapper">
-        <form id="salesInvoiceForm" class="invoice-form">
+        <form id="salesInvoiceForm" class="invoice-form" data-invoice-id="{{ $invoice->_id }}">
             @csrf
-            <input type="hidden" name="invoice_number" value="{{ $invoiceNumber }}">
-            <input type="hidden" name="warehouse_id" value="{{ $mainWarehouse->_id }}">
-            <input type="hidden" name="tax_amount" id="taxAmountInput" value="0">
-            <input type="hidden" name="discount_amount" id="discountAmountInput" value="0">
-            <input type="hidden" id="extraDiscountTypeInput" name="extra_discount_type" value="amount">
-            <input type="hidden" name="salesman_id" id="salesmanIdInput">
+            @method('PUT')
+            <input type="hidden" name="invoice_number" value="{{ $invoice->invoice_number }}">
+            <input type="hidden" name="warehouse_id" value="{{ $invoice->warehouse_id ?? $mainWarehouse->_id }}">
+            <input type="hidden" name="tax_amount" id="taxAmountInput" value="{{ $invoice->tax_total }}">
+            <input type="hidden" name="discount_amount" id="discountAmountInput" value="{{ $invoice->discount_total }}">
+            <input type="hidden" id="extraDiscountTypeInput" name="extra_discount_type" value="{{ $invoice->extra_discount_type ?? 'amount' }}">
+            <input type="hidden" name="salesman_id" id="salesmanIdInput" value="{{ $invoice->salesman_id }}">
+            <input type="hidden" name="invoice_type" id="invoiceTypeHidden" value="{{ $invoice->invoice_type }}">
 
             <div class="form-row">
                 <div class="form-col-main">
@@ -42,20 +47,22 @@
                                         <div class="section-icon">👤</div>
                                         <div class="section-title">
                                             <h3>Bill To</h3>
-                                            <p>Select party and address details</p>
+                                            <p>Party and address details</p>
                                         </div>
                                     </div>
                                     <button type="button" class="btn-select-customer" id="selectPartyBtn" onclick="openSelectPartyModal()">
                                         <span class="btn-icon">👤</span>
-                                        Select Party
+                                        Change Party
                                     </button>
                                 </div>
 
                                 <div class="section-body">
-                                    <div id="selectedPartyDetails" class="selected-customer-details" style="display: none;">
+                                    <div id="selectedPartyDetails" class="selected-customer-details">
                                         <div class="customer-header">
-                                            <h4 id="partyNameDisplay">Party Name</h4>
-                                            <span id="partyTypeBadge" class="party-type-badge"></span>
+                                            <h4 id="partyNameDisplay">{{ optional($invoice->party)->name ?? 'Party Name' }}</h4>
+                                            <span id="partyTypeBadge" class="party-type-badge {{ optional($invoice->party)->party_type ?? '' }}">
+                                                {{ ucfirst(optional($invoice->party)->party_type ?? 'customer') }}
+                                            </span>
                                             <button type="button" class="btn-change-customer" onclick="openSelectPartyModal()">
                                                 Change
                                             </button>
@@ -65,31 +72,31 @@
                                             <div class="info-column">
                                                 <div class="info-row">
                                                     <span class="info-label">Phone:</span>
-                                                    <span id="partyPhone" class="info-value">-</span>
+                                                    <span id="partyPhone" class="info-value">{{ optional($invoice->party)->phone ?? '-' }}</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">Email:</span>
-                                                    <span id="partyEmail" class="info-value">-</span>
+                                                    <span id="partyEmail" class="info-value">{{ optional($invoice->party)->email ?? '-' }}</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">GST:</span>
-                                                    <span id="partyGst" class="info-value">-</span>
+                                                    <span id="partyGst" class="info-value">{{ optional($invoice->party)->gst_number ?? '-' }}</span>
                                                 </div>
                                             </div>
                                             <div class="info-column">
                                                 <div class="info-row">
                                                     <span class="info-label">Opening Bal:</span>
-                                                    <span id="partyOpeningBalance" class="info-value">-</span>
+                                                    <span id="partyOpeningBalance" class="info-value">{{ optional($invoice->party)->opening_balance ? '₹ '.number_format($invoice->party->opening_balance, 2) : '₹ 0.00' }}</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">Credit Limit:</span>
-                                                    <span id="partyCreditLimit" class="info-value">-</span>
+                                                    <span id="partyCreditLimit" class="info-value">{{ optional($invoice->party)->credit_limit ? '₹ '.number_format($invoice->party->credit_limit, 2) : 'No Limit' }}</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <input type="hidden" name="party_id" id="partyIdInput">
-                                        <input type="hidden" name="party_type" id="partyTypeInput">
+                                        <input type="hidden" name="party_id" id="partyIdInput" value="{{ $invoice->party_id }}">
+                                        <input type="hidden" name="party_type" id="partyTypeInput" value="{{ optional($invoice->party)->party_type ?? 'customer' }}">
 
                                         <div class="address-section">
                                             <div class="address-header">
@@ -102,9 +109,9 @@
                                                         <span class="address-type">Billing Address</span>
                                                     </div>
                                                     <div class="address-content">
-                                                        <p id="billingAddressText">Select a party to view address</p>
+                                                        <p id="billingAddressText">{{ $invoice->billing_address ?: 'No billing address' }}</p>
                                                     </div>
-                                                    <input type="hidden" name="billing_address" id="billingAddressInput">
+                                                    <input type="hidden" name="billing_address" id="billingAddressInput" value="{{ $invoice->billing_address }}">
                                                 </div>
 
                                                 <div class="address-card">
@@ -112,9 +119,9 @@
                                                         <span class="address-type">Shipping Address</span>
                                                     </div>
                                                     <div class="address-content">
-                                                        <p id="shippingAddressText">Select a party to view address</p>
+                                                        <p id="shippingAddressText">{{ $invoice->shipping_address ?: 'Same as billing' }}</p>
                                                     </div>
-                                                    <input type="hidden" name="shipping_address" id="shippingAddressInput">
+                                                    <input type="hidden" name="shipping_address" id="shippingAddressInput" value="{{ $invoice->shipping_address }}">
                                                 </div>
                                             </div>
                                         </div>
@@ -139,54 +146,68 @@
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">Sales Invoice No.</label>
-                                            <input type="text" class="form-control" value="{{ $invoiceNumber }}" readonly tabindex="-1">
+                                            <input type="text" class="form-control" value="{{ $invoice->invoice_number }}" readonly tabindex="-1">
                                         </div>
 
                                         <div class="form-group col-6">
                                             <label class="form-label required">Invoice Date</label>
-                                            <input type="date" name="invoice_date" id="invoiceDate" class="form-control" value="{{ date('Y-m-d') }}" required onchange="updateDueDateFromTerms()">
+                                            <input type="date" name="invoice_date" id="invoiceDate" class="form-control" value="{{ $invoice->invoice_date->format('Y-m-d') }}" required onchange="updateDueDateFromTerms()">
                                         </div>
                                     </div>
-
-
 
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">Payment Terms</label>
                                             <div class="payment-terms-days">
-                                                <input type="number" name="payment_terms_days" id="paymentTermsDays" class="form-control" placeholder="0" min="0" step="1" onchange="updateDueDateFromTerms()">
+                                                @php
+                                                    $termsDays = 0;
+                                                    if ($invoice->due_date && $invoice->invoice_date) {
+                                                        $start = \Carbon\Carbon::parse($invoice->invoice_date);
+                                                        $end = \Carbon\Carbon::parse($invoice->due_date);
+                                                        $termsDays = $start->diffInDays($end);
+                                                    }
+                                                @endphp
+                                                <input type="number" name="payment_terms_days" id="paymentTermsDays" class="form-control" placeholder="0" min="0" step="1" value="{{ $termsDays }}" onchange="updateDueDateFromTerms()">
                                                 <span>days</span>
-                                                <input type="hidden" name="payment_terms" id="paymentTermsInput">
+                                                <input type="hidden" name="payment_terms" id="paymentTermsInput" value="{{ $invoice->payment_terms }}">
                                             </div>
                                         </div>
 
                                         <div class="form-group col-6">
                                             <label class="form-label">Due Date</label>
-                                            <input type="date" name="due_date" id="dueDate" class="form-control" onchange="updatePaymentTermsFromDueDate()">
+                                            <input type="date" name="due_date" id="dueDate" class="form-control" value="{{ $invoice->due_date ? $invoice->due_date->format('Y-m-d') : '' }}" onchange="updatePaymentTermsFromDueDate()">
                                         </div>
                                     </div>
+
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">PO Number</label>
-                                            <input type="text" name="po_number" class="form-control" placeholder="Optional">
+                                            <input type="text" name="po_number" class="form-control" placeholder="Optional" value="{{ $invoice->po_number }}">
                                         </div>
                                         <div class="form-group col-6">
                                             <label class="form-label">Assigned Salesman</label>
                                             <div class="salesman-display" id="salesmanNameDisplay">
-                                                —
+                                                {{ optional($invoice->salesman)->name ?? '—' }}
                                             </div>
                                         </div>
                                     </div>
-                                      <!-- New Invoice Type Dropdown -->
+
+                                    <!-- Invoice Type Display (Read-only) - NO DROPDOWN -->
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label required">Invoice Type</label>
-                                            <select name="invoice_type" id="invoiceType" class="form-control" required onchange="handleInvoiceTypeChange()">
-                                                <option value="">Select Invoice Type</option>
-                                                <option value="gst" selected>GST Invoice</option>
-                                                <option value="cash">Cash Memo</option>
-                                            </select>
-                                            <small id="invoiceTypeHelp" class="form-text text-muted" style="font-size: 10px; margin-top: 3px;">GST Invoice includes HSN code and tax calculations</small>
+                                            <div class="form-control" style="background: #f5f5f5; padding: 6px 10px; border: 1px solid #ddd; border-radius: 3px;">
+                                                @if($invoice->invoice_type == 'gst')
+                                                    <span>GST Invoice</span>
+                                                    <small style="color: #666; margin-left: 8px;">(HSN code and tax calculations included)</small>
+                                                @else
+                                                    <span>Cash Memo</span>
+                                                    <small style="color: #666; margin-left: 8px;">(No HSN code or GST tax calculations)</small>
+                                                @endif
+                                            </div>
+                                            <small class="form-text text-muted" style="font-size: 10px; margin-top: 3px; color: #dc3545;">
+                                                ⚠️ Invoice type cannot be changed
+                                            </small>
                                         </div>
                                     </div>
                                 </div>
@@ -204,41 +225,41 @@
                                     <p>Add products to invoice</p>
                                 </div>
                             </div>
-                            <button type="button" class="btn-add-item" id="addItemBtn" onclick="openAddItemModal()" disabled style="opacity: 0.5; cursor: not-allowed;">
+                            <button type="button" class="btn-add-item" id="addItemBtn" onclick="openAddItemModal()">
                                 + Add Item
                             </button>
                         </div>
 
                         <div class="section-body">
-                            <div class="items-table-container">
+                            <div class="items-table-container {{ $invoice->invoice_type == 'gst' ? 'gst-mode' : 'cash-mode' }}" id="itemsTableContainer">
                                 <table class="items-table" id="mainItemsTable">
                                     <thead>
                                         <tr id="itemsHeaderRow">
                                             <th class="th-item">Item</th>
-                                            <th class="th-hsn" id="hsnHeader">HSN/SAC</th>
+                                            <th class="th-hsn" id="hsnHeader" {{ $invoice->invoice_type != 'gst' ? 'style=display:none;' : '' }}>HSN/SAC</th>
                                             <th class="th-unit">Unit</th>
                                             <th class="th-qtys">Qty</th>
                                             <th class="th-warranty">Warranty</th>
                                             <th class="th-mrp">MRP (₹)</th>
                                             <th class="th-discount">Disc %</th>
                                             <th class="th-sale-price" id="priceColumnHeader">Sale Price (₹)</th>
-                                            <th class="th-tax" id="taxHeader">Tax %</th>
+                                            <th class="th-tax" id="taxHeader" {{ $invoice->invoice_type != 'gst' ? 'style=display:none;' : '' }}>Tax %</th>
                                             <th class="th-amount">Final Amt (₹)</th>
                                             <th class="th-action">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="itemsTableBody">
                                     </tbody>
-                                    <tfoot id="itemsTableFooter" style="background-color: #f0f0f0; font-weight: 600; border-top: 2px solid #333;">
+                                    <tfoot id="itemsTableFooter" style="background-color: #f0f0f0; font-weight: 600; border-top: 2px solid #333; {{ count($invoice->items) == 0 ? 'display: none;' : '' }}">
                                         <tr>
-                                            <td colspan="5" style="text-align: right; padding: 10px; font-size: 12px;">
+                                            <td colspan="{{ $invoice->invoice_type == 'gst' ? '5' : '4' }}" style="text-align: right; padding: 10px; font-size: 12px;">
                                                 <strong>SUBTOTAL:</strong>
                                             </td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerMRP">₹ 0.00</td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerDiscount">₹ 0.00</td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerSalePrice">₹ 0.00</td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerTax">₹ 0.00</td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerFinalAmount">₹ 0.00</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerMRP">₹ {{ number_format($invoice->total_mrp, 2) }}</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerDiscount">₹ {{ number_format($invoice->discount_total, 2) }}</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerSalePrice">₹ {{ number_format($invoice->subtotal, 2) }}</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px; {{ $invoice->invoice_type != 'gst' ? 'display: none;' : '' }}" id="footerTax">₹ {{ number_format($invoice->tax_total, 2) }}</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerFinalAmount">₹ {{ number_format($invoice->grand_total - ($invoice->extra_charge ?? 0) + ($invoice->extra_discount ?? 0), 2) }}</td>
                                             <td style="padding: 10px;"></td>
                                         </tr>
                                     </tfoot>
@@ -263,13 +284,13 @@
                                             <!-- Total MRP -->
                                             <div class="summary-row">
                                                 <span class="summary-label">Total MRP</span>
-                                                <span class="summary-value">₹ <span id="totalMRP">0.00</span></span>
+                                                <span class="summary-value">₹ <span id="totalMRP">{{ number_format($invoice->total_mrp, 2) }}</span></span>
                                             </div>
 
                                             <!-- Total Discount -->
                                             <div class="summary-row">
                                                 <span class="summary-label">Total Discount</span>
-                                                <span class="summary-value">- ₹ <span id="totalDiscount">0.00</span></span>
+                                                <span class="summary-value">- ₹ <span id="totalDiscount">{{ number_format($invoice->discount_total, 2) }}</span></span>
                                             </div>
 
                                             <!-- Divider before Subtotal -->
@@ -278,36 +299,36 @@
                                             <!-- SUBTOTAL (WITHOUT TAX) -->
                                             <div class="summary-row">
                                                 <span class="summary-label" style="font-weight: 600;">Subtotal</span>
-                                                <span class="summary-value">₹ <span id="subtotal">0.00</span></span>
+                                                <span class="summary-value">₹ <span id="subtotal">{{ number_format($invoice->subtotal, 2) }}</span></span>
                                             </div>
 
                                             <!-- TAX BREAKUP - Only for GST Invoice -->
-                                            <div id="taxBreakupContainer" style="display: none;">
+                                            <div id="taxBreakupContainer" style="display: {{ $invoice->invoice_type == 'gst' ? 'block' : 'none' }};">
                                                 <!-- Intra-state tax breakup (CGST + SGST) -->
-                                                <div id="intraStateTax" style="display: none;">
+                                                <div id="intraStateTax" style="display: {{ $invoice->tax_type === 'intra' ? 'block' : 'none' }};">
                                                     <div class="summary-row">
                                                         <span class="summary-label">CGST</span>
-                                                        <span class="summary-value">+ ₹ <span id="cgstTotal">0.00</span></span>
+                                                        <span class="summary-value">+ ₹ <span id="cgstTotal">{{ number_format($invoice->cgst_total, 2) }}</span></span>
                                                     </div>
                                                     <div class="summary-row">
                                                         <span class="summary-label">SGST</span>
-                                                        <span class="summary-value">+ ₹ <span id="sgstTotal">0.00</span></span>
+                                                        <span class="summary-value">+ ₹ <span id="sgstTotal">{{ number_format($invoice->sgst_total, 2) }}</span></span>
                                                     </div>
                                                 </div>
 
                                                 <!-- Inter-state tax breakup (IGST) -->
-                                                <div id="interStateTax" style="display: none;">
+                                                <div id="interStateTax" style="display: {{ $invoice->tax_type === 'inter' ? 'block' : 'none' }};">
                                                     <div class="summary-row">
                                                         <span class="summary-label">IGST</span>
-                                                        <span class="summary-value">+ ₹ <span id="igstTotal">0.00</span></span>
+                                                        <span class="summary-value">+ ₹ <span id="igstTotal">{{ number_format($invoice->igst_total, 2) }}</span></span>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <!-- TOTAL TAX (for reference) - Only for GST Invoice -->
-                                            <div class="summary-row" id="totalTaxRow" style="border-top: 1px dashed #ddd; padding-top: 5px; display: none;">
+                                            <div class="summary-row" id="totalTaxRow" style="border-top: 1px dashed #ddd; padding-top: 5px; display: {{ $invoice->invoice_type == 'gst' ? 'flex' : 'none' }};">
                                                 <span class="summary-label">Total Tax</span>
-                                                <span class="summary-value">+ ₹ <span id="totalTax">0.00</span></span>
+                                                <span class="summary-value">+ ₹ <span id="totalTax">{{ number_format($invoice->tax_total, 2) }}</span></span>
                                             </div>
 
                                             <!-- Divider before additional charges -->
@@ -319,8 +340,8 @@
                                                     <a href="javascript:void(0)" id="addDiscountLink" onclick="toggleExtraDiscount()">+ Add Discount</a>
                                                 </span>
                                             </div>
-                                            <div id="extraDiscountRow" style="display:none;" class="summary-row">
-                                                <input type="number" id="extraDiscount" placeholder="Enter discount amount" step="0.01" oninput="calculateTotals()" class="summary-input">
+                                            <div id="extraDiscountRow" style="display: {{ $invoice->extra_discount > 0 && $invoice->extra_discount_type == 'amount' ? 'flex' : 'none' }};" class="summary-row">
+                                                <input type="number" id="extraDiscount" placeholder="Enter discount amount" step="0.01" value="{{ $invoice->extra_discount_type == 'amount' ? $invoice->extra_discount : '' }}" oninput="calculateTotals()" class="summary-input">
                                             </div>
 
                                             <!-- Add Discount % Link -->
@@ -329,8 +350,8 @@
                                                     <a href="javascript:void(0)" id="addDiscountPercentLink" onclick="toggleExtraDiscountPercent()">+ Add Discount %</a>
                                                 </span>
                                             </div>
-                                            <div id="extraDiscountPercentRow" style="display:none;" class="summary-row">
-                                                <input type="number" id="extraDiscountPercent" placeholder="Enter discount %" step="0.01" oninput="calculateTotals()" class="summary-input">
+                                            <div id="extraDiscountPercentRow" style="display: {{ $invoice->extra_discount > 0 && $invoice->extra_discount_type == 'percent' ? 'flex' : 'none' }};" class="summary-row">
+                                                <input type="number" id="extraDiscountPercent" placeholder="Enter discount %" step="0.01" value="{{ $invoice->extra_discount_type == 'percent' ? $invoice->extra_discount : '' }}" oninput="calculateTotals()" class="summary-input">
                                             </div>
 
                                             <!-- Add Another Charge Link -->
@@ -339,15 +360,15 @@
                                                     <a href="javascript:void(0)" id="addChargeLink" onclick="toggleExtraCharge()">+ Add Another Charge</a>
                                                 </span>
                                             </div>
-                                            <div id="extraChargeRow" style="display:none;" class="summary-row">
-                                                <input type="text" placeholder="Charge Name" id="chargeName" class="summary-input">
-                                                <input type="number" placeholder="₹" id="extraCharge" oninput="calculateTotals()" class="summary-input-small">
+                                            <div id="extraChargeRow" style="display: {{ $invoice->extra_charge > 0 ? 'flex' : 'none' }};" class="summary-row">
+                                                <input type="text" placeholder="Charge Name" id="chargeName" value="{{ $invoice->charge_name }}" class="summary-input">
+                                                <input type="number" placeholder="₹" id="extraCharge" value="{{ $invoice->extra_charge }}" oninput="calculateTotals()" class="summary-input-small">
                                             </div>
 
                                             <!-- Auto Round Off Checkbox -->
                                             <div class="summary-row">
                                                 <label>
-                                                    <input type="checkbox" id="autoRoundOff" onchange="calculateTotals()">
+                                                    <input type="checkbox" id="autoRoundOff" onchange="calculateTotals()" {{ $invoice->round_off != 0 ? 'checked' : '' }}>
                                                     Auto Round Off
                                                 </label>
                                             </div>
@@ -355,7 +376,7 @@
                                             <!-- Grand Total (Final) -->
                                             <div class="summary-row total-row">
                                                 <span class="summary-label">Grand Total</span>
-                                                <span class="summary-value">₹ <span id="grandTotal">0.00</span></span>
+                                                <span class="summary-value">₹ <span id="grandTotal">{{ number_format($invoice->grand_total, 2) }}</span></span>
                                             </div>
                                         </div>
                                     </div>
@@ -370,19 +391,19 @@
                                             <label class="form-label">Payment Method</label>
                                             <div class="select-wrapper">
                                                 <select name="payment_method" class="form-control">
-                                                    <option value="cash">Cash</option>
-                                                    <option value="bank_transfer">Bank Transfer</option>
-                                                    <option value="cheque">Cheque</option>
-                                                    <option value="card">Card</option>
-                                                    <option value="upi">UPI</option>
-                                                    <option value="credit">Credit</option>
+                                                    <option value="cash" {{ $invoice->payment_method == 'cash' ? 'selected' : '' }}>Cash</option>
+                                                    <option value="bank_transfer" {{ $invoice->payment_method == 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                                                    <option value="cheque" {{ $invoice->payment_method == 'cheque' ? 'selected' : '' }}>Cheque</option>
+                                                    <option value="card" {{ $invoice->payment_method == 'card' ? 'selected' : '' }}>Card</option>
+                                                    <option value="upi" {{ $invoice->payment_method == 'upi' ? 'selected' : '' }}>UPI</option>
+                                                    <option value="credit" {{ $invoice->payment_method == 'credit' ? 'selected' : '' }}>Credit</option>
                                                 </select>
                                             </div>
                                         </div>
 
                                         <div class="form-group">
                                             <label class="form-label">Amount Paid</label>
-                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" step="0.01" min="0" oninput="calculateBalance()">
+                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" step="0.01" min="0" value="{{ $invoice->total_paid }}" oninput="calculateBalance()">
                                         </div>
                                         <div class="form-group">
                                             <button type="button" onclick="markFullyPaid()" class="btn-mark-paid" style="width:auto; padding:4px 8px; font-size:10px;">
@@ -393,7 +414,7 @@
                                         <div class="form-group">
                                             <label class="form-label">Balance Amount</label>
                                             <div class="balance-amount">
-                                                ₹ <span id="balanceAmount">0.00</span>
+                                                ₹ <span id="balanceAmount">{{ number_format($invoice->balance_amount, 2) }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -406,15 +427,15 @@
                     <div class="form-row" style="margin-top: 10px;">
                         <div class="form-group col-12">
                             <label class="form-label">Notes</label>
-                            <textarea name="notes" class="form-control" rows="2" placeholder="Add any notes or remarks..."></textarea>
+                            <textarea name="notes" class="form-control" rows="2">{{ $invoice->notes }}</textarea>
                         </div>
                     </div>
 
-                    <!-- Submit Button -->
+                    <!-- Submit Buttons - Same style as create -->
                     <div style="display:flex; justify-content:flex-end;">
                         <button type="submit" class="btn-submit-invoice">
                             <span class="btn-icon">💾</span>
-                            Save Sales Invoice
+                            Update Draft Invoice
                         </button>
                     </div>
                 </div>
@@ -725,6 +746,8 @@
 
 @push('styles')
 <style>
+/* [KEEP ALL YOUR EXISTING CSS - Copy from create version] */
+/* Additional CSS for disabled extra fields links */
 
 .disabled-link {
     pointer-events: none !important;
@@ -1114,7 +1137,11 @@
     color: #218838;
 }
 
-
+/* Party type text - no colors */
+.parties-table .party-type {
+    font-size: 10px;
+    color: #333;
+}
 /* Terms box */
 .terms-box {
     background: #f1f3f5;
@@ -1319,8 +1346,7 @@
     transition: background-color 0.2s;
 }
 
-/* Column widths */
-/* Column widths - flexible, no fixed px so table reflows when columns are hidden */
+/* Column widths - flexible like create version */
 .th-item { min-width: 140px; text-align: left !important; }
 .th-hsn { width: 75px; min-width: 70px; }
 .th-qtys { width: 65px; min-width: 55px; }
@@ -2391,42 +2417,38 @@
 
 @push('scripts')
 <script>
-// ===================== SALES INVOICE CREATE - PARTY VERSION =====================
+// ===================== EDIT INVOICE JAVASCRIPT =====================
 
-let items = [];
-let currentPartyType = 'all';
-let cgstTotal = 0;
-let sgstTotal = 0;
-let igstTotal = 0;
-let currentTaxType = 'intra';
+let items = {!! json_encode($invoice->items->map(function($item) {
+    return [
+        'product_id' => $item->product_id,
+        'variant_id' => $item->variant_id,
+        'product_type' => $item->variant_id ? 'variant' : 'simple',
+        'name' => $item->product_name . ($item->variant_name ? ' - ' . $item->variant_name : ''),
+        'sku' => $item->sku,
+        'hsn_sac' => $item->hsn_sac,
+        'mrp_price' => (float)$item->mrp_price,
+        'price' => (float)$item->price,
+        'quantity' => (float)$item->quantity,
+        'discount' => (float)$item->discount,
+        'tax_percent' => (float)$item->tax_percent,
+        'unit' => $item->unit,
+        'warranty_type' => $item->warranty_type,
+        'warranty_period' => (int)$item->warranty_period,
+    ];
+})->values()) !!};
+
+let currentPartyType = '{{ optional($invoice->party)->party_type ?? 'customer' }}';
+let cgstTotal = {{ $invoice->cgst_total ?? 0 }};
+let sgstTotal = {{ $invoice->sgst_total ?? 0 }};
+let igstTotal = {{ $invoice->igst_total ?? 0 }};
+let currentTaxType = '{{ $invoice->tax_type ?? 'intra' }}';
 let isSubmitting = false;
-let currentInvoiceType = 'gst'; // Default to GST Invoice
+let currentInvoiceType = '{{ $invoice->invoice_type ?? 'gst' }}';
 
 // ===================== INVOICE TYPE FUNCTIONS =====================
 
-function handleInvoiceTypeChange() {
-    const invoiceType = $('#invoiceType').val();
-    currentInvoiceType = invoiceType;
-
-    // Update hint text
-    const helpElement = $('#invoiceTypeHelp');
-    if (invoiceType === 'gst') {
-        helpElement.text('GST Invoice includes HSN code and tax calculations');
-        showGSTInvoiceFields();
-    } else if (invoiceType === 'cash') {
-        helpElement.text('Cash Memo - No HSN code or GST tax calculations');
-        showCashMemoFields();
-    } else {
-        helpElement.text('Select invoice type to continue');
-    }
-
-    // Clear items when invoice type changes
-    items = [];
-    renderItemsTable();
-
-    // Update Add Item button state (requires party and invoice type)
-    updateAddItemButtonState();
-}
+// No handleInvoiceTypeChange function needed - invoice type is read-only
 
 function showGSTInvoiceFields() {
     // Switch container class for responsive width
@@ -2440,6 +2462,12 @@ function showGSTInvoiceFields() {
     // Show tax breakup in summary
     $('#taxBreakupContainer').show();
     $('#totalTaxRow').show();
+
+    // Show footer tax column
+    $('#footerTax').show();
+
+    // Update footer colspan
+    $('#itemsTableFooter tr td:first-child').attr('colspan', '5');
 
     if (items.length > 0) {
         renderItemsTable();
@@ -2458,6 +2486,12 @@ function showCashMemoFields() {
     // Hide tax breakup in summary
     $('#taxBreakupContainer').hide();
     $('#totalTaxRow').hide();
+
+    // Hide footer tax column
+    $('#footerTax').hide();
+
+    // Update footer colspan
+    $('#itemsTableFooter tr td:first-child').attr('colspan', '4');
 
     // Reset tax values
     cgstTotal = 0;
@@ -2541,22 +2575,6 @@ function loadParties(search = '') {
 
 // ===================== TAX BREAKUP FUNCTIONS =====================
 
-function updateTaxBreakup(warehouseState, partyState) {
-    if (!warehouseState || !partyState) {
-        showIntraStateTax();
-        return;
-    }
-
-    const cleanWarehouseState = warehouseState.toString().trim().toLowerCase();
-    const cleanPartyState = partyState.toString().trim().toLowerCase();
-
-    if (cleanWarehouseState === cleanPartyState) {
-        showIntraStateTax();
-    } else {
-        showInterStateTax();
-    }
-}
-
 function showIntraStateTax() {
     $('#intraStateTax').show();
     $('#interStateTax').hide();
@@ -2616,10 +2634,9 @@ function getCurrentPartyType() {
 
 function updateAddItemButtonState() {
     const partyType = getCurrentPartyType();
-    const invoiceType = $('#invoiceType').val();
     const addItemBtn = $('#addItemBtn');
 
-    if (partyType && invoiceType) {
+    if (partyType) {
         addItemBtn.prop('disabled', false);
         addItemBtn.css('opacity', '1');
         addItemBtn.css('cursor', 'pointer');
@@ -2666,15 +2683,9 @@ function calculateDiscountPercentage(mrp, price) {
 
 function openAddItemModal() {
     const partyType = getCurrentPartyType();
-    const invoiceType = $('#invoiceType').val();
 
     if (!partyType) {
         showAlert('Please select a party first', 'error');
-        return;
-    }
-
-    if (!invoiceType) {
-        showAlert('Please select invoice type (GST Invoice or Cash Memo)', 'error');
         return;
     }
 
@@ -2797,12 +2808,12 @@ function addSelectedProducts() {
             product_type: input.data('type'),
             name: input.data('name'),
             sku: input.data('sku'),
-            hsn_sac: currentInvoiceType === 'gst' ? input.data('hsn') : '', // Clear HSN for cash memo
+            hsn_sac: currentInvoiceType === 'gst' ? input.data('hsn') : '',
             mrp_price: mrpPrice,
             price: price,
             quantity: qty,
             discount: parseFloat(autoDiscount.toFixed(2)),
-            tax_percent: currentInvoiceType === 'gst' ? parseFloat(input.data('tax')) || 0 : 0, // Tax 0 for cash memo
+            tax_percent: currentInvoiceType === 'gst' ? parseFloat(input.data('tax')) || 0 : 0,
             unit: input.data('unit') || 'PCS',
             warranty_type: input.data('warranty-type') || 'none',
             warranty_period: parseInt(input.data('warranty-period')) || 0,
@@ -2877,7 +2888,7 @@ function updateWarrantyPeriod(index, value) {
 function renderItemsTable() {
     const tbody = $('#itemsTableBody');
     const partyType = getCurrentPartyType();
-    const invoiceType = $('#invoiceType').val() || 'gst';
+    const invoiceType = currentInvoiceType; // Use the global variable
 
     tbody.empty();
 
@@ -3024,6 +3035,16 @@ function renderItemsTable() {
 // ===================== SELECT PARTY =====================
 
 function selectParty(partyId) {
+    // Get current selected party ID
+    const currentPartyId = $('#partyIdInput').val();
+
+    // Check if trying to select the same party
+    if (currentPartyId && currentPartyId === partyId) {
+        showAlert('This party is already selected', 'info');
+        closeSelectPartyModal();
+        return;
+    }
+
     $.get('{{ route('admin.sales.get-party-details', ':id') }}'.replace(':id', partyId), function(res) {
         if (!res.success) return;
 
@@ -3044,6 +3065,7 @@ function selectParty(partyId) {
         updatePriceColumnHeaders();
         updateAddItemButtonState();
 
+        // Clear items when party changes (like create version)
         items = [];
 
         const warehouseState = '{{ $mainWarehouse->state ?? "" }}';
@@ -3085,10 +3107,9 @@ function selectParty(partyId) {
         }
 
         closeSelectPartyModal();
-        showAlert('Party selected successfully', 'success');
+        showAlert('Party changed to ' + p.name + ' successfully', 'success');
     });
 }
-
 // ===================== CREATE PARTY FORM =====================
 
 $('#createPartyForm').submit(function(e) {
@@ -3332,7 +3353,7 @@ function markFullyPaid() {
 function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotal) {
     let extraDiscount = 0;
     const discountType = $('#extraDiscountTypeInput').val();
-    const invoiceType = $('#invoiceType').val();
+    const invoiceType = currentInvoiceType; // Use the global variable
 
     if (discountType === 'percent') {
         const discountPercent = parseFloat($('#extraDiscountPercent').val()) || 0;
@@ -3381,11 +3402,6 @@ function validateForm() {
         return false;
     }
 
-    if (!$('#invoiceType').val()) {
-        showAlert('Please select invoice type (GST Invoice or Cash Memo)', 'error');
-        return false;
-    }
-
     if (items.length === 0) {
         showAlert('Please add at least one item', 'error');
         return false;
@@ -3406,22 +3422,40 @@ function showAlert(message, type = 'success') {
 // ===================== DOCUMENT READY =====================
 
 $(document).ready(function() {
-    window.selectedParty = null;
+    // Set current invoice type from hidden input
+    currentInvoiceType = $('#invoiceTypeHidden').val();
 
-    // Initialize with GST Invoice selected
-    $('#invoiceType').val('gst');
-    currentInvoiceType = 'gst';
-    showGSTInvoiceFields();
+    // Set party type badge
+    $('#partyTypeBadge').text(currentPartyType.charAt(0).toUpperCase() + currentPartyType.slice(1));
 
-    // Initialize Add Item button state
+    // Update price column headers
+    updatePriceColumnHeaders();
+
+    // Update add item button state
     updateAddItemButtonState();
 
-    $('.items-table-container').addClass('gst-mode');
+    // Set payment terms input
+    $('#paymentTermsInput').val('{{ $invoice->payment_terms }}');
 
-    // Initially show intra-state tax by default
-    showIntraStateTax();
+    // Initialize invoice type display
+    if (currentInvoiceType === 'gst') {
+        showGSTInvoiceFields();
+    } else {
+        showCashMemoFields();
+    }
 
-    // Load products for item modal
+    // Initialize tax type display
+    if (currentTaxType === 'intra') {
+        showIntraStateTax();
+    } else {
+        showInterStateTax();
+    }
+
+    // Render items table
+    renderItemsTable();
+
+    // Load initial data
+    loadParties();
     loadProducts();
 
     // Attach input event handlers
@@ -3469,7 +3503,7 @@ $(document).ready(function() {
         e.preventDefault();
 
         if (isSubmitting) {
-            showAlert('Please wait, invoice is being created...', 'info');
+            showAlert('Please wait, invoice is being updated...', 'info');
             return;
         }
 
@@ -3482,8 +3516,9 @@ $(document).ready(function() {
         const originalText = $submitBtn.html();
 
         $submitBtn.prop('disabled', true);
-        $submitBtn.html('<span class="spinner"></span> Creating...');
+        $submitBtn.html('<span class="spinner"></span> Updating...');
 
+        const invoiceId = $(this).data('invoice-id');
         const formData = new FormData();
 
         $(this).serializeArray().forEach(item => {
@@ -3514,17 +3549,17 @@ $(document).ready(function() {
         formData.append('charge_name', $('#chargeName').val() || '');
         formData.append('auto_round_off', $('#autoRoundOff').is(':checked') ? 1 : 0);
 
-        showAlert('Creating invoice...', 'info');
+        showAlert('Updating invoice...', 'info');
 
         $.ajax({
-            url: '{{ route('admin.sales.store') }}',
+            url: '{{ route('admin.sales.update', ':id') }}'.replace(':id', invoiceId),
             type: 'POST',
             data: formData,
             processData: false,
             contentType: false,
             success: function(response) {
                 if (response.success) {
-                    showAlert('Invoice created successfully!', 'success');
+                    showAlert('Invoice updated successfully!', 'success');
                     setTimeout(() => {
                         window.location.href = '/admin/sales/' + response.invoice_id;
                     }, 1500);
@@ -3536,14 +3571,13 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr) {
-                let message = 'Failed to create invoice';
+                let message = 'Failed to update invoice';
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                     message = xhr.responseJSON.message;
                 } else if (xhr.responseJSON && xhr.responseJSON.errors) {
                     message = Object.values(xhr.responseJSON.errors).flat().join(', ');
                 }
                 showAlert(message, 'error');
-
                 isSubmitting = false;
                 $submitBtn.prop('disabled', false);
                 $submitBtn.html(originalText);

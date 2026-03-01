@@ -9,12 +9,23 @@
 
     {{-- ── Header ── --}}
     <div class="si-header">
-        <div>
-            <h1 class="si-title">Sales Invoices</h1>
-            <p class="si-sub">Manage and track all your sales</p>
+        <div class="si-header-left">
+            <div class="si-header-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="si-title">Sales Invoices</h1>
+                <p class="si-sub">Manage and track all your sales transactions</p>
+            </div>
         </div>
         <a href="{{ route('admin.sales.create') }}" class="si-btn-create">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Invoice
         </a>
     </div>
@@ -23,39 +34,54 @@
     <div class="si-stats">
         <div class="si-stat si-stat--green">
             <div class="si-stat-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             </div>
-            <div>
+            <div class="si-stat-content">
                 <div class="si-stat-label">Total Sales</div>
                 <div class="si-stat-value">₹ {{ number_format($totalSales, 2) }}</div>
+                <div class="si-stat-hint">All confirmed invoices</div>
             </div>
         </div>
         <div class="si-stat si-stat--blue">
             <div class="si-stat-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <div>
+            <div class="si-stat-content">
                 <div class="si-stat-label">Collected</div>
                 <div class="si-stat-value">₹ {{ number_format($totalPaid, 2) }}</div>
+                <div class="si-stat-hint">Amount received</div>
             </div>
         </div>
-        <div class="si-stat si-stat--red">
+        <div class="si-stat si-stat--orange">
             <div class="si-stat-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
-            <div>
+            <div class="si-stat-content">
                 <div class="si-stat-label">Outstanding</div>
                 <div class="si-stat-value">₹ {{ number_format($totalUnpaid, 2) }}</div>
+                <div class="si-stat-hint">Pending collection</div>
             </div>
         </div>
     </div>
 
     {{-- ── Filters ── --}}
     <div class="si-filters">
+        <div class="si-filters-header">
+            <div class="si-filters-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                Filters
+            </div>
+            @if(request()->anyFilled(['date','invoice_number','party_id','payment_status','status','period','date_from','date_to','invoice_type']))
+            <a href="{{ route('admin.sales.index') }}" class="si-clear-filters">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Clear all filters
+            </a>
+            @endif
+        </div>
         <form method="GET" action="{{ route('admin.sales.index') }}" id="filterForm">
             <div class="si-filter-row">
 
-                {{-- Period Dropdown --}}
+                {{-- Period --}}
                 <div class="si-filter-group">
                     <label class="si-filter-label">Period</label>
                     <select name="period" class="si-select" id="periodSelect" onchange="handlePeriodChange(this)">
@@ -69,7 +95,7 @@
                     </select>
                 </div>
 
-                {{-- Single Date (shown when no period selected) --}}
+                {{-- Single Date --}}
                 <div class="si-filter-group" id="grpSingleDate"
                      style="{{ request()->filled('period') ? 'display:none' : '' }}">
                     <label class="si-filter-label">Date</label>
@@ -88,15 +114,28 @@
                     <input type="date" name="date_to" class="si-input" value="{{ request('date_to') }}">
                 </div>
 
-                {{-- Invoice Number --}}
+                {{-- Invoice Number (FIXED: label changed) --}}
                 <div class="si-filter-group">
-                    <label class="si-filter-label">Invoice #</label>
-                    <input type="text" name="invoice_number" class="si-input"
-                           placeholder="Search..." value="{{ request('invoice_number') }}">
+                    <label class="si-filter-label">Invoice Number</label>
+                    <div class="si-input-icon-wrap">
+                        <svg class="si-input-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" name="invoice_number" class="si-input si-input-with-icon"
+                               placeholder="Search invoice..." value="{{ request('invoice_number') }}">
+                    </div>
+                </div>
+
+                {{-- Invoice Type (FIXED: now works) --}}
+                <div class="si-filter-group">
+                    <label class="si-filter-label">Type</label>
+                    <select name="invoice_type" class="si-select">
+                        <option value="">All Types</option>
+                        <option value="gst"  {{ request('invoice_type') == 'gst'  ? 'selected' : '' }}>GST Invoice</option>
+                        <option value="cash" {{ request('invoice_type') == 'cash' ? 'selected' : '' }}>Cash Memo</option>
+                    </select>
                 </div>
 
                 {{-- Party --}}
-                <div class="si-filter-group" style="min-width:160px;">
+                <div class="si-filter-group" style="min-width:155px;">
                     <label class="si-filter-label">Party</label>
                     <select name="party_id" class="si-select">
                         <option value="">All Parties</option>
@@ -109,22 +148,32 @@
                     </select>
                 </div>
 
-                {{-- Status --}}
+                {{-- Payment Status (NEW) --}}
                 <div class="si-filter-group">
-                    <label class="si-filter-label">Status</label>
+                    <label class="si-filter-label">Payment Status</label>
+                    <select name="payment_status" class="si-select">
+                        <option value="">All</option>
+                        <option value="paid"    {{ request('payment_status') == 'paid'    ? 'selected' : '' }}>Paid</option>
+                        <option value="unpaid"  {{ request('payment_status') == 'unpaid'  ? 'selected' : '' }}>Unpaid</option>
+                        <option value="partial" {{ request('payment_status') == 'partial' ? 'selected' : '' }}>Partial</option>
+                    </select>
+                </div>
+
+                {{-- Invoice Status (FIXED: only draft & confirmed) --}}
+                <div class="si-filter-group">
+                    <label class="si-filter-label">Invoice Status</label>
                     <select name="status" class="si-select">
                         <option value="">All</option>
-                        <option value="paid"    {{ request('status') == 'paid'    ? 'selected' : '' }}>Paid</option>
-                        <option value="unpaid"  {{ request('status') == 'unpaid'  ? 'selected' : '' }}>Unpaid</option>
-                        <option value="partial" {{ request('status') == 'partial' ? 'selected' : '' }}>Partial</option>
+                        <option value="draft"     {{ request('status') == 'draft'     ? 'selected' : '' }}>Draft</option>
+                        <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
                     </select>
                 </div>
 
                 {{-- Buttons --}}
                 <div class="si-filter-btns">
                     <button type="submit" class="si-btn-filter">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        Filter
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        Apply
                     </button>
                     <a href="{{ route('admin.sales.index') }}" class="si-btn-reset">Reset</a>
                 </div>
@@ -139,13 +188,17 @@
         <div class="si-table-topbar">
             <div class="si-table-count">
                 <strong>{{ $invoices->total() }}</strong> invoice{{ $invoices->total() != 1 ? 's' : '' }}
-                @if(request()->anyFilled(['date','invoice_number','party_id','status','period','date_from','date_to']))
-                    <span class="si-filtered-pill">Filtered</span>
+                @if(request()->anyFilled(['date','invoice_number','party_id','payment_status','status','period','date_from','date_to','invoice_type']))
+                    <span class="si-filtered-pill">
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                        Filtered
+                    </span>
                 @endif
             </div>
-            <div class="si-page-info-top">
-                Showing {{ $invoices->firstItem() ?? 0 }}–{{ $invoices->lastItem() ?? 0 }}
-                of {{ $invoices->total() }}
+            <div class="si-table-topbar-right">
+                <div class="si-page-info-top">
+                    Showing {{ $invoices->firstItem() ?? 0 }}–{{ $invoices->lastItem() ?? 0 }} of {{ $invoices->total() }}
+                </div>
             </div>
         </div>
 
@@ -153,46 +206,64 @@
             <table class="si-table">
                 <thead>
                     <tr>
-                        <th class="tc-no">#</th>
+                        <th class="tc-no">S. No.</th>
                         <th class="tc-date">Date</th>
                         <th class="tc-inv">Invoice No.</th>
+                        <th class="tc-type">Type</th>
                         <th class="tc-party">Party</th>
                         <th class="tc-due">Due</th>
-                        <th class="tc-amt">Grand Total</th>
-                        <th class="tc-paid">Paid</th>
-                        <th class="tc-bal">Balance</th>
-                        <th class="tc-status">Status</th>
+                        <th class="tc-amount">Amount</th> {{-- Combined Amount Column --}}
+                        <th class="tc-payment-status">Payment Status</th>
+                        <th class="tc-inv-status">Invoice Status</th>
                         <th class="tc-act">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($invoices as $i => $invoice)
-                    <tr>
-                        <td class="tc-no td-muted">
-                            {{ ($invoices->currentPage() - 1) * $invoices->perPage() + $i + 1 }}
+                    <tr class="si-tr">
+                        <td class="tc-no">
+                            <span class="td-serial">{{ ($invoices->currentPage() - 1) * $invoices->perPage() + $i + 1 }}</span>
                         </td>
                         <td class="tc-date">
-                            <div class="td-date-main">
-                                {{ \Carbon\Carbon::parse($invoice->invoice_date)->format('d M Y') }}
-                            </div>
+                            <div class="td-date-main">{{ \Carbon\Carbon::parse($invoice->invoice_date)->format('d M Y') }}</div>
+                            <div class="td-date-sub">{{ \Carbon\Carbon::parse($invoice->invoice_date)->format('D') }}</div>
                         </td>
                         <td class="tc-inv">
                             <span class="si-inv-chip">{{ $invoice->invoice_number }}</span>
                         </td>
+
+                        {{-- Invoice Type --}}
+                        <td class="tc-type">
+                            @if($invoice->invoice_type === 'gst')
+                                <span class="si-type-badge si-type--gst">
+                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                    GST
+                                </span>
+                            @elseif($invoice->invoice_type === 'cash')
+                                <span class="si-type-badge si-type--cash">
+                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                    Cash
+                                </span>
+                            @else
+                                <span class="td-muted">—</span>
+                            @endif
+                        </td>
+
                         <td class="tc-party">
                             @php
                                 $partyName = optional($invoice->party)->name ?? 'N/A';
                                 $partyType = optional($invoice->party)->party_type ?? '';
                             @endphp
-                            <div class="td-party-name">{{ $partyName }}</div>
+                            <div class="td-party-name" title="{{ $partyName }}">{{ $partyName }}</div>
                             @if($partyType)
                                 <span class="si-ptype si-ptype--{{ $partyType }}">{{ ucfirst($partyType) }}</span>
                             @endif
                         </td>
+
                         <td class="tc-due">
                             @if($invoice->due_date)
                                 @php
-                                    $due  = \Carbon\Carbon::parse($invoice->due_date);
+                                    $due   = \Carbon\Carbon::parse($invoice->due_date);
                                     $today = \Carbon\Carbon::today();
                                     $diff  = (int) $today->diffInDays($due, false);
                                     if ($invoice->payment_status === 'paid') {
@@ -210,30 +281,81 @@
                                 <span class="td-muted">—</span>
                             @endif
                         </td>
-                        <td class="tc-amt">
-                            <span class="td-bold">₹ {{ number_format($invoice->grand_total, 2) }}</span>
+
+                        {{-- Combined Amount Column with Payment Status --}}
+                        <td class="tc-amount">
+                            <div class="amount-display">
+                                <span class="amount-main">₹ {{ number_format($invoice->grand_total, 2) }}</span>
+
+                                @if($invoice->payment_status == 'partial')
+                                    <span class="amount-partial">
+                                        (₹ {{ number_format($invoice->total_paid ?? 0, 2) }} paid)
+                                    </span>
+                                    <span class="amount-balance">
+                                        Bal: ₹ {{ number_format($invoice->balance_amount ?? 0, 2) }}
+                                    </span>
+                                @elseif($invoice->payment_status == 'unpaid')
+                                    <span class="amount-unpaid">(Full amount due)</span>
+                                @elseif($invoice->payment_status == 'paid')
+                                    <span class="amount-paid">(Fully paid)</span>
+                                @endif
+                            </div>
                         </td>
-                        <td class="tc-paid">
-                            <span class="td-green">₹ {{ number_format($invoice->total_paid ?? 0, 2) }}</span>
-                        </td>
-                        <td class="tc-bal">
-                            @php $bal = (float)($invoice->balance_amount ?? 0); @endphp
-                            <span class="{{ $bal > 0 ? 'td-red' : 'td-muted' }}">
-                                ₹ {{ number_format($bal, 2) }}
-                            </span>
-                        </td>
-                        <td class="tc-status">
+
+                        {{-- Payment Status Column --}}
+                        <td class="tc-payment-status">
                             <span class="si-badge si-badge--{{ $invoice->payment_status }}">
                                 {{ ucfirst($invoice->payment_status) }}
                             </span>
                         </td>
+
+                        {{-- Invoice Status Column --}}
+                        <td class="tc-inv-status">
+                            @php
+                                $statusMap = [
+                                    'draft'     => ['cls' => 'inv-draft',     'label' => 'Draft'],
+                                    'confirmed' => ['cls' => 'inv-confirmed', 'label' => 'Confirmed'],
+                                    'completed' => ['cls' => 'inv-completed', 'label' => 'Completed'],
+                                    'cancelled' => ['cls' => 'inv-cancelled', 'label' => 'Cancelled'],
+                                ];
+                                $sm = $statusMap[$invoice->status] ?? $statusMap['draft'];
+                            @endphp
+                            <span class="si-inv-status {{ $sm['cls'] }}">{{ $sm['label'] }}</span>
+                        </td>
+
                         <td class="tc-act">
                             <div class="si-act-grp">
                                 <a href="{{ route('admin.sales.show', $invoice->_id) }}"
-                                   class="si-act si-act--view" title="View">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                class="si-act si-act--view" title="View Invoice">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
                                 </a>
-                               
+
+                                @if($invoice->status === 'draft')
+                                    <a href="{{ route('admin.sales.edit', $invoice->_id) }}"
+                                    class="si-act si-act--edit" title="Edit Invoice">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                                        </svg>
+                                    </a>
+                                    <button type="button" class="si-act si-act--del del-btn" data-id="{{ $invoice->_id }}" title="Delete Invoice">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="3 6 5 6 21 6"/>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                        </svg>
+                                    </button>
+                                @else
+                                    <a href="{{ route('admin.sales.show', $invoice->_id) }}?print=1"
+                                    class="si-act si-act--print" title="Print Invoice" target="_blank">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="6 9 6 2 18 2 18 9"/>
+                                            <path d="M6 21H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/>
+                                            <rect x="6" y="17" width="12" height="4"/>
+                                        </svg>
+                                    </a>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -241,15 +363,25 @@
                     <tr>
                         <td colspan="10" class="si-empty-cell">
                             <div class="si-empty">
-                                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.5">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                    <polyline points="14 2 14 8 20 8"/>
-                                    <line x1="16" y1="13" x2="8" y2="13"/>
-                                    <line x1="16" y1="17" x2="8" y2="17"/>
-                                </svg>
-                                <p>No invoices found</p>
-                                <a href="{{ route('admin.sales.create') }}" class="si-btn-create" style="font-size:10px;padding:5px 12px;">
-                                    + Create Invoice
+                                <div class="si-empty-icon">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                        <line x1="16" y1="13" x2="8" y2="13"/>
+                                        <line x1="16" y1="17" x2="8" y2="17"/>
+                                    </svg>
+                                </div>
+                                <p class="si-empty-title">No invoices found</p>
+                                <p class="si-empty-sub">
+                                    @if(request()->anyFilled(['date','invoice_number','party_id','payment_status','status','period','date_from','date_to','invoice_type']))
+                                        Try adjusting your filters or <a href="{{ route('admin.sales.index') }}">clear all</a>
+                                    @else
+                                        Get started by creating your first invoice
+                                    @endif
+                                </p>
+                                <a href="{{ route('admin.sales.create') }}" class="si-btn-create" style="margin-top:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    Create Invoice
                                 </a>
                             </div>
                         </td>
@@ -259,17 +391,14 @@
             </table>
         </div>
 
-        {{-- ── Pagination ── --}}
+        {{-- Pagination --}}
         @if($invoices->hasPages())
         <div class="si-pagination">
             <div class="si-page-info">
-                Page {{ $invoices->currentPage() }} of {{ $invoices->lastPage() }}
-                &nbsp;·&nbsp;
-                {{ $invoices->total() }} total records
+                Page <strong>{{ $invoices->currentPage() }}</strong> of <strong>{{ $invoices->lastPage() }}</strong>
+                &nbsp;·&nbsp; {{ $invoices->total() }} total records
             </div>
             <div class="si-pages">
-
-                {{-- First & Prev --}}
                 @if($invoices->onFirstPage())
                     <span class="si-pg si-pg--dis">«</span>
                     <span class="si-pg si-pg--dis">‹</span>
@@ -278,7 +407,6 @@
                     <a href="{{ $invoices->previousPageUrl() }}" class="si-pg" title="Previous">‹</a>
                 @endif
 
-                {{-- Page Numbers --}}
                 @php
                     $cur   = $invoices->currentPage();
                     $last  = $invoices->lastPage();
@@ -304,7 +432,6 @@
                     <a href="{{ $invoices->url($last) }}" class="si-pg">{{ $last }}</a>
                 @endif
 
-                {{-- Next & Last --}}
                 @if($invoices->hasMorePages())
                     <a href="{{ $invoices->nextPageUrl() }}" class="si-pg" title="Next">›</a>
                     <a href="{{ $invoices->url($last) }}" class="si-pg" title="Last">»</a>
@@ -312,12 +439,11 @@
                     <span class="si-pg si-pg--dis">›</span>
                     <span class="si-pg si-pg--dis">»</span>
                 @endif
-
             </div>
         </div>
         @endif
 
-    </div>{{-- /.si-table-card --}}
+    </div>
 </div>{{-- /.si-wrap --}}
 
 {{-- ── Delete Modal ── --}}
@@ -347,96 +473,215 @@
     </div>
 </div>
 
-@endsection
+
 
 @push('styles')
 <style>
-/* ── Variables ───────────────────────────────────── */
+/* ─── Variables ───────────────────────────────────────────── */
 :root {
-    --si-brand:   #f97316;
-    --si-brand-d: #ea6c10;
-    --si-text:    #1e293b;
-    --si-muted:   #64748b;
-    --si-border:  #e2e8f0;
-    --si-bg:      #f8fafc;
-    --si-white:   #ffffff;
-    --si-r:       6px;
-    --si-shadow:  0 1px 3px rgba(0,0,0,.07);
+    --c-brand:   #f97316;
+    --c-brand-d: #ea6c10;
+    --c-brand-l: #fff7ed;
+    --c-text:    #111827;
+    --c-text2:   #374151;
+    --c-muted:   #6b7280;
+    --c-border:  #e5e7eb;
+    --c-bg:      #f9fafb;
+    --c-white:   #ffffff;
+    --c-shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --c-shadow2: 0 4px 12px rgba(0,0,0,.08);
+    --r:         7px;
+    --r-sm:      5px;
 }
 
-/* ── Layout ──────────────────────────────────────── */
+/* ─── Wrap ────────────────────────────────────────────────── */
 .si-wrap {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    font-size: 12px;
-    color: var(--si-text);
-    padding: 14px;
+    font-size: 12.5px;
+    color: var(--c-text);
+    padding: 16px;
+    max-width: 100%;
 }
 
-/* ── Header ──────────────────────────────────────── */
+/* ─── Header ──────────────────────────────────────────────── */
 .si-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 14px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--si-border);
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--c-border);
+    gap: 12px;
+    flex-wrap: wrap;
 }
-.si-title { font-size: 17px; font-weight: 700; color: var(--si-text); margin: 0 0 2px; }
-.si-sub   { font-size: 11px; color: var(--si-muted); margin: 0; }
+.si-header-left {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+.si-header-icon {
+    width: 38px; height: 38px;
+    background: var(--c-brand-l);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c-brand);
+    flex-shrink: 0;
+}
+.si-title { font-size: 17px; font-weight: 700; margin: 0 0 2px; letter-spacing: -.3px; }
+.si-sub   { font-size: 11px; color: var(--c-muted); margin: 0; }
+
 .si-btn-create {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 7px 13px;
-    background: var(--si-brand);
+    gap: 6px;
+    padding: 8px 15px;
+    background: var(--c-brand);
     color: #fff;
     border: none;
-    border-radius: var(--si-r);
-    font-size: 11px;
+    border-radius: var(--r-sm);
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     text-decoration: none;
-    transition: background .15s;
+    transition: background .15s, transform .1s, box-shadow .15s;
+    box-shadow: 0 2px 8px rgba(249,115,22,.3);
+    white-space: nowrap;
 }
-.si-btn-create:hover { background: var(--si-brand-d); color: #fff; }
+.si-btn-create:hover {
+    background: var(--c-brand-d);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(249,115,22,.35);
+}
 
-/* ── Stats ───────────────────────────────────────── */
+/* ─── Stats ───────────────────────────────────────────────── */
 .si-stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 14px;
 }
 .si-stat {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    background: var(--si-white);
-    border: 1px solid var(--si-border);
-    border-radius: var(--si-r);
-    box-shadow: var(--si-shadow);
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--c-white);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r);
+    box-shadow: var(--c-shadow);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow .2s, transform .15s;
 }
+.si-stat:hover {
+    box-shadow: var(--c-shadow2);
+    transform: translateY(-1px);
+}
+.si-stat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--r) var(--r) 0 0;
+}
+.si-stat--green::before { background: #22c55e; }
+.si-stat--blue::before  { background: #3b82f6; }
+.si-stat--orange::before{ background: #f97316; }
+
 .si-stat-icon {
-    width: 36px; height: 36px;
-    border-radius: 8px;
+    width: 40px; height: 40px;
+    border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
 .si-stat--green .si-stat-icon { background: #dcfce7; color: #16a34a; }
 .si-stat--blue  .si-stat-icon { background: #dbeafe; color: #2563eb; }
-.si-stat--red   .si-stat-icon { background: #fee2e2; color: #dc2626; }
-.si-stat-label { font-size: 10px; color: var(--si-muted); font-weight: 500; margin-bottom: 3px; }
-.si-stat-value { font-size: 15px; font-weight: 700; color: var(--si-text); }
+.si-stat--orange .si-stat-icon { background: #fff7ed; color: #f97316; }
 
-/* ── Filters ─────────────────────────────────────── */
+.si-stat-label { font-size: 10.5px; color: var(--c-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+.si-stat-value { font-size: 17px; font-weight: 800; color: var(--c-text); letter-spacing: -.4px; margin-bottom: 2px; }
+.si-stat-hint  { font-size: 10px; color: var(--c-muted); }
+
+/* ─── Filters ─────────────────────────────────────────────── */
 .si-filters {
-    background: var(--si-white);
-    border: 1px solid var(--si-border);
-    border-radius: var(--si-r);
-    padding: 11px 13px;
+    background: var(--c-white);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r);
+    padding: 11px 14px 13px;
     margin-bottom: 12px;
-    box-shadow: var(--si-shadow);
+    box-shadow: var(--c-shadow);
+}
+.si-filters-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.si-filters-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--c-text2);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.si-clear-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    color: var(--c-brand);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color .15s;
+}
+.si-clear-filters:hover { color: var(--c-brand-d); text-decoration: underline; }
+/* Amount column styling */
+.tc-amount {
+    width: 150px;
+    min-width: 150px;
+}
+
+.amount-display {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.5;
+    font-size: 11px;
+}
+
+.amount-main {
+    font-weight: 700;
+    color: var(--c-text);
+    font-size: 12px;
+}
+
+.amount-partial {
+    color: #b45309;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.amount-balance {
+    color: #dc2626;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.amount-unpaid {
+    color: #b91c1c;
+    font-size: 10px;
+    font-weight: 600;
+    font-style: italic;
+}
+
+.amount-paid {
+    color: #047857;
+    font-size: 10px;
+    font-weight: 600;
+    font-style: italic;
 }
 .si-filter-row {
     display: flex;
@@ -447,31 +692,42 @@
 .si-filter-group {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
     min-width: 120px;
 }
 .si-filter-label {
-    font-size: 9px;
+    font-size: 9.5px;
     font-weight: 700;
-    color: var(--si-muted);
+    color: var(--c-muted);
     text-transform: uppercase;
     letter-spacing: .5px;
 }
 .si-input, .si-select {
-    height: 30px;
-    padding: 0 8px;
-    border: 1px solid var(--si-border);
-    border-radius: 4px;
-    font-size: 11px;
-    color: var(--si-text);
-    background: var(--si-bg);
-    transition: border-color .15s;
+    height: 31px;
+    padding: 0 9px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    font-size: 11.5px;
+    color: var(--c-text);
+    background: var(--c-bg);
+    transition: border-color .15s, background .15s, box-shadow .15s;
+    outline: none;
 }
 .si-input:focus, .si-select:focus {
-    outline: none;
-    border-color: var(--si-brand);
-    background: var(--si-white);
+    border-color: var(--c-brand);
+    background: var(--c-white);
+    box-shadow: 0 0 0 3px rgba(249,115,22,.1);
 }
+.si-input-icon-wrap { position: relative; }
+.si-input-icon {
+    position: absolute;
+    left: 9px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--c-muted);
+    pointer-events: none;
+}
+.si-input-with-icon { padding-left: 28px; }
+
 .si-filter-btns {
     display: flex;
     gap: 6px;
@@ -480,131 +736,169 @@
 .si-btn-filter {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    height: 30px;
-    padding: 0 12px;
-    background: var(--si-text);
+    gap: 5px;
+    height: 31px;
+    padding: 0 14px;
+    background: var(--c-text);
     color: #fff;
     border: none;
-    border-radius: 4px;
-    font-size: 11px;
+    border-radius: var(--r-sm);
+    font-size: 11.5px;
     font-weight: 600;
     cursor: pointer;
     transition: background .15s;
 }
-.si-btn-filter:hover { background: #0f172a; }
+.si-btn-filter:hover { background: #1f2937; }
 .si-btn-reset {
     display: inline-flex;
     align-items: center;
-    height: 30px;
+    height: 31px;
     padding: 0 12px;
-    background: var(--si-bg);
-    color: var(--si-muted);
-    border: 1px solid var(--si-border);
-    border-radius: 4px;
-    font-size: 11px;
+    background: var(--c-bg);
+    color: var(--c-muted);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    font-size: 11.5px;
     text-decoration: none;
-    transition: background .15s;
+    transition: all .15s;
+    font-weight: 500;
 }
-.si-btn-reset:hover { background: #e2e8f0; color: var(--si-text); }
+.si-btn-reset:hover { background: #f3f4f6; color: var(--c-text); }
 
-/* ── Table Card ──────────────────────────────────── */
-.si-table-card {
-    background: var(--si-white);
-    border: 1px solid var(--si-border);
-    border-radius: var(--si-r);
-    box-shadow: var(--si-shadow);
-    overflow: hidden;
+/* ─── Table Card ──────────────────────────────────────────── */
+.si-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 950px; /* Reduced from 1100px */
 }
 .si-table-topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 9px 13px;
-    border-bottom: 1px solid var(--si-border);
-    background: var(--si-bg);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--c-border);
+    background: var(--c-bg);
+    flex-wrap: wrap;
+    gap: 6px;
 }
-.si-table-count { font-size: 11px; color: var(--si-muted); font-weight: 500; }
-.si-table-count strong { color: var(--si-text); }
+.si-table-count {
+    font-size: 11.5px;
+    color: var(--c-muted);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.si-table-count strong { color: var(--c-text); font-weight: 700; }
 .si-filtered-pill {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 1px 7px;
-    background: #fef3c7;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    background: #fff7ed;
     color: #92400e;
+    border: 1px solid #fed7aa;
     border-radius: 10px;
     font-size: 9px;
     font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
 }
-.si-page-info-top { font-size: 10px; color: var(--si-muted); }
+.si-page-info-top { font-size: 10.5px; color: var(--c-muted); }
+.si-table-topbar-right { display: flex; align-items: center; gap: 8px; }
 
-/* ── Table ───────────────────────────────────────── */
-.si-table-wrap { overflow-x: auto; }
+/* ─── Table ───────────────────────────────────────────────── */
+.si-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .si-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 11px;
+    font-size: 12px;
+    min-width: 1100px; /* Increased for new column */
 }
 .si-table th {
-    padding: 8px 10px;
-    background: #f1f5f9;
-    font-size: 9px;
+    padding: 9px 11px;
+    background: #f3f4f6;
+    font-size: 9.5px;
     font-weight: 700;
-    color: var(--si-muted);
+    color: var(--c-muted);
     text-transform: uppercase;
     letter-spacing: .5px;
-    border-bottom: 1px solid var(--si-border);
+    border-bottom: 1px solid var(--c-border);
     white-space: nowrap;
     text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 .si-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 9px 11px;
+    border-bottom: 1px solid #f3f4f6;
     vertical-align: middle;
+    color: var(--c-text2);
 }
 .si-table tr:last-child td { border-bottom: none; }
-.si-table tbody tr:hover td { background: #fafafa; }
+.si-tr { transition: background .12s; }
+.si-tr:hover td { background: #fafafa; }
+/* Column widths (updated - removed grand total, paid, balance) */
+.tc-no        { width: 45px;  text-align: center; }
+.tc-date      { width: 88px;  }
+.tc-inv       { width: 160px; }
+.tc-type      { width: 82px;  }
+.tc-party     { width: 170px; }
+.tc-due       { width: 80px;  }
+.tc-amount    { width: 150px; }
+.tc-payment-status { width: 95px; }
+.tc-inv-status { width: 95px; }
+.tc-act       { width: 90px;  }
 
-/* Column widths */
-.tc-no     { width: 40px;  text-align: center; }
-.tc-date   { width: 90px;  }
-.tc-inv    { width: 160px; }
-.tc-party  { width: 175px; }
-.tc-due    { width: 82px;  }
-.tc-amt    { width: 110px; }
-.tc-paid   { width: 95px;  }
-.tc-bal    { width: 95px;  }
-.tc-status { width: 76px;  }
-.tc-act    { width: 70px;  }
-
-/* Cell helpers */
-.td-muted      { color: var(--si-muted); font-size: 10px; }
-.td-bold       { font-weight: 700; color: var(--si-text); }
-.td-green      { color: #16a34a; font-weight: 600; }
-.td-red        { color: #dc2626; font-weight: 600; }
-.td-date-main  { font-size: 11px; color: var(--si-text); white-space: nowrap; }
+/* Table cell helpers */
+.td-serial   { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: var(--c-bg); border-radius: 4px; font-size: 10px; color: var(--c-muted); font-weight: 600; }
+.td-muted    { color: var(--c-muted); font-size: 10.5px; }
+.td-bold     { font-weight: 700; color: var(--c-text); font-size: 12px; }
+.td-green    { color: #16a34a; font-weight: 600; }
+.td-red      { color: #dc2626; font-weight: 600; }
+.td-date-main{ font-size: 11.5px; color: var(--c-text2); white-space: nowrap; font-weight: 500; }
+.td-date-sub { font-size: 9.5px; color: var(--c-muted); }
 
 /* Invoice chip */
 .si-inv-chip {
     display: inline-block;
-    padding: 3px 7px;
+    padding: 3px 8px;
     background: #f0f9ff;
     border: 1px solid #bae6fd;
     border-radius: 4px;
-    font-size: 10px;
+    font-size: 10.5px;
     font-weight: 600;
     color: #0369a1;
     white-space: nowrap;
-    font-family: monospace;
+    font-family: 'Courier New', monospace;
+    letter-spacing: .2px;
 }
+
+/* Invoice type badge */
+.si-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+.si-type--gst  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.si-type--cash { background: #fefce8; color: #a16207; border: 1px solid #fde68a; }
 
 /* Party */
 .td-party-name {
     font-weight: 500;
-    color: var(--si-text);
-    font-size: 11px;
+    color: var(--c-text);
+    font-size: 12px;
     margin-bottom: 2px;
-    max-width: 160px;
+    max-width: 155px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -613,7 +907,7 @@
     display: inline-block;
     padding: 1px 5px;
     border-radius: 3px;
-    font-size: 8px;
+    font-size: 8.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .3px;
@@ -624,19 +918,20 @@
 
 /* Due badge */
 .si-due {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 9px;
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 9.5px;
+    font-weight: 700;
     white-space: nowrap;
 }
-.si-due--ok    { background: #d1fae5; color: #065f46; }
+.si-due--ok    { background: #dcfce7; color: #166534; }
 .si-due--today { background: #fef3c7; color: #92400e; }
 .si-due--over  { background: #fee2e2; color: #991b1b; }
-.si-due--paid  { background: #f1f5f9; color: var(--si-muted); }
+.si-due--paid  { background: #f1f5f9; color: var(--c-muted); }
 
-/* Status badge */
+/* Status badges */
 .si-badge {
     display: inline-block;
     padding: 3px 8px;
@@ -645,68 +940,100 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .3px;
+    width: fit-content;
 }
 .si-badge--paid    { background: #d1fae5; color: #065f46; }
 .si-badge--unpaid  { background: #fee2e2; color: #991b1b; }
 .si-badge--partial { background: #fef3c7; color: #92400e; }
 
+.si-inv-status {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    width: fit-content;
+}
+.inv-draft     { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+.inv-confirmed { background: #dbeafe; color: #1d4ed8; }
+
 /* Actions */
-.si-act-grp { display: flex; gap: 4px; }
+.si-act-grp { display: flex; gap: 4px; align-items: center; }
 .si-act {
-    width: 27px; height: 27px;
+    width: 28px; height: 28px;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all .15s;
     text-decoration: none;
+    flex-shrink: 0;
 }
-.si-act--view { background: #dbeafe; color: #2563eb; }
-.si-act--view:hover { background: #bfdbfe; }
-.si-act--del  { background: #fee2e2; color: #dc2626; }
-.si-act--del:hover  { background: #fecaca; }
+.si-act--view  { background: #dbeafe; color: #2563eb; }
+.si-act--view:hover  { background: #bfdbfe; transform: scale(1.05); }
+.si-act--edit  { background: #fef3c7; color: #92400e; }
+.si-act--edit:hover  { background: #fde68a; transform: scale(1.05); }
+.si-act--del   { background: #fee2e2; color: #dc2626; }
+.si-act--del:hover   { background: #fecaca; transform: scale(1.05); }
+.si-act--print { background: #e0e7ff; color: #4338ca; }
+.si-act--print:hover { background: #c7d2fe; transform: scale(1.05); }
 
-/* Empty */
-.si-empty-cell { padding: 48px 20px; text-align: center; }
-.si-empty { display: inline-flex; flex-direction: column; align-items: center; gap: 10px; }
-.si-empty p { font-size: 12px; color: var(--si-muted); margin: 0; }
+/* Empty state */
+.si-empty-cell { padding: 52px 20px; text-align: center; }
+.si-empty { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; }
+.si-empty-icon {
+    width: 56px; height: 56px;
+    background: var(--c-bg);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    color: #d1d5db;
+    margin-bottom: 4px;
+}
+.si-empty-title { font-size: 13px; font-weight: 600; color: var(--c-text2); margin: 0; }
+.si-empty-sub   { font-size: 11px; color: var(--c-muted); margin: 0; }
+.si-empty-sub a { color: var(--c-brand); }
 
-/* ── Pagination ───────────────────────────────────── */
+/* ─── Pagination ──────────────────────────────────────────── */
 .si-pagination {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 9px 13px;
-    border-top: 1px solid var(--si-border);
-    background: var(--si-bg);
+    padding: 10px 14px;
+    border-top: 1px solid var(--c-border);
+    background: var(--c-bg);
+    flex-wrap: wrap;
+    gap: 8px;
 }
-.si-page-info { font-size: 10px; color: var(--si-muted); }
-.si-pages { display: flex; gap: 3px; align-items: center; }
+.si-page-info { font-size: 10.5px; color: var(--c-muted); }
+.si-page-info strong { color: var(--c-text2); }
+.si-pages { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
 .si-pg {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 27px;
-    height: 27px;
+    min-width: 28px;
+    height: 28px;
     padding: 0 5px;
-    border: 1px solid var(--si-border);
-    border-radius: 4px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
     font-size: 11px;
-    color: var(--si-text);
+    color: var(--c-text2);
     text-decoration: none;
-    background: var(--si-white);
+    background: var(--c-white);
     transition: all .12s;
     font-weight: 500;
 }
-.si-pg:hover          { background: #e2e8f0; }
-.si-pg--active        { background: var(--si-brand); color: #fff; border-color: var(--si-brand); font-weight: 700; }
-.si-pg--active:hover  { background: var(--si-brand); }
-.si-pg--dis           { color: #cbd5e1; background: var(--si-bg); cursor: default; pointer-events: none; }
-.si-pg-dots           { font-size: 11px; color: var(--si-muted); padding: 0 1px; line-height: 27px; }
+.si-pg:hover         { background: #f3f4f6; border-color: #d1d5db; }
+.si-pg--active       { background: var(--c-brand); color: #fff; border-color: var(--c-brand); font-weight: 700; }
+.si-pg--active:hover { background: var(--c-brand); }
+.si-pg--dis          { color: #d1d5db; background: var(--c-bg); cursor: default; pointer-events: none; }
+.si-pg-dots          { font-size: 11px; color: var(--c-muted); padding: 0 2px; }
 
-/* ── Modal ───────────────────────────────────────── */
+/* ─── Modal ───────────────────────────────────────────────── */
 .si-modal {
     display: none;
     position: fixed;
@@ -718,115 +1045,128 @@
 .si-modal-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0,0,0,.4);
+    background: rgba(0,0,0,.45);
+    backdrop-filter: blur(2px);
 }
 .si-modal-box {
     position: relative;
-    background: var(--si-white);
-    border-radius: 8px;
-    width: 370px;
+    background: var(--c-white);
+    border-radius: 10px;
+    width: 380px;
     max-width: 92%;
-    box-shadow: 0 20px 40px rgba(0,0,0,.14);
+    box-shadow: 0 20px 50px rgba(0,0,0,.15);
     animation: siMIn .2s ease;
 }
 @keyframes siMIn {
-    from { opacity:0; transform: scale(.95) translateY(8px); }
+    from { opacity:0; transform: scale(.95) translateY(10px); }
     to   { opacity:1; transform: scale(1) translateY(0); }
 }
 .si-modal-head {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 13px 15px;
-    border-bottom: 1px solid var(--si-border);
-    background: var(--si-bg);
-    border-radius: 8px 8px 0 0;
+    gap: 11px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--c-border);
+    background: var(--c-bg);
+    border-radius: 10px 10px 0 0;
 }
 .si-modal-ico {
-    width: 32px; height: 32px;
+    width: 34px; height: 34px;
     background: #ef4444;
-    border-radius: 7px;
+    border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
-.si-modal-title { font-size: 13px; font-weight: 700; margin-bottom: 1px; }
-.si-modal-sub   { font-size: 10px; color: var(--si-muted); }
+.si-modal-title { font-size: 13.5px; font-weight: 700; margin-bottom: 1px; }
+.si-modal-sub   { font-size: 10.5px; color: var(--c-muted); }
 .si-modal-close {
     margin-left: auto;
     background: none;
     border: none;
     font-size: 20px;
-    color: var(--si-muted);
+    color: var(--c-muted);
     cursor: pointer;
-    width: 26px; height: 26px;
+    width: 28px; height: 28px;
     display: flex; align-items: center; justify-content: center;
-    border-radius: 4px;
+    border-radius: 5px;
     line-height: 1;
+    transition: all .15s;
 }
-.si-modal-close:hover { background: #e2e8f0; color: var(--si-text); }
-.si-modal-body { padding: 15px; }
-.si-modal-body p { font-size: 12px; color: #4b5563; line-height: 1.5; margin: 0; }
+.si-modal-close:hover { background: #e5e7eb; color: var(--c-text); }
+.si-modal-body { padding: 16px; }
+.si-modal-body p { font-size: 12.5px; color: #4b5563; line-height: 1.6; margin: 0; }
 .si-modal-foot {
     display: flex;
     justify-content: flex-end;
-    gap: 7px;
-    padding: 12px 15px;
-    border-top: 1px solid var(--si-border);
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--c-border);
     background: #fafafa;
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 10px 10px;
 }
 .si-btn-cancel {
-    padding: 6px 14px;
-    border: 1px solid var(--si-border);
-    border-radius: 4px;
-    background: var(--si-bg);
-    color: var(--si-text);
-    font-size: 11px;
+    padding: 7px 16px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-sm);
+    background: var(--c-bg);
+    color: var(--c-text2);
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     transition: background .15s;
 }
-.si-btn-cancel:hover { background: #e2e8f0; }
+.si-btn-cancel:hover { background: #e5e7eb; }
 .si-btn-del-confirm {
-    padding: 6px 14px;
+    padding: 7px 16px;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--r-sm);
     background: #ef4444;
     color: #fff;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     transition: background .15s;
 }
 .si-btn-del-confirm:hover { background: #dc2626; }
-.si-btn-del-confirm:disabled { opacity: .6; cursor: not-allowed; }
+.si-btn-del-confirm:disabled { opacity: .55; cursor: not-allowed; }
 
-/* ── Alerts ──────────────────────────────────────── */
-#alertBox { position: fixed; top: 15px; right: 15px; z-index: 9999; }
+/* ─── Alerts ──────────────────────────────────────────────── */
+#alertBox { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 7px; }
 .si-alert {
-    padding: 9px 13px;
-    margin-bottom: 7px;
-    border-radius: 5px;
-    font-size: 11px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
     font-weight: 500;
-    box-shadow: 0 3px 10px rgba(0,0,0,.1);
+    box-shadow: 0 4px 14px rgba(0,0,0,.12);
     animation: siAIn .25s ease;
+    min-width: 220px;
+    max-width: 320px;
 }
 @keyframes siAIn {
     from { transform: translateX(110%); opacity: 0; }
     to   { transform: translateX(0);    opacity: 1; }
 }
-.si-alert-success { background: #d1fae5; color: #065f46; border-left: 3px solid #16a34a; }
-.si-alert-error   { background: #fee2e2; color: #991b1b; border-left: 3px solid #ef4444; }
+.si-alert-success { background: #f0fdf4; color: #166534; border-left: 3px solid #22c55e; }
+.si-alert-error   { background: #fef2f2; color: #991b1b; border-left: 3px solid #ef4444; }
 
-/* ── Responsive ──────────────────────────────────── */
-@media (max-width: 900px) {
-    .si-stats { grid-template-columns: 1fr; }
+/* ─── Responsive ──────────────────────────────────────────── */
+@media (max-width: 1024px) {
+    .si-stats { grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 640px) {
-    .si-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-    .si-filter-group { min-width: 100%; }
-    .si-pagination { flex-direction: column; gap: 8px; }
+@media (max-width: 768px) {
+    .si-stats { grid-template-columns: 1fr 1fr; }
+    .si-stats .si-stat:last-child { grid-column: span 2; }
+    .si-filter-group { min-width: calc(50% - 4px); flex: 1 1 calc(50% - 4px); }
+    .si-filter-btns { width: 100%; }
+}
+@media (max-width: 480px) {
+    .si-wrap { padding: 10px; }
+    .si-stats { grid-template-columns: 1fr; }
+    .si-stats .si-stat:last-child { grid-column: span 1; }
+    .si-header { flex-direction: column; align-items: flex-start; }
+    .si-filter-group { min-width: 100%; flex: 1 1 100%; }
+    .si-pagination { flex-direction: column; align-items: flex-start; }
+    .si-pages { justify-content: center; width: 100%; }
 }
 </style>
 @endpush
@@ -836,9 +1176,9 @@
 // ── Period filter toggle
 function handlePeriodChange(sel) {
     const v = sel.value;
-    document.getElementById('grpSingleDate').style.display = (!v) ? '' : 'none';
-    document.getElementById('grpDateFrom').style.display   = (v === 'custom') ? '' : 'none';
-    document.getElementById('grpDateTo').style.display     = (v === 'custom') ? '' : 'none';
+    document.getElementById('grpSingleDate').style.display = (!v)          ? '' : 'none';
+    document.getElementById('grpDateFrom').style.display   = (v==='custom') ? '' : 'none';
+    document.getElementById('grpDateTo').style.display     = (v==='custom') ? '' : 'none';
 }
 
 // ── Delete
@@ -903,3 +1243,4 @@ function showAlert(msg, type = 'success') {
 }
 </script>
 @endpush
+@endsection

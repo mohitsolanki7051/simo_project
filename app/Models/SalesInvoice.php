@@ -13,9 +13,10 @@ class SalesInvoice extends Model
 
     protected $fillable = [
         'invoice_number',
+        'invoice_type', // New field: 'gst' or 'cash'
         'invoice_date',
-        'party_id',              // Store only party ID
-        'salesman_id',            // Store only salesman ID
+        'party_id',
+        'salesman_id',
         'warehouse_id',
         // addresses
         'billing_address',
@@ -30,10 +31,10 @@ class SalesInvoice extends Model
         'subtotal',
         'discount_total',
         'tax_total',
-        'cgst_total',      // New - Total CGST amount
-        'sgst_total',      // New - Total SGST amount
-        'igst_total',      // New - Total IGST amount
-        'tax_type',        // New - 'intra' or 'inter'
+        'cgst_total',
+        'sgst_total',
+        'igst_total',
+        'tax_type',
         'extra_discount',
         'extra_discount_type',
         'extra_charge',
@@ -147,5 +148,17 @@ class SalesInvoice extends Model
     public function isInterState()
     {
         return $this->tax_type === 'inter';
+    }
+
+    // Helper to check if GST invoice
+    public function isGstInvoice()
+    {
+        return $this->invoice_type === 'gst';
+    }
+
+    // Helper to check if Cash Memo
+    public function isCashMemo()
+    {
+        return $this->invoice_type === 'cash';
     }
 }

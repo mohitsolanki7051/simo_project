@@ -530,8 +530,10 @@
             <div class="submenu">
                 <div class="submenu-inner">
                     <a href="{{ url('/admin/sales') }}" class="submenu-item {{ !request()->is('admin/salesmen*') && request()->is('admin/sales') ? 'active' : '' }}"><span class="submenu-dot"></span> Sales Invoices</a>
-                    <a href="{{ url('/admin/payments') }}" class="submenu-item {{ request()->is('admin/payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a>
+                    {{-- <a href="{{ url('/admin/payments') }}" class="submenu-item {{ request()->is('admin/payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a> --}}
+                    {{-- <a href="{{ url('/admin/payment-in') }}" class="submenu-item {{ request()->is('admin/payment-in*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a> --}}
                     <a href="{{ url('/admin/invoice-settings') }}" class="submenu-item {{ request()->is('admin/invoice-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Invoice Settings</a>
+                    <a href="{{ url('/admin/cashmemo-invoice-settings') }}" class="submenu-item {{ request()->is('admin/cashmemo-invoice-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Cash Memo Invoice Settings</a>
                 </div>
             </div>
             <span class="nav-tooltip">Sales</span>
