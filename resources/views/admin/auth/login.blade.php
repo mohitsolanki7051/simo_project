@@ -252,7 +252,7 @@ html, body{
 
             <!-- Logo -->
             <div class="brand">
-                <img src="{{ asset('storage/logos/logo.png') }}" alt="Logo">
+                <img src="{{ asset('images/logos/logo.png') }}" alt="Logo">
             </div>
             @if($errors->any())
                 <div class="alert alert-error">
@@ -314,7 +314,7 @@ html, body{
 
     <!-- RIGHT SIDE -->
     <div class="login-right">
-        <img src="{{ asset('storage/admin-login/admin-login.png') }}" alt="Illustration">
+        <img src="{{ asset('images/admin-login/admin-login.png') }}" alt="Illustration">
     </div>
 
 </div>
