@@ -354,7 +354,7 @@
             <div class="register-card">
                 <!-- Brand logo (same) -->
                 <div class="brand">
-                    <img src="{{ asset('storage/logos/logo.png') }}" alt="Logo">
+                    <img src="{{ asset('images/logos/logo.png') }}" alt="Logo">
                 </div>
 
                 <form id="registerForm" method="POST" action="{{ route('admin.register.post') }}">
@@ -424,7 +424,7 @@
 
         <!-- RIGHT SIDE (illustration – same) -->
         <div class="register-right">
-            <img src="{{ asset('storage/admin-login/admin-login.png') }}" alt="Admin dashboard illustration">
+            <img src="{{ asset('images/admin-login/admin-login.png') }}" alt="Admin dashboard illustration">
         </div>
     </div>
 
