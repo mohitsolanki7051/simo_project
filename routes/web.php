@@ -19,6 +19,8 @@ use App\Http\Controllers\Admin\InvoiceSettingController;
 use App\Http\Controllers\Admin\CashMemoInvoiceSettingController;
 use App\Http\Controllers\Admin\SalesPaymentController;
 use App\Http\Controllers\Admin\SalesmanController;
+use App\Http\Controllers\Admin\WarrantyController;
+use App\Http\Controllers\Admin\QuotationController;
 // Redirect root URL based on authentication status
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -111,8 +113,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/categories/{id}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
         Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update');
         Route::post('/categories/bulk-update-status', [CategoryController::class, 'bulkUpdateStatus'])->name('categories.bulk-update-status');
-        // web.php या routes/admin.php में
-        Route::get('/categories/{id}', [CategoryController::class, 'show'])->name('categories.show');
+
 
 
 
@@ -161,7 +162,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 
 
- Route::prefix('sales')->name('sales.')->group(function () {
+    Route::prefix('sales')->name('sales.')->group(function () {
         // List all invoices
         Route::get('/', [SalesInvoiceController::class, 'index'])->name('index');
 
@@ -186,6 +187,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/{id}/generate', [SalesInvoiceController::class, 'generate'])->name('generate');
         Route::post('/{id}/payment', [SalesInvoiceController::class, 'createPayment'])->name('create-payment');
         Route::delete('/{id}', [SalesInvoiceController::class, 'destroy'])->name('destroy');
+
+        Route::get('/party-credit-status/{partyId}', [SalesInvoiceController::class, 'getPartyCreditStatus'])->name('credit-status');
     });
 
         // Invoice Settings Routes
@@ -204,32 +207,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/cashmemo-invoice-settings/get', [CashMemoInvoiceSettingController::class, 'getSettings'])
             ->name('cashmemo-invoice-settings.get');
 
+        // Payment In Routes
+        Route::prefix('payments')->name('payments.')->group(function () {
 
-         // Payment In Routes
-        Route::get('/payments', [SalesPaymentController::class, 'index'])
-            ->name('payments.index');
+            Route::get('/', [SalesPaymentController::class,'index'])->name('index');
 
-        // AJAX routes (specific routes first)
-        Route::get('/payments/get-customer-invoices', [SalesPaymentController::class, 'getCustomerInvoices'])
-            ->name('payments.get-customer-invoices');
-        Route::get('/payments/customer/{customerId}/payments', [SalesPaymentController::class, 'getCustomerPayments'])
-            ->name('payments.get-customer-payments');
+            Route::get('/create', [SalesPaymentController::class,'create'])->name('create');
 
-        // POST/DELETE routes
-        Route::post('/payments', [SalesPaymentController::class, 'store'])
-            ->name('payments.store');
-        Route::delete('/payments/{id}', [SalesPaymentController::class, 'destroy'])
-            ->name('payments.destroy');
-        Route::post('/payments/bulk-delete', [SalesPaymentController::class, 'bulkDestroy'])
-            ->name('payments.bulk-delete');
-        Route::get('/payments/get-party-invoices', [SalesPaymentController::class, 'getPartyInvoices'])
-            ->name('payments.get-party-invoices');
+            Route::post('/store', [SalesPaymentController::class,'store'])->name('store');
 
-        // Get party payment history
-        Route::get('/payments/party/{partyId}/payments', [SalesPaymentController::class, 'getPartyPayments'])
-            ->name('payments.get-party-payments');
-        Route::get('/payments/invoice/{id}', [SalesPaymentController::class, 'getInvoiceDetails'])
-            ->name('payments.invoice-details');
+            Route::get('/search-parties', [SalesPaymentController::class,'searchParties'])
+                ->name('search-parties');
+
+            Route::get('/party-details/{partyId}', [SalesPaymentController::class,'getPartyDetails'])
+                ->name('party.details');
+            Route::get('/{id}', [SalesPaymentController::class, 'show'])->name('show');
+
+        });
 
 
         // Add these inside your admin middleware group
@@ -248,18 +242,52 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/party-counts', [SalesmanController::class, 'getPartyCounts'])->name('party-counts');
             Route::get('/{id}/parties', [SalesmanController::class, 'getAssignedParties'])->name('assigned-parties');
         });
+        // Warranty Routes
+        Route::prefix('warranty')->name('warranty.')->group(function () {
+            Route::get('/', [WarrantyController::class, 'index'])->name('index');
+            Route::get('/create', [WarrantyController::class, 'create'])->name('create');
+            Route::post('/search-invoice', [WarrantyController::class, 'searchInvoice'])->name('search-invoice');
+            Route::get('/invoice/{id}', [WarrantyController::class, 'getInvoiceDetails'])->name('invoice-details');
+            Route::post('/', [WarrantyController::class, 'store'])->name('store');
+            Route::get('/{id}', [WarrantyController::class, 'show'])->name('show');
+            Route::post('/{id}/approve-replacement', [WarrantyController::class, 'approveReplacement'])->name('approve-replacement');
+            Route::post('/{id}/mark-repair-completed', [WarrantyController::class, 'markRepairCompleted'])->name('mark-repair-completed');
+        });
 
+        Route::prefix('quotations')->name('quotations.')->group(function () {
+            // List all quotations
+            Route::get('/', [QuotationController::class, 'index'])->name('index');
 
-// Payment In Routes
-Route::prefix('payment-in')->name('payment-in.')->group(function () {
-    Route::get('/', [App\Http\Controllers\Admin\PaymentInController::class, 'index'])->name('index');
-    Route::get('/create', [App\Http\Controllers\Admin\PaymentInController::class, 'create'])->name('create');
-    Route::get('/search-parties', [App\Http\Controllers\Admin\PaymentInController::class, 'searchParties'])->name('search-parties');
-    Route::get('/get-party-details', [App\Http\Controllers\Admin\PaymentInController::class, 'getPartyDetails'])->name('get-party-details');
-    Route::get('/search-invoice', [App\Http\Controllers\Admin\PaymentInController::class, 'searchInvoice'])->name('search-invoice');
-    Route::post('/', [App\Http\Controllers\Admin\PaymentInController::class, 'store'])->name('store');
-    Route::get('/{id}', [App\Http\Controllers\Admin\PaymentInController::class, 'show'])->name('show');
-});
+            // Create new quotation
+            Route::get('/create', [QuotationController::class, 'create'])->name('create');
+            Route::post('/', [QuotationController::class, 'store'])->name('store');
+
+            // AJAX / helper routes (MUST come before {id} routes)
+            Route::get('/get-main-warehouse-products', [QuotationController::class, 'getMainWarehouseProducts'])
+                ->name('get-main-warehouse-products');
+            Route::get('/parties-list', [QuotationController::class, 'getPartiesList'])
+                ->name('parties.list');
+            Route::get('/party-details/{id}', [QuotationController::class, 'getPartyDetails'])
+                ->name('get-party-details');
+            Route::post('/create-party', [QuotationController::class, 'storePartyAjax'])
+                ->name('create-party');
+
+            // Dynamic routes with {id} parameter
+            Route::get('/{id}', [QuotationController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [QuotationController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [QuotationController::class, 'update'])->name('update');
+            Route::delete('/{id}', [QuotationController::class, 'destroy'])->name('destroy');
+
+            // Status update
+            Route::post('/{id}/status', [QuotationController::class, 'updateStatus'])->name('update-status');
+
+            // PDF and WhatsApp
+            Route::get('/{id}/pdf', [QuotationController::class, 'pdf'])->name('pdf');
+            Route::post('/{id}/send-whatsapp', [QuotationController::class, 'sendWhatsApp'])->name('send-whatsapp');
+
+            // Convert to invoice
+            Route::post('/{id}/convert-to-invoice', [QuotationController::class, 'convertToInvoice'])->name('convert-to-invoice');
+        });
 
 
     });

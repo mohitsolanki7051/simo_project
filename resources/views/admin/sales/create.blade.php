@@ -725,7 +725,72 @@
 
 @push('styles')
 <style>
+/* Credit limit badge */
+/* Credit limit badge styles */
+.credit-limit-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 8px;
+    font-weight: 600;
+    margin-left: 5px;
+    vertical-align: middle;
+}
 
+.credit-limit-badge.warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+.credit-limit-badge.danger {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.credit-limit-badge.info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.available-credit {
+    display: block;
+    font-size: 9px;
+    color: #28a745;
+    margin-top: 2px;
+    font-weight: normal;
+}
+
+/* Credit limit warning in customer info */
+.info-row .credit-warning {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+/* Credit status indicator in party selection */
+.credit-status {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    display: inline-block;
+}
+
+.credit-status.ok {
+    background: #d4edda;
+    color: #155724;
+}
+
+.credit-status.warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.credit-status.danger {
+    background: #f8d7da;
+    color: #721c24;
+}
 .disabled-link {
     pointer-events: none !important;
     opacity: 0.5 !important;
@@ -3035,8 +3100,18 @@ function selectParty(partyId) {
         $('#partyTypeBadge').text(p.party_type_text).attr('class', `party-type-badge ${p.party_type}`);
         $('#partyPhone').text(p.phone || '-');
         $('#partyEmail').text(p.email || '-');
-        $('#partyOpeningBalance').text(p.opening_balance ? '₹ ' + parseFloat(p.opening_balance).toFixed(2) : '₹ 0.00');
-        $('#partyCreditLimit').text(p.credit_limit ? '₹ ' + parseFloat(p.credit_limit).toFixed(2) : 'No Limit');
+
+        // Show opening balance
+        const openingBalance = p.opening_balance ? parseFloat(p.opening_balance) : 0;
+        $('#partyOpeningBalance').text('₹ ' + openingBalance.toFixed(2));
+
+        // Show credit limit with visual indicator if exists
+        const creditLimit = p.credit_limit ? parseFloat(p.credit_limit) : 0;
+        if (creditLimit > 0) {
+            $('#partyCreditLimit').html('₹ ' + creditLimit.toFixed(2) + ' <span class="credit-limit-badge">Limited</span>');
+        } else {
+            $('#partyCreditLimit').text('No Limit');
+        }
 
         $('#partyIdInput').val(p.id);
         $('#partyTypeInput').val(p.party_type);
@@ -3086,10 +3161,110 @@ function selectParty(partyId) {
 
         closeSelectPartyModal();
         showAlert('Party selected successfully', 'success');
+
+        // Check credit limit status after party selection
+        checkCreditLimitStatus(p.id);
     });
 }
 
-// ===================== CREATE PARTY FORM =====================
+// UPDATED: Function to check credit limit status with opening balance
+function checkCreditLimitStatus(partyId) {
+    $.get('/admin/sales/party-credit-status/' + partyId, function(res) {
+        if (res.success) {
+            const info = res.credit_info;
+
+            // Store credit info globally for later use
+            window.currentPartyCreditInfo = info;
+
+            // Update UI with credit information
+            updateCreditDisplay(info);
+
+            // Show warnings based on usage
+            if (info.has_limit) {
+                if (info.is_exceeded) {
+                    showAlert(
+                        '⚠️ CREDIT LIMIT EXCEEDED!\n' +
+                        'Current Due: ₹' + info.current_due.toFixed(2) + '\n' +
+                        'Credit Limit: ₹' + info.credit_limit.toFixed(2) + '\n' +
+                        'Available Credit: ₹0.00',
+                        'error'
+                    );
+                } else if (info.warning_level === 'warning') {
+                    showAlert(
+                        '⚠️ Approaching Credit Limit\n' +
+                        'Used: ' + info.usage_percent + '%\n' +
+                        'Available Credit: ₹' + info.available_credit.toFixed(2),
+                        'warning'
+                    );
+                }
+            }
+        }
+    }).fail(function() {
+        // Silently fail
+    });
+}
+
+// NEW: Function to validate credit limit before adding items/submitting
+function validateCreditLimit(newInvoiceBalance) {
+    if (!window.currentPartyCreditInfo) return true;
+
+    const info = window.currentPartyCreditInfo;
+
+    // Agar credit limit nahi hai to allow
+    if (!info.has_limit) return true;
+
+    const currentDue = info.current_due;
+    const creditLimit = info.credit_limit;
+    const newTotalDue = currentDue + newInvoiceBalance;
+
+    if (newTotalDue > creditLimit) {
+        const availableCredit = creditLimit - currentDue;
+
+        showAlert(
+            '❌ Credit Limit Exceeded!\n\n' +
+            'Current Due: ₹' + currentDue.toFixed(2) + '\n' +
+            'New Invoice Balance: ₹' + newInvoiceBalance.toFixed(2) + '\n' +
+            'Total After Invoice: ₹' + newTotalDue.toFixed(2) + '\n' +
+            'Credit Limit: ₹' + creditLimit.toFixed(2) + '\n\n' +
+            '💡 Available Credit: ₹' + availableCredit.toFixed(2) + '\n' +
+            'Please reduce invoice amount or collect payment.',
+            'error'
+        );
+
+        return false;
+    }
+
+    return true;
+}
+
+// UPDATED: Function to update credit display in UI
+function updateCreditDisplay(info) {
+    // Update opening balance display
+    $('#partyOpeningBalance').text('₹ ' + info.opening_balance.toFixed(2));
+
+    // Update credit limit with visual indicator and usage
+    if (info.has_limit) {
+        let badgeClass = 'credit-limit-badge';
+        if (info.warning_level === 'danger') badgeClass += ' danger';
+        else if (info.warning_level === 'warning') badgeClass += ' warning';
+
+        $('#partyCreditLimit').html(
+            '₹ ' + info.credit_limit.toFixed(2) +
+            ' <span class="' + badgeClass + '">' + info.usage_percent + '% used</span>'
+        );
+
+        // Add available credit info
+        if (info.available_credit !== null) {
+            $('#partyCreditLimit').append(
+                '<br><small class="available-credit">Available: ₹ ' +
+                info.available_credit.toFixed(2) + '</small>'
+            );
+        }
+    } else {
+        $('#partyCreditLimit').text('No Limit');
+    }
+}
+
 
 $('#createPartyForm').submit(function(e) {
     e.preventDefault();
@@ -3476,7 +3651,13 @@ $(document).ready(function() {
         if (!validateForm()) {
             return;
         }
+        const grandTotal = parseFloat($('#grandTotal').text()) || 0;
+        const amountPaid = parseFloat($('#amountPaid').val()) || 0;
+        const newInvoiceBalance = grandTotal - amountPaid;
 
+        if (!validateCreditLimit(newInvoiceBalance)) {
+            return; // Stop submission if credit limit exceeded
+        }
         isSubmitting = true;
         const $submitBtn = $('.btn-submit-invoice');
         const originalText = $submitBtn.html();

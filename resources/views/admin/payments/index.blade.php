@@ -1,352 +1,233 @@
 @extends('layouts.admin')
 
-@section('title', 'Payment In - Admin Panel')
-@section('header-title', 'Payment In Management')
+@section('title', 'Payment In - Transactions')
+@section('header-title', 'Payment In Transactions')
 
 @section('content')
 <div class="payments-container">
-    <!-- Alert Messages -->
+
+    {{-- ── Alert Container ──────────────────────────────────── --}}
     <div id="alertContainer"></div>
 
-    <!-- Header -->
+    {{-- ── Page Header ──────────────────────────────────────── --}}
     <div class="page-header">
         <div class="header-left">
-            <h2 class="page-title">Payment In</h2>
-            @if(isset($selectedParty) && $selectedParty)
-            <div class="active-filter">
-                <span class="filter-badge">
-                    {{ $selectedParty->name }} ({{ ucfirst($selectedParty->party_type) }})
-                    <a href="{{ route('admin.payments.index') }}" class="remove-filter">×</a>
-                </span>
-            </div>
-            @endif
+            <h2 class="page-title">💰 Payment In Transactions</h2>
         </div>
         <div class="header-right">
-            <button type="button" class="btn-small btn-primary" onclick="openSelectPartyModal()">
-                <span class="btn-icon">👥</span> Select Party
-            </button>
+            <a href="{{ route('admin.payments.create') }}" class="btn-action btn-primary">
+                + New Payment In
+            </a>
         </div>
     </div>
 
-    <!-- Filters Section -->
-    <div class="filters-card">
-        <div class="card-header">
-            <h5 class="card-title">Filters</h5>
+
+
+    {{-- ── Summary Stats ─────────────────────────────────────── --}}
+    @php
+        $totalAmount = $payments->sum(function($p) {
+            return $p->amount instanceof \MongoDB\BSON\Decimal128
+                ? (float) $p->amount->__toString()
+                : (float) $p->amount;
+        });
+    @endphp
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-label">Total Payments</div>
+            <div class="stat-value">{{ $payments->total() }}</div>
         </div>
-        <div class="card-body">
-            <form method="GET" action="{{ route('admin.payments.index') }}" id="filterForm">
-                <div class="filters-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Search</label>
-                            <input type="text" name="search" id="searchPayments" class="form-control"
-                                   placeholder="Search by invoice or party..." value="{{ request('search') }}">
-                        </div>
-                        <div class="form-group">
-                            <label>From Date</label>
-                            <input type="date" name="from_date" id="filterFromDate" class="form-control"
-                                   value="{{ request('from_date') }}">
-                        </div>
-                        <div class="form-group">
-                            <label>To Date</label>
-                            <input type="date" name="to_date" id="filterToDate" class="form-control"
-                                   value="{{ request('to_date') }}">
-                        </div>
-                        <div class="form-group btn-group">
-                            <button type="submit" class="btn-apply">Apply Filters</button>
-                            <a href="{{ route('admin.payments.index') }}" class="btn-reset">Reset</a>
-                        </div>
+        <div class="stat-card stat-green">
+            <div class="stat-label">Amount (This Page)</div>
+            <div class="stat-value">₹{{ number_format($totalAmount, 2) }}</div>
+        </div>
+        <div class="stat-card stat-blue">
+            <div class="stat-label">Showing</div>
+            <div class="stat-value">{{ $payments->count() }} records</div>
+        </div>
+    </div>
+
+      {{-- ── Filters ───────────────────────────────────────────── --}}
+    <div class="filters-card">
+        <div class="filters-header">Filters</div>
+        <div class="filters-body">
+            <form method="GET" action="{{ route('admin.payments.index') }}">
+                <div class="filters-grid">
+                    <div class="filter-field">
+                        <label>Search</label>
+                        <input type="text" name="search" class="f-input"
+                               placeholder="Payment No / Reference…" value="{{ request('search') }}">
+                    </div>
+                    <div class="filter-field">
+                        <label>Party</label>
+                        <select name="party_id" class="f-input">
+                            <option value="">All Parties</option>
+                            @foreach($parties as $party)
+                            <option value="{{ $party['id'] }}" {{ request('party_id') == $party['id'] ? 'selected' : '' }}>
+                                {{ $party['name'] }} ({{ $party['party_type_text'] }})
+                            </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label>Payment Method</label>
+                        <select name="payment_method" class="f-input">
+                            <option value="">All Methods</option>
+                            <option value="cash"          {{ request('payment_method') == 'cash'          ? 'selected' : '' }}>Cash</option>
+                            <option value="upi"           {{ request('payment_method') == 'upi'           ? 'selected' : '' }}>UPI</option>
+                            <option value="bank_transfer" {{ request('payment_method') == 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                            <option value="cheque"        {{ request('payment_method') == 'cheque'        ? 'selected' : '' }}>Cheque</option>
+                            <option value="card"          {{ request('payment_method') == 'card'          ? 'selected' : '' }}>Card</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label>From Date</label>
+                        <input type="date" name="from_date" class="f-input" value="{{ request('from_date') }}">
+                    </div>
+                    <div class="filter-field">
+                        <label>To Date</label>
+                        <input type="date" name="to_date" class="f-input" value="{{ request('to_date') }}">
+                    </div>
+                    <div class="filter-field filter-btns">
+                        <button type="submit" class="btn-filter-apply">Apply</button>
+                        <a href="{{ route('admin.payments.index') }}" class="btn-filter-reset">Reset</a>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Invoices Table - Shows ALL invoices -->
-    <div class="table-wrapper">
-        <table class="compact-table">
-            <thead>
-                <tr>
-                    <th class="th-date">Date</th>
-                    <th class="th-invoice">Invoice No</th>
-                    <th class="th-customer">Party</th>
-                    <th class="th-type">Type</th>
-                    <th class="th-amount">Invoice Total</th>
-                    <th class="th-amount">Paid Amount</th>
-                    <th class="th-amount">Due Amount</th>
-                    <th class="th-status">Status</th>
-                    <th class="th-actions">Action</th>
-                </tr>
-            </thead>
-            <tbody id="invoicesTableBody">
-                @forelse($invoices as $invoice)
-                @php
-                    $party = $invoice->party;
-                    $grandTotal = $invoice->grand_total instanceof Decimal128 ? (float) $invoice->grand_total->__toString() : (float) $invoice->grand_total;
-                    $totalPaid = $invoice->total_paid instanceof Decimal128 ? (float) $invoice->total_paid->__toString() : (float) ($invoice->total_paid ?? 0);
-                    $balanceAmount = $invoice->balance_amount instanceof Decimal128 ? (float) $invoice->balance_amount->__toString() : (float) ($invoice->balance_amount ?? 0);
-
-                    $statusClass = $invoice->payment_status == 'paid' ? 'status-paid' : ($invoice->payment_status == 'partial' ? 'status-partial' : 'status-unpaid');
-                @endphp
-                <tr data-invoice-id="{{ $invoice->_id }}" data-party-id="{{ $party->_id ?? '' }}">
-                    <td class="td-date">{{ $invoice->invoice_date->format('d M Y') }}</td>
-                    <td class="td-invoice">
-                        <div class="invoice-number">{{ $invoice->invoice_number }}</div>
-                    </td>
-                    <td class="td-customer">
-                        <div class="customer-name">{{ $party->name ?? '-' }}</div>
-                        @if($party && $party->phone)
-                        <div class="customer-phone">{{ $party->phone }}</div>
-                        @endif
-                    </td>
-                    <td class="td-type">
-                        @if($party)
-                        <span class="party-badge party-{{ $party->party_type }}">
-                            {{ ucfirst($party->party_type) }}
-                        </span>
-                        @else
-                        -
-                        @endif
-                    </td>
-                    <td class="td-amount">
-                        <div class="amount-value">₹ {{ number_format($grandTotal, 2) }}</div>
-                    </td>
-                    <td class="td-amount">
-                        <div class="amount-value {{ $totalPaid > 0 ? '' : 'text-muted' }}">
-                            ₹ {{ number_format($totalPaid, 2) }}
-                        </div>
-                    </td>
-                    <td class="td-amount">
-                        <div class="amount-value {{ $balanceAmount > 0 ? 'text-danger' : 'text-success' }}">
-                            ₹ {{ number_format($balanceAmount, 2) }}
-                        </div>
-                    </td>
-                    <td class="td-status">
-                        <span class="status-badge {{ $statusClass }}">
-                            {{ ucfirst($invoice->payment_status) }}
-                        </span>
-                    </td>
-                    <td class="td-actions">
-                        @if($invoice->payment_status != 'paid')
-                        <button type="button" class="btn-add-payment" onclick="openPaymentModal('{{ $invoice->_id }}')">
-                            Add Payment
-                        </button>
-                        @else
-                        <button type="button" class="btn-view-payments" onclick="viewPayments('{{ $invoice->_id }}')">
-                            View
-                        </button>
-                        @endif
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="9" class="empty-state">
-                        <div class="empty-content">
-                            <div class="empty-icon">📄</div>
-                            <h4>No Invoices Found</h4>
-                            <p>No sales invoices available</p>
-                        </div>
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    @if($invoices->count() > 0)
-    <div class="table-footer">
-        <div class="footer-info">
-            Showing {{ $invoices->firstItem() }} to {{ $invoices->lastItem() }} of {{ $invoices->total() }} invoices
-        </div>
-        <div class="pagination">
-            {{ $invoices->appends(request()->query())->links() }}
-        </div>
-    </div>
-    @endif
-</div>
-
-<!-- Select Party Modal - Only for filtering -->
-<div class="modal" id="selectPartyModal">
-    <div class="modal-overlay" onclick="closeSelectPartyModal()"></div>
-    <div class="modal-content modal-md">
-        <div class="modal-header">
-            <div class="modal-icon">👥</div>
-            <div class="modal-title-section">
-                <h4 class="modal-title">Select Party</h4>
-                <div class="modal-subtitle">Choose customer, dealer, or distributor to filter invoices</div>
-            </div>
-            <button type="button" class="modal-close" onclick="closeSelectPartyModal()">×</button>
+    {{-- ── Payments Table ────────────────────────────────────── --}}
+    <div class="table-card">
+        <div class="table-wrapper">
+            <table class="pi-table">
+                <thead>
+                    <tr>
+                        <th>Payment No</th>
+                        <th>Date</th>
+                        <th>Party</th>
+                        <th>Type</th>
+                        <th class="text-right">Amount</th>
+                        <th>Method</th>
+                        <th>Allocated To</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($payments as $payment)
+                    @php
+                        $amount      = $payment->amount instanceof \MongoDB\BSON\Decimal128
+                                        ? (float) $payment->amount->__toString()
+                                        : (float) $payment->amount;
+                        $allocations = $payment->allocations ?? [];
+                        $openingAlloc  = collect($allocations)->where('type', 'opening_balance')->sum('amount');
+                        $invoiceAllocs = collect($allocations)->where('type', 'invoice')->count();
+                    @endphp
+                    <tr>
+                        <td>
+                            <span class="payment-no-badge">{{ $payment->payment_number ?? 'N/A' }}</span>
+                        </td>
+                        <td class="date-cell">
+                            {{ $payment->payment_date->format('d M Y') }}
+                        </td>
+                        <td>
+                            <div class="party-name">{{ $payment->party->name ?? '—' }}</div>
+                            @if($payment->party?->phone)
+                            <div class="party-phone">{{ $payment->party->phone }}</div>
+                            @endif
+                        </td>
+                        <td>
+                            @if($payment->party?->party_type)
+                            <span class="type-badge type-{{ $payment->party->party_type }}">
+                                {{ ucfirst($payment->party->party_type) }}
+                            </span>
+                            @else
+                            <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                        <td class="text-right">
+                            <span class="amount-val">₹{{ number_format($amount, 2) }}</span>
+                        </td>
+                        <td>
+                            <span class="method-badge method-{{ $payment->payment_method }}">
+                                {{ $payment->payment_method_text }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="alloc-wrap">
+                                @if($openingAlloc > 0)
+                                <span class="alloc-tag alloc-opening">Opening ₹{{ number_format($openingAlloc, 2) }}</span>
+                                @endif
+                                @if($invoiceAllocs > 0)
+                                <span class="alloc-tag alloc-invoice">{{ $invoiceAllocs }} Invoice{{ $invoiceAllocs > 1 ? 's' : '' }}</span>
+                                @endif
+                                @if($openingAlloc == 0 && $invoiceAllocs == 0)
+                                <span class="text-muted">—</span>
+                                @endif
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn-view-detail"
+                                    onclick="viewPayment('{{ $payment->_id }}')">
+                                View
+                            </button>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <div class="empty-icon">💰</div>
+                                <div class="empty-title">No Payment In transactions found</div>
+                                <div class="empty-sub">Try changing the filters or create a new payment</div>
+                                <a href="{{ route('admin.payments.create') }}" class="btn-action btn-primary" style="margin-top:12px;">
+                                    + New Payment In
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
 
-        <div class="modal-body">
-            <!-- Party Type Tabs -->
-            <div class="party-tabs">
-                <button type="button" class="tab-btn active" data-type="all">All</button>
-                <button type="button" class="tab-btn" data-type="customer">Customers</button>
-                <button type="button" class="tab-btn" data-type="dealer">Dealers</button>
-                <button type="button" class="tab-btn" data-type="distributor">Distributors</button>
+        @if($payments->count() > 0)
+        <div class="table-foot">
+            <div class="foot-info">
+                Showing {{ $payments->firstItem() }}–{{ $payments->lastItem() }} of {{ $payments->total() }} payments
             </div>
-
-            <!-- Search -->
-            <div class="search-container">
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="searchParty" class="search-input" placeholder="Search by name or phone...">
-                </div>
-            </div>
-
-            <!-- Parties List -->
-            <div class="parties-list-container">
-                <table class="parties-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Phone</th>
-                            <th>Type</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="partiesTableBody">
-                        @foreach($parties as $party)
-                        <tr data-party-id="{{ $party['id'] }}" data-party-type="{{ $party['party_type'] }}" data-party-name="{{ $party['name'] }}" data-party-phone="{{ $party['phone'] }}">
-                            <td>
-                                <div class="party-name">{{ $party['name'] }}</div>
-                            </td>
-                            <td>{{ $party['phone'] ?? '-' }}</td>
-                            <td>
-                                <span class="party-badge party-{{ $party['party_type'] }}">
-                                    {{ $party['party_type_text'] }}
-                                </span>
-                            </td>
-                            <td>
-                                <button type="button" class="btn-select-party" onclick="filterByParty('{{ $party['id'] }}', '{{ $party['name'] }}')">
-                                    Select
-                                </button>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            <div class="foot-pagination">
+                {{ $payments->appends(request()->query())->links() }}
             </div>
         </div>
-
-        <div class="modal-actions">
-            <button type="button" class="btn-modal btn-cancel" onclick="closeSelectPartyModal()">
-                Close
-            </button>
-        </div>
+        @endif
     </div>
 </div>
 
-<!-- Add Payment Modal -->
-<div class="modal" id="paymentModal">
-    <div class="modal-overlay" onclick="closePaymentModal()"></div>
-    <div class="modal-content modal-md">
-        <div class="modal-header">
-            <div class="modal-icon" style="background: #10b981;">💰</div>
-            <div class="modal-title-section">
-                <h4 class="modal-title">Add Payment</h4>
-                <div class="modal-subtitle">Enter payment details</div>
+{{-- ═══════════════════════════════════════════════════════
+     VIEW PAYMENT MODAL
+═══════════════════════════════════════════════════════════ --}}
+<div class="modal-backdrop" id="viewModal" style="display:none;">
+    <div class="modal-box modal-lg">
+        <div class="modal-head">
+            <div class="modal-head-icon">💰</div>
+            <div class="modal-head-info">
+                <div class="modal-head-title">Payment Details</div>
+                <div class="modal-head-sub" id="modalPaymentNo">—</div>
             </div>
-            <button type="button" class="modal-close" onclick="closePaymentModal()">×</button>
+            <button class="modal-close-btn" onclick="closeViewModal()">✕</button>
         </div>
 
-        <form id="paymentForm">
-            @csrf
-            <div class="modal-body">
-                <div class="form-section-small">
-                    <input type="hidden" name="sales_invoice_id" id="invoiceId">
-
-                    <div class="invoice-info-box" id="invoiceInfoBox">
-                        <!-- Will be populated via JS -->
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label required">Payment Amount</label>
-                        <input type="number" step="0.01" name="amount" id="paymentAmount" class="form-control"
-                               placeholder="Enter amount" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label required">Payment Method</label>
-                        <select name="payment_method" class="form-control" required>
-                            <option value="cash">Cash</option>
-                            <option value="upi">UPI</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="card">Card</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label required">Payment Date</label>
-                        <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Reference Number</label>
-                        <input type="text" name="reference_no" id="referenceNo" class="form-control" placeholder="Transaction ID / Cheque No">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Notes</label>
-                        <textarea name="notes" class="form-control" rows="2" placeholder="Additional notes..."></textarea>
-                    </div>
-                </div>
+        <div class="modal-body" id="modalBody">
+            {{-- Content injected by JS --}}
+            <div id="modalLoader" class="modal-loader">
+                <div class="spinner"></div>
+                <span>Loading…</span>
             </div>
-
-            <div class="modal-actions">
-                <button type="button" class="btn-modal btn-cancel" onclick="closePaymentModal()">
-                    Cancel
-                </button>
-                <button type="submit" class="btn-modal btn-primary" id="submitPaymentBtn">
-                    Save Payment
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- View Payments Modal -->
-<div class="modal" id="viewPaymentsModal">
-    <div class="modal-overlay" onclick="closeViewPaymentsModal()"></div>
-    <div class="modal-content modal-lg">
-        <div class="modal-header">
-            <div class="modal-icon" style="background: #10b981;">📊</div>
-            <div class="modal-title-section">
-                <h4 class="modal-title">Payment History</h4>
-                <div class="modal-subtitle">Invoice: <span id="viewInvoiceNumber"></span></div>
-            </div>
-            <button type="button" class="modal-close" onclick="closeViewPaymentsModal()">×</button>
+            <div id="modalContent" style="display:none;"></div>
         </div>
 
-        <div class="modal-body">
-            <div class="payments-history-table-container">
-                <table class="payments-history-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Method</th>
-                            <th>Amount</th>
-                            <th>Reference</th>
-                            <th>Notes</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="paymentsHistoryBody">
-                    </tbody>
-                </table>
-                <div id="historyLoading" class="loading-state" style="display: none;">
-                    <div class="loading-spinner"></div>
-                    <p>Loading payment history...</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="modal-actions">
-            <button type="button" class="btn-modal btn-cancel" onclick="closeViewPaymentsModal()">
-                Close
-            </button>
+        <div class="modal-foot">
+            <button class="btn-modal-close" onclick="closeViewModal()">Close</button>
         </div>
     </div>
 </div>
@@ -355,1094 +236,670 @@
 
 @push('styles')
 <style>
-    /* Base Styles */
-    .payments-container {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 12px;
-        line-height: 1.4;
-        padding: 15px;
-    }
-
-    /* Header */
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    .page-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #2d3748;
-        margin: 0 0 4px 0;
-    }
-
-    .header-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .active-filter {
-        background: #e0f2fe;
-        border-radius: 16px;
-        padding: 4px 8px;
-        font-size: 11px;
-    }
-
-    .filter-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        color: #0369a1;
-        font-weight: 500;
-    }
-
-    .remove-filter {
-        color: #0369a1;
-        text-decoration: none;
-        font-size: 14px;
-        font-weight: bold;
-        line-height: 1;
-    }
-
-    .remove-filter:hover {
-        color: #0284c7;
-    }
-
-    .header-right {
-        display: flex;
-        gap: 8px;
-    }
-
-    .btn-small {
-        padding: 6px 12px;
-        background: #fa8427;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 500;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        transition: all 0.2s;
-        text-decoration: none;
-    }
-
-    .btn-small:hover {
-        background: #e97317;
-        transform: translateY(-1px);
-    }
-
-    .btn-primary {
-        background: #3b82f6;
-    }
-
-    .btn-primary:hover {
-        background: #2563eb;
-    }
-
-    .btn-icon {
-        font-size: 12px;
-    }
-
-    /* Filters Card */
-    .filters-card {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-
-    .filters-card .card-header {
-        padding: 12px 16px;
-        border-bottom: 1px solid #e2e8f0;
-        background: #f8fafc;
-        border-radius: 8px 8px 0 0;
-    }
-
-    .filters-card .card-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: #374151;
-        margin: 0;
-    }
-
-    .filters-card .card-body {
-        padding: 16px;
-    }
-
-    .filters-form .form-row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
-        align-items: end;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .form-group label {
-        font-size: 11px;
-        font-weight: 500;
-        color: #4b5563;
-    }
-
-    .form-group .form-control {
-        padding: 6px 8px;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        font-size: 11px;
-        background: #f9fafb;
-        height: 32px;
-    }
-
-    .form-group .form-control:focus {
-        outline: none;
-        border-color: #667eea;
-        background: white;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    .btn-group {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .btn-apply, .btn-reset {
-        padding: 6px 16px;
-        border: none;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        height: 32px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-    }
-
-    .btn-apply {
-        background: #667eea;
-        color: white;
-        border: none;
-    }
-
-    .btn-apply:hover {
-        background: #5a67d8;
-        transform: translateY(-1px);
-    }
-
-    .btn-reset {
-        background: #f3f4f6;
-        color: #4b5563;
-        border: 1px solid #e5e7eb;
-    }
-
-    .btn-reset:hover {
-        background: #e5e7eb;
-    }
-
-    /* Table Styles */
-    .table-wrapper {
-        overflow-x: auto;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        background: white;
-        margin-top: 10px;
-    }
-
-    .compact-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 11px;
-    }
-
-    .compact-table th {
-        background: #f8fafc;
-        padding: 10px 12px;
-        text-align: left;
-        font-weight: 600;
-        color: #4b5563;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-    }
-
-    .compact-table td {
-        padding: 10px 12px;
-        border-bottom: 1px solid #f3f4f6;
-        vertical-align: middle;
-    }
-
-    .compact-table tr:last-child td {
-        border-bottom: none;
-    }
-
-    .compact-table tr:hover {
-        background: #f9fafb;
-    }
-
-    /* Column Widths */
-    .th-date { width: 90px; }
-    .th-invoice { width: 120px; }
-    .th-customer { width: 150px; }
-    .th-type { width: 80px; }
-    .th-amount { width: 100px; }
-    .th-status { width: 80px; }
-    .th-actions { width: 100px; }
-
-    /* Invoice Number */
-    .invoice-number {
-        font-weight: 600;
-        color: #1f2937;
-        background: #f0f9ff;
-        padding: 4px 8px;
-        border-radius: 4px;
-        border: 1px solid #e0f2fe;
-        font-size: 11px;
-        text-align: center;
-        display: inline-block;
-    }
-
-    /* Customer Name */
-    .customer-name {
-        font-weight: 500;
-        color: #374151;
-        line-height: 1.3;
-        font-size: 12px;
-    }
-
-    .customer-phone {
-        font-size: 10px;
-        color: #6b7280;
-        margin-top: 2px;
-    }
-
-    /* Party Badge */
-    .party-badge {
-        display: inline-block;
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-size: 9px;
-        font-weight: 600;
-        text-transform: capitalize;
-    }
-
-    .party-customer {
-        background: #dbeafe;
-        color: #1e40af;
-        border: 1px solid #bfdbfe;
-    }
-
-    .party-dealer {
-        background: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fde68a;
-    }
-
-    .party-distributor {
-        background: #d1fae5;
-        color: #065f46;
-        border: 1px solid #a7f3d0;
-    }
-
-    /* Amount */
-    .amount-value {
-        font-weight: 600;
-        color: #1f2937;
-        font-size: 12px;
-    }
-
-    .text-muted {
-        color: #9ca3af;
-    }
-
-    .text-danger {
-        color: #dc2626;
-    }
-
-    .text-success {
-        color: #059669;
-    }
-
-    /* Status Badge */
-    .status-badge {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 10px;
-        font-weight: 600;
-        text-transform: capitalize;
-    }
-
-    .status-paid {
-        background: #d1fae5;
-        color: #065f46;
-        border: 1px solid #a7f3d0;
-    }
-
-    .status-partial {
-        background: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fde68a;
-    }
-
-    .status-unpaid {
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
-    }
-
-    /* Action Buttons */
-    .btn-add-payment {
-        padding: 4px 10px;
-        background: #10b981;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .btn-add-payment:hover {
-        background: #059669;
-    }
-
-    .btn-view-payments {
-        padding: 4px 10px;
-        background: #6b7280;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .btn-view-payments:hover {
-        background: #4b5563;
-    }
-
-    .btn-delete-payment {
-        padding: 2px 6px;
-        background: #ef4444;
-        color: white;
-        border: none;
-        border-radius: 3px;
-        font-size: 9px;
-        cursor: pointer;
-    }
-
-    .btn-delete-payment:hover {
-        background: #dc2626;
-    }
-
-    /* Empty State */
-    .empty-state {
-        padding: 60px 20px;
-        text-align: center;
-    }
-
-    .empty-content {
-        display: inline-block;
-        text-align: center;
-    }
-
-    .empty-icon {
-        font-size: 48px;
-        margin-bottom: 15px;
-        opacity: 0.5;
-    }
-
-    .empty-content h4 {
-        font-size: 16px;
-        color: #374151;
-        margin-bottom: 8px;
-    }
-
-    .empty-content p {
-        font-size: 12px;
-        color: #6b7280;
-        margin-bottom: 20px;
-    }
-
-    /* Table Footer */
-    .table-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        border-top: 1px solid #e2e8f0;
-        background: #f8fafc;
-        font-size: 11px;
-        color: #6b7280;
-        border-radius: 0 0 6px 6px;
-        margin-top: 10px;
-    }
-
-    .footer-info {
-        font-weight: 500;
-    }
-
-    .pagination {
-        display: flex;
-        gap: 5px;
-    }
-
-    /* Modal Styles */
-    .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 1000;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .modal-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.4);
-        backdrop-filter: blur(2px);
-    }
-
-    .modal-content {
-        position: relative;
-        background: white;
-        border-radius: 12px;
-        padding: 0;
-        width: 90%;
-        max-width: 500px;
-        max-height: 90vh;
-        overflow-y: auto;
-        animation: modalFadeIn 0.2s ease;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-    }
-
-    .modal-md {
-        max-width: 500px;
-    }
-
-    .modal-lg {
-        max-width: 700px;
-    }
-
-    @keyframes modalFadeIn {
-        from { opacity: 0; transform: scale(0.95) translateY(20px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-
-    .modal-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 20px 24px;
-        border-bottom: 1px solid #e5e7eb;
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border-radius: 12px 12px 0 0;
-    }
-
-    .modal-title-section {
-        flex: 1;
-    }
-
-    .modal-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #1f2937;
-        margin: 0;
-        line-height: 1.3;
-    }
-
-    .modal-subtitle {
-        font-size: 11px;
-        color: #6b7280;
-        margin-top: 2px;
-    }
-
-    .modal-close {
-        background: none;
-        border: none;
-        font-size: 20px;
-        color: #6b7280;
-        cursor: pointer;
-        padding: 4px;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        transition: all 0.2s;
-    }
-
-    .modal-close:hover {
-        background: #f3f4f6;
-        color: #1f2937;
-        transform: rotate(90deg);
-    }
-
-    .modal-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        color: white;
-        flex-shrink: 0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        background: #555;
-    }
-
-    .modal-body {
-        padding: 24px;
-    }
-
-    .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        padding: 20px 24px;
-        border-top: 1px solid #e5e7eb;
-        background: #fafafa;
-        border-radius: 0 0 12px 12px;
-    }
-
-    .btn-modal {
-        padding: 8px 20px;
-        border: none;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        min-width: 100px;
-    }
-
-    .btn-cancel {
-        background: #f3f4f6;
-        color: #4b5563;
-        border: 1px solid #e5e7eb;
-    }
-
-    .btn-cancel:hover {
-        background: #e5e7eb;
-    }
-
-    .btn-modal.btn-primary {
-        background: #3b82f6;
-        color: white;
-    }
-
-    .btn-modal.btn-primary:hover {
-        background: #2563eb;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-    }
-
-    /* Party Tabs */
-    .party-tabs {
-        display: flex;
-        gap: 5px;
-        margin-bottom: 15px;
-        border-bottom: 1px solid #e5e7eb;
-        padding-bottom: 10px;
-    }
-
-    .tab-btn {
-        padding: 6px 12px;
-        background: none;
-        border: none;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 500;
-        color: #6b7280;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .tab-btn:hover {
-        background: #f3f4f6;
-        color: #1f2937;
-    }
-
-    .tab-btn.active {
-        background: #e0f2fe;
-        color: #0369a1;
-        font-weight: 600;
-    }
-
-    /* Search Container */
-    .search-container {
-        margin-bottom: 15px;
-    }
-
-    .search-box {
-        position: relative;
-    }
-
-    .search-icon {
-        position: absolute;
-        left: 10px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 11px;
-        color: #666;
-    }
-
-    .search-input {
-        width: 100%;
-        padding: 8px 10px 8px 30px;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 11px;
-        background: #fff;
-    }
-
-    .search-input:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    /* Parties Table */
-    .parties-list-container {
-        max-height: 400px;
-        overflow-y: auto;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-    }
-
-    .parties-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 11px;
-    }
-
-    .parties-table th {
-        background: #f9fafb;
-        padding: 10px;
-        text-align: left;
-        font-weight: 600;
-        color: #4b5563;
-        border-bottom: 1px solid #e5e7eb;
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
-    .parties-table td {
-        padding: 10px;
-        border-bottom: 1px solid #f3f4f6;
-    }
-
-    .parties-table tr:hover {
-        background: #f9fafb;
-    }
-
-    .btn-select-party {
-        padding: 4px 10px;
-        background: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .btn-select-party:hover {
-        background: #2563eb;
-    }
-
-    /* Invoice Info Box */
-    .invoice-info-box {
-        background: #f0f9ff;
-        border: 1px solid #bfdbfe;
-        border-radius: 8px;
-        padding: 15px;
-        margin-bottom: 20px;
-    }
-
-    .info-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 8px;
-        font-size: 11px;
-    }
-
-    .info-label {
-        color: #4b5563;
-        font-weight: 500;
-    }
-
-    .info-value {
-        color: #1f2937;
-        font-weight: 600;
-    }
-
-    .info-total {
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px dashed #bfdbfe;
-        font-weight: 700;
-        color: #1e40af;
-    }
-
-    /* Form Styles */
-    .form-section-small {
-        margin-bottom: 15px;
-    }
-
-    .form-label {
-        display: block;
-        font-size: 11px;
-        font-weight: 500;
-        color: #374151;
-        margin-bottom: 4px;
-    }
-
-    .form-label.required::after {
-        content: ' *';
-        color: #dc2626;
-    }
-
-    textarea.form-control {
-        resize: vertical;
-        min-height: 60px;
-    }
-
-    .form-hint {
-        display: block;
-        font-size: 10px;
-        color: #6b7280;
-        margin-top: 4px;
-    }
-
-    /* Payments History Table */
-    .payments-history-table-container {
-        max-height: 400px;
-        overflow-y: auto;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-    }
-
-    .payments-history-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 11px;
-    }
-
-    .payments-history-table th {
-        background: #f9fafb;
-        padding: 10px;
-        text-align: left;
-        font-weight: 600;
-        color: #4b5563;
-        border-bottom: 1px solid #e5e7eb;
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
-    .payments-history-table td {
-        padding: 10px;
-        border-bottom: 1px solid #f3f4f6;
-    }
-
-    /* Loading State */
-    .loading-state {
-        padding: 40px 20px;
-        text-align: center;
-    }
-
-    .loading-spinner {
-        width: 30px;
-        height: 30px;
-        border: 3px solid #f3f4f6;
-        border-top-color: #3b82f6;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 10px;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-
-    .loading-state p {
-        font-size: 11px;
-        color: #6b7280;
-        margin: 0;
-    }
-
-    /* Alert Messages */
-    #alertContainer {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 9999;
-    }
-
-    .alert {
-        padding: 12px 16px;
-        margin-bottom: 8px;
-        border-radius: 6px;
-        font-size: 11px;
-        font-weight: 500;
-        animation: slideInRight 0.3s ease;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    .alert-success {
-        background: #d1fae5;
-        color: #065f46;
-        border: 1px solid #a7f3d0;
-    }
-
-    .alert-error {
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
-    }
-
-    .alert-info {
-        background: #dbeafe;
-        color: #1e40af;
-        border: 1px solid #bfdbfe;
-    }
-
-    @keyframes slideInRight {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
+/* ── Root ───────────────────────────────────────────────── */
+:root {
+    --c-bg:      #f4f6f9;
+    --c-white:   #ffffff;
+    --c-border:  #e2e8f0;
+    --c-text:    #1e293b;
+    --c-muted:   #64748b;
+    --c-label:   #374151;
+    --c-primary: #3b82f6;
+    --c-green:   #10b981;
+    --c-warn:    #f59e0b;
+    --c-danger:  #ef4444;
+    --radius:    8px;
+    --shadow:    0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+}
+
+/* ── Wrapper ────────────────────────────────────────────── */
+.payments-container {
+    max-width: 1300px;
+    margin: 0 auto;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    color: var(--c-text);
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 18px;
+}
+.page-title   { font-size: 20px; font-weight: 700; margin: 0 0 2px; }
+.page-subtitle { font-size: 12px; color: var(--c-muted); }
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    transition: all .15s;
+}
+.btn-primary { background: #fb7f29; color: #fff; }
+.btn-primary:hover { background: #fb7f29; color: #fff; transform: translateY(-1px); }
+
+/* ── Filters ────────────────────────────────────────────── */
+.filters-card {
+    background: var(--c-white);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+}
+.filters-header {
+    padding: 10px 16px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--c-label);
+    border-bottom: 1px solid var(--c-border);
+    background: #fafbfc;
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+.filters-body { padding: 14px 16px; }
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+.filter-field { display: flex; flex-direction: column; gap: 4px; }
+.filter-field label { font-size: 11px; font-weight: 500; color: var(--c-label); }
+.f-input {
+    padding: 7px 9px;
+    border: 1px solid var(--c-border);
+    border-radius: 5px;
+    font-size: 12px;
+    background: #f9fafb;
+    color: var(--c-text);
+    height: 32px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.f-input:focus { outline: none; border-color: var(--c-primary); background: #fff; }
+.filter-btns { display: flex; gap: 8px; align-items: center; }
+.btn-filter-apply, .btn-filter-reset {
+    padding: 6px 16px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    border: none;
+    transition: all .15s;
+}
+.btn-filter-apply { background: var(--c-primary); color: #fff; }
+.btn-filter-apply:hover { background: #2563eb; }
+.btn-filter-reset { background: #f3f4f6; color: var(--c-label); border: 1px solid var(--c-border); }
+.btn-filter-reset:hover { background: #e5e7eb; }
+
+/* ── Stats ──────────────────────────────────────────────── */
+.stats-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.stat-card {
+    background: var(--c-white);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    box-shadow: var(--shadow);
+    flex: 1;
+    min-width: 140px;
+}
+.stat-card.stat-green { border-left: 3px solid var(--c-green); }
+.stat-card.stat-blue  { border-left: 3px solid var(--c-primary); }
+.stat-label { font-size: 11px; color: var(--c-muted); margin-bottom: 4px; }
+.stat-value { font-size: 18px; font-weight: 700; color: var(--c-text); }
+
+/* ── Table Card ─────────────────────────────────────────── */
+.table-card {
+    background: var(--c-white);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.table-wrapper { overflow-x: auto; }
+.pi-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+.pi-table th {
+    background: #f8fafc;
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--c-muted);
+    border-bottom: 1px solid var(--c-border);
+    white-space: nowrap;
+}
+.pi-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+.pi-table tbody tr:last-child td { border-bottom: none; }
+.pi-table tbody tr:hover { background: #fafbfc; }
+.text-right  { text-align: right; }
+.text-center { text-align: center; }
+.text-muted  { color: var(--c-muted); }
+
+/* ── Payment No Badge ────────────────────────────────────── */
+.payment-no-badge {
+    display: inline-block;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: monospace;
+    white-space: nowrap;
+}
+
+/* ── Party ──────────────────────────────────────────────── */
+.date-cell { white-space: nowrap; color: var(--c-muted); font-size: 12px; }
+.party-name  { font-weight: 500; font-size: 12.5px; }
+.party-phone { font-size: 11px; color: var(--c-muted); margin-top: 2px; }
+
+/* ── Type Badge ─────────────────────────────────────────── */
+.type-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+.type-customer    { background: #dbeafe; color: #1e40af; }
+.type-dealer      { background: #fef3c7; color: #92400e; }
+.type-distributor { background: #d1fae5; color: #065f46; }
+
+/* ── Amount ─────────────────────────────────────────────── */
+.amount-val { font-weight: 700; font-size: 13px; color: #065f46; }
+
+/* ── Method Badge ───────────────────────────────────────── */
+.method-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.method-cash          { background: #d1fae5; color: #065f46; }
+.method-upi           { background: #dbeafe; color: #1e40af; }
+.method-bank_transfer { background: #fef3c7; color: #92400e; }
+.method-cheque        { background: #fed7aa; color: #9a3412; }
+.method-card          { background: #e0e7ff; color: #3730a3; }
+
+/* ── Reference ──────────────────────────────────────────── */
+.ref-no { font-size: 11px; color: var(--c-muted); font-family: monospace; }
+
+/* ── Allocation Tags ─────────────────────────────────────── */
+.alloc-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+.alloc-tag  {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.alloc-opening { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+.alloc-invoice { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+
+/* ── View Button ─────────────────────────────────────────── */
+.btn-view-detail {
+    padding: 5px 14px;
+    background: var(--c-primary);
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s;
+}
+.btn-view-detail:hover { background: #2563eb; }
+
+/* ── Empty State ─────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 50px 20px; }
+.empty-icon  { font-size: 48px; opacity: .45; margin-bottom: 12px; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--c-text); margin-bottom: 6px; }
+.empty-sub   { font-size: 12px; color: var(--c-muted); }
+
+/* ── Table Footer ────────────────────────────────────────── */
+.table-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 16px;
+    border-top: 1px solid var(--c-border);
+    background: #fafbfc;
+    font-size: 11.5px;
+    color: var(--c-muted);
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,.45);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.modal-box {
+    background: var(--c-white);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,.18);
+    animation: modalIn .2s ease;
+    display: flex;
+    flex-direction: column;
+}
+.modal-lg { max-width: 780px; }
+@keyframes modalIn {
+    from { opacity:0; transform: translateY(20px) scale(.97); }
+    to   { opacity:1; transform: translateY(0)    scale(1);   }
+}
+
+/* Modal Head */
+.modal-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--c-border);
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    border-radius: 12px 12px 0 0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.modal-head-icon {
+    width: 42px;
+    height: 42px;
+    background: var(--c-green);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 8px rgba(16,185,129,.25);
+}
+.modal-head-title { font-size: 15px; font-weight: 700; color: var(--c-text); }
+.modal-head-sub   { font-size: 11.5px; color: var(--c-muted); margin-top: 2px; }
+.modal-close-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: var(--c-muted);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+}
+.modal-close-btn:hover { background: #f3f4f6; color: var(--c-text); }
+
+/* Modal Body */
+.modal-body { padding: 22px; flex: 1; }
+
+/* Modal Loader */
+.modal-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    color: var(--c-muted);
+    font-size: 13px;
+}
+.spinner {
+    width: 22px; height: 22px;
+    border: 3px solid #e5e7eb;
+    border-top-color: var(--c-primary);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Modal Foot */
+.modal-foot {
+    padding: 14px 22px;
+    border-top: 1px solid var(--c-border);
+    background: #fafbfc;
+    border-radius: 0 0 12px 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+.btn-modal-close {
+    padding: 8px 22px;
+    background: #f3f4f6;
+    color: var(--c-label);
+    border: 1px solid var(--c-border);
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s;
+}
+.btn-modal-close:hover { background: #e5e7eb; }
+
+/* ── Modal Detail Styles ─────────────────────────────────── */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.detail-item { display: flex; flex-direction: column; gap: 3px; }
+.detail-label { font-size: 11px; color: var(--c-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .4px; }
+.detail-value { font-size: 13.5px; font-weight: 600; color: var(--c-text); }
+.detail-value.green { color: var(--c-green); }
+.detail-value.blue  { color: var(--c-primary); }
+
+.section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--c-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--c-border);
+}
+
+/* Allocation Table inside modal */
+.alloc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+.alloc-table th {
+    background: #f8fafc;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--c-muted);
+    border-bottom: 1px solid var(--c-border);
+}
+.alloc-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+.alloc-table tbody tr:last-child td { border-bottom: none; }
+.alloc-table .text-right { text-align: right; }
+
+.alloc-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+}
+.alloc-type-badge.opening { background: #f3e8ff; color: #6b21a8; }
+.alloc-type-badge.invoice { background: #dbeafe; color: #1e40af; }
+
+.balance-change {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+}
+.balance-from { color: var(--c-danger); text-decoration: line-through; opacity: .7; }
+.balance-arrow { color: var(--c-muted); }
+.balance-to    { color: var(--c-green); font-weight: 600; }
+
+.no-alloc {
+    text-align: center;
+    padding: 20px;
+    color: var(--c-muted);
+    font-size: 12.5px;
+}
+
+/* Summary box inside modal */
+.summary-box {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 16px;
+}
+.summary-box-item {
+    flex: 1;
+    padding: 12px 16px;
+    text-align: center;
+    border-right: 1px solid var(--c-border);
+}
+.summary-box-item:last-child { border-right: none; }
+.summary-box-label { font-size: 10.5px; color: var(--c-muted); font-weight: 500; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .3px; }
+.summary-box-val   { font-size: 14px; font-weight: 700; }
+.summary-box-val.green  { color: var(--c-green); }
+.summary-box-val.purple { color: #7c3aed; }
+.summary-box-val.blue   { color: var(--c-primary); }
+
+/* Alert */
+#alertContainer { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+.pi-alert {
+    padding: 11px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    animation: slideIn .25s ease;
+}
+@keyframes slideIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
+.pi-alert.success { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
+.pi-alert.error   { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
 </style>
 @endpush
 
 @push('scripts')
 <script>
-// ===================== GLOBAL VARIABLES =====================
-let currentInvoiceId = null;
+function viewPayment(id) {
+    document.getElementById('viewModal').style.display = 'flex';
+    document.getElementById('modalPaymentNo').textContent = 'Loading…';
+    document.getElementById('modalLoader').style.display  = 'flex';
+    document.getElementById('modalContent').style.display = 'none';
 
-// ===================== MODAL FUNCTIONS =====================
+    $.get('{{ route("admin.payments.show", "__PLACEHOLDER__") }}'.replace('__PLACEHOLDER__', id))
+        .done(function(res) {
+            document.getElementById('modalLoader').style.display = 'none';
+            if (!res.success) { showAlert('Failed to load payment details', 'error'); closeViewModal(); return; }
 
-function openSelectPartyModal() {
-    $('#selectPartyModal').css('display', 'flex');
-    filterPartiesByType('all');
-}
+            const p = res.payment;
+            document.getElementById('modalPaymentNo').textContent = p.payment_number || '—';
 
-function closeSelectPartyModal() {
-    $('#selectPartyModal').hide();
-    $('#searchParty').val('');
-}
+            /* ── Build modal content ── */
+            let html = '';
 
-function openPaymentModal(invoiceId) {
-    currentInvoiceId = invoiceId;
-
-    // Show loading
-    $('#invoiceInfoBox').html('<div class="text-center">Loading...</div>');
-    $('#paymentModal').css('display', 'flex');
-
-    // Fetch invoice details
-    $.get('/admin/payments/invoice/' + invoiceId, function(response) {
-        if (response.success) {
-            const invoice = response.invoice;
-
-            const infoHtml = `
-                <div class="info-row">
-                    <span class="info-label">Party:</span>
-                    <span class="info-value">${invoice.party_name}</span>
+            /* Info grid */
+            html += `<div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Payment Number</span>
+                    <span class="detail-value blue">${esc(p.payment_number)}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Invoice:</span>
-                    <span class="info-value">${invoice.invoice_number}</span>
+                <div class="detail-item">
+                    <span class="detail-label">Date</span>
+                    <span class="detail-value">${esc(p.date)}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Invoice Total:</span>
-                    <span class="info-value">₹ ${invoice.grand_total.toFixed(2)}</span>
+                <div class="detail-item">
+                    <span class="detail-label">Party Name</span>
+                    <span class="detail-value">${esc(p.party_name)}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Paid Amount:</span>
-                    <span class="info-value">₹ ${invoice.total_paid.toFixed(2)}</span>
+                <div class="detail-item">
+                    <span class="detail-label">Party Type</span>
+                    <span class="detail-value">${esc(p.party_type)}</span>
                 </div>
-                <div class="info-row info-total">
-                    <span class="info-label">Due Amount:</span>
-                    <span class="info-value">₹ ${invoice.balance_amount.toFixed(2)}</span>
+                <div class="detail-item">
+                    <span class="detail-label">Amount Received</span>
+                    <span class="detail-value green">₹${fmt(p.amount)}</span>
                 </div>
-            `;
-            $('#invoiceInfoBox').html(infoHtml);
-            $('#invoiceId').val(invoice.id);
-            $('#referenceNo').val(invoice.invoice_number);
-            $('#paymentAmount').attr('max', invoice.balance_amount);
-            $('#paymentAmount').attr('placeholder', `Max: ₹ ${invoice.balance_amount.toFixed(2)}`);
-        } else {
-            showAlert('Failed to load invoice details', 'error');
-            closePaymentModal();
-        }
-    }).fail(function() {
-        showAlert('Failed to load invoice details', 'error');
-        closePaymentModal();
-    });
-}
+                <div class="detail-item">
+                    <span class="detail-label">Payment Method</span>
+                    <span class="detail-value">${esc(p.payment_method)}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Reference No</span>
+                    <span class="detail-value">${esc(p.reference_no)}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Notes</span>
+                    <span class="detail-value">${esc(p.notes)}</span>
+                </div>
+            </div>`;
 
-function closePaymentModal() {
-    $('#paymentModal').hide();
-    $('#paymentForm')[0].reset();
-    $('#invoiceInfoBox').empty();
-    currentInvoiceId = null;
-}
+            /* Allocation breakdown */
+            const allocs = p.allocations || [];
+            let totalAllocated = 0;
+            let openingTotal   = 0;
+            let invoiceTotal   = 0;
 
-function openViewPaymentsModal(invoiceId) {
-    $('#viewPaymentsModal').css('display', 'flex');
-    $('#historyLoading').show();
-    $('#paymentsHistoryBody').empty();
+            html += `<p class="section-title">Allocation Breakdown</p>`;
 
-    // This would need an API endpoint to get payments for an invoice
-    // For now, just close it
-    setTimeout(() => {
-        $('#historyLoading').hide();
-        $('#viewPaymentsModal').hide();
-        showAlert('View payments feature coming soon', 'info');
-    }, 500);
-}
-
-function closeViewPaymentsModal() {
-    $('#viewPaymentsModal').hide();
-    $('#paymentsHistoryBody').empty();
-}
-
-// ===================== PARTY FILTERING =====================
-
-$('.tab-btn').click(function() {
-    $('.tab-btn').removeClass('active');
-    $(this).addClass('active');
-    filterPartiesByType($(this).data('type'));
-});
-
-function filterPartiesByType(type) {
-    const search = $('#searchParty').val().toLowerCase();
-
-    $('#partiesTableBody tr').each(function() {
-        const partyType = $(this).data('party-type');
-        const partyName = $(this).data('party-name').toLowerCase();
-        const partyPhone = $(this).data('party-phone') ? $(this).data('party-phone').toLowerCase() : '';
-
-        let showByType = type === 'all' || partyType === type;
-        let showBySearch = search === '' ||
-                          partyName.includes(search) ||
-                          (partyPhone && partyPhone.includes(search));
-
-        $(this).toggle(showByType && showBySearch);
-    });
-}
-
-$('#searchParty').on('input', function() {
-    const activeTab = $('.tab-btn.active').data('type');
-    filterPartiesByType(activeTab);
-});
-
-// ===================== FILTER BY PARTY =====================
-
-function filterByParty(partyId, partyName) {
-    // Redirect with party filter
-    window.location.href = '{{ route("admin.payments.index") }}?party_id=' + partyId;
-}
-
-// ===================== SUBMIT PAYMENT =====================
-
-$('#paymentForm').submit(function(e) {
-    e.preventDefault();
-
-    const formData = $(this).serialize();
-    const amount = parseFloat($('#paymentAmount').val());
-
-    if (amount <= 0) {
-        showAlert('Please enter a valid amount', 'error');
-        return;
-    }
-
-    $('#submitPaymentBtn').prop('disabled', true).text('Saving...');
-
-    $.ajax({
-        url: '{{ route("admin.payments.store") }}',
-        type: 'POST',
-        data: formData,
-        success: function(response) {
-            if (response.success) {
-                showAlert(response.message, 'success');
-                closePaymentModal();
-
-                // Reload page to show updated data
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
+            if (allocs.length === 0) {
+                html += `<div class="no-alloc">No allocation details available</div>`;
             } else {
-                showAlert('Error: ' + response.message, 'error');
-                $('#submitPaymentBtn').prop('disabled', false).text('Save Payment');
+                html += `<table class="alloc-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Details</th>
+                            <th class="text-right">Allocated</th>
+                            <th>Balance Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                allocs.forEach(function(a) {
+                    totalAllocated += parseFloat(a.amount) || 0;
+
+                    if (a.type === 'opening_balance') {
+                        openingTotal += parseFloat(a.amount) || 0;
+                        html += `<tr>
+                            <td><span class="alloc-type-badge opening">Opening Bal.</span></td>
+                            <td>${esc(a.description || 'Opening Balance Payment')}</td>
+                            <td class="text-right"><strong>₹${fmt(a.amount)}</strong></td>
+                            <td><span class="text-muted">—</span></td>
+                        </tr>`;
+                    } else if (a.type === 'invoice') {
+                        invoiceTotal += parseFloat(a.amount) || 0;
+                        html += `<tr>
+                            <td><span class="alloc-type-badge invoice">Invoice</span></td>
+                            <td>
+                                <strong>${esc(a.invoice_number)}</strong>
+                            </td>
+                            <td class="text-right"><strong>₹${fmt(a.amount)}</strong></td>
+                            <td>
+                                <div class="balance-change">
+                                    <span class="balance-from">₹${fmt(a.previous_balance)}</span>
+                                    <span class="balance-arrow">→</span>
+                                    <span class="balance-to">₹${fmt(a.new_balance)}</span>
+                                </div>
+                            </td>
+                        </tr>`;
+                    }
+                });
+
+                html += `</tbody></table>`;
             }
-        },
-        error: function(xhr) {
-            showAlert('Failed to process payment: ' + (xhr.responseJSON?.message || 'Unknown error'), 'error');
-            $('#submitPaymentBtn').prop('disabled', false).text('Save Payment');
-        }
-    });
-});
 
-// ===================== VIEW PAYMENTS (Placeholder) =====================
+            /* Summary boxes */
+            html += `<div class="summary-box">
+                <div class="summary-box-item">
+                    <div class="summary-box-label">Total Amount</div>
+                    <div class="summary-box-val green">₹${fmt(p.amount)}</div>
+                </div>`;
 
-function viewPayments(invoiceId) {
-    showAlert('Payment history feature coming soon', 'info');
+            if (openingTotal > 0) {
+                html += `<div class="summary-box-item">
+                    <div class="summary-box-label">Opening Balance</div>
+                    <div class="summary-box-val purple">₹${fmt(openingTotal)}</div>
+                </div>`;
+            }
+            if (invoiceTotal > 0) {
+                html += `<div class="summary-box-item">
+                    <div class="summary-box-label">Invoice Payments</div>
+                    <div class="summary-box-val blue">₹${fmt(invoiceTotal)}</div>
+                </div>`;
+            }
+            html += `</div>`;
+
+            document.getElementById('modalContent').innerHTML = html;
+            document.getElementById('modalContent').style.display = 'block';
+        })
+        .fail(function() {
+            document.getElementById('modalLoader').style.display = 'none';
+            showAlert('Failed to load payment details', 'error');
+            closeViewModal();
+        });
 }
 
-// ===================== HELPER FUNCTIONS =====================
-
-function showAlert(message, type = 'success') {
-    const container = document.getElementById('alertContainer');
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type}`;
-    alert.innerHTML = `<span>${message}</span>`;
-    container.appendChild(alert);
-
-    setTimeout(() => alert.remove(), 5000);
+function closeViewModal() {
+    document.getElementById('viewModal').style.display = 'none';
+    document.getElementById('modalContent').innerHTML  = '';
+    document.getElementById('modalContent').style.display = 'none';
+    document.getElementById('modalLoader').style.display  = 'flex';
 }
 
-// Close modals on overlay click
-$('.modal-overlay').click(function() {
-    const modal = $(this).closest('.modal');
-    if (modal.attr('id') === 'selectPartyModal') closeSelectPartyModal();
-    else if (modal.attr('id') === 'paymentModal') closePaymentModal();
-    else if (modal.attr('id') === 'viewPaymentsModal') closeViewPaymentsModal();
+/* Close on backdrop click */
+document.getElementById('viewModal').addEventListener('click', function(e) {
+    if (e.target === this) closeViewModal();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeViewModal();
 });
 
-// Close modals on Escape key
-$(document).keydown(function(event) {
-    if (event.key === 'Escape') {
-        closeSelectPartyModal();
-        closePaymentModal();
-        closeViewPaymentsModal();
-    }
-});
+/* Helpers */
+function fmt(n)  { return (parseFloat(n) || 0).toFixed(2); }
+function esc(s)  {
+    return String(s ?? '—')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showAlert(msg, type) {
+    const c = document.getElementById('alertContainer');
+    const a = document.createElement('div');
+    a.className = 'pi-alert ' + type;
+    a.textContent = msg;
+    c.appendChild(a);
+    setTimeout(() => a.remove(), 4000);
+}
 </script>
 @endpush

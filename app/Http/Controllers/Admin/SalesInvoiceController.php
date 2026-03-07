@@ -196,6 +196,56 @@ public function index(Request $request)
         try {
             /* ================= GET PARTY ADDRESSES ================= */
             $party = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
+             $openingBalance = (float) ($party->opening_balance ?? 0);
+
+            // Existing unpaid invoices ka total balance
+            $unpaidInvoicesBalance = SalesInvoice::where('party_id', $request->party_id)
+                ->where('status', '!=', 'draft')
+                ->where('payment_status', '!=', 'paid')
+                ->sum('balance_amount');
+
+            $unpaidInvoicesBalance = $this->decimalToFloat($unpaidInvoicesBalance);
+
+            // TOTAL CURRENT DUE = Opening Balance + Unpaid Invoices Balance
+            $currentDue = $openingBalance + $unpaidInvoicesBalance;
+
+            $grandTotal = (float) $request->grand_total;
+            $amountPaid = (float) ($request->amount_paid ?? 0);
+            $newInvoiceBalance = $grandTotal - $amountPaid;
+
+            // Total due after this invoice
+            $totalDueAfterInvoice = $currentDue + $newInvoiceBalance;
+
+            // Credit limit check
+            $creditLimit = (float) ($party->credit_limit ?? 0);
+
+            if ($creditLimit > 0 && $totalDueAfterInvoice > $creditLimit) {
+                        $availableCredit = max(0, $creditLimit - $currentDue);
+
+                        $formattedOpeningBalance = number_format($openingBalance, 2);
+                        $formattedUnpaidInvoices = number_format($unpaidInvoicesBalance, 2);
+                        $formattedCurrentDue = number_format($currentDue, 2);
+                        $formattedNewBalance = number_format($newInvoiceBalance, 2);
+                        $formattedTotalDue = number_format($totalDueAfterInvoice, 2);
+                        $formattedCreditLimit = number_format($creditLimit, 2);
+                        $formattedAvailable = number_format($availableCredit, 2);
+
+                        throw new \Exception(
+                            "❌ Credit Limit Exceeded!\n\n" .
+                            "Credit Limit: ₹{$formattedCreditLimit}\n" .
+                            "─────────────────────\n" .
+                            "Opening Balance: ₹{$formattedOpeningBalance}\n" .
+                            "Unpaid Invoices: ₹{$formattedUnpaidInvoices}\n" .
+                            "Current Due: ₹{$formattedCurrentDue}\n" .
+                            "─────────────────────\n" .
+                            "New Invoice Balance: ₹{$formattedNewBalance}\n" .
+                            "Total After Invoice: ₹{$formattedTotalDue}\n" .
+                            "─────────────────────\n" .
+                            "Available Credit: ₹{$formattedAvailable}\n\n" .
+                            "💡 Customer can only take items worth ₹{$formattedAvailable} on credit.\n" .
+                            "Please collect payment or increase credit limit."
+                        );
+                    }
 
             $billingAddress = $party->addresses
                 ->where('type', 'billing')
@@ -558,6 +608,61 @@ public function index(Request $request)
             /* ================= GET PARTY ADDRESSES ================= */
             $party = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
 
+            // Opening balance
+            $openingBalance = (float) ($party->opening_balance ?? 0);
+
+            // Existing unpaid invoices ka total balance (excluding current invoice)
+            $unpaidInvoicesBalance = SalesInvoice::where('party_id', $request->party_id)
+                ->where('status', '!=', 'draft')
+                ->where('payment_status', '!=', 'paid')
+                ->where('_id', '!=', $id) // Exclude current invoice
+                ->sum('balance_amount');
+
+            $unpaidInvoicesBalance = $this->decimalToFloat($unpaidInvoicesBalance);
+
+            // TOTAL CURRENT DUE = Opening Balance + Unpaid Invoices Balance
+            $currentDue = $openingBalance + $unpaidInvoicesBalance;
+
+            // New invoice ka balance (grand_total - amount_paid)
+            $grandTotal = (float) $request->grand_total;
+            $amountPaid = (float) ($request->amount_paid ?? 0);
+            $newInvoiceBalance = $grandTotal - $amountPaid;
+
+            // Total due after this invoice
+            $totalDueAfterInvoice = $currentDue + $newInvoiceBalance;
+
+            // Credit limit check
+            $creditLimit = (float) ($party->credit_limit ?? 0);
+
+            // Agar credit limit set hai to check karo
+            if ($creditLimit > 0 && $totalDueAfterInvoice > $creditLimit) {
+                $availableCredit = max(0, $creditLimit - $currentDue);
+
+                $formattedOpeningBalance = number_format($openingBalance, 2);
+                $formattedUnpaidInvoices = number_format($unpaidInvoicesBalance, 2);
+                $formattedCurrentDue = number_format($currentDue, 2);
+                $formattedNewBalance = number_format($newInvoiceBalance, 2);
+                $formattedTotalDue = number_format($totalDueAfterInvoice, 2);
+                $formattedCreditLimit = number_format($creditLimit, 2);
+                $formattedAvailable = number_format($availableCredit, 2);
+
+                throw new \Exception(
+                    "❌ Credit Limit Exceeded!\n\n" .
+                    "Credit Limit: ₹{$formattedCreditLimit}\n" .
+                    "─────────────────────\n" .
+                    "Opening Balance: ₹{$formattedOpeningBalance}\n" .
+                    "Unpaid Invoices: ₹{$formattedUnpaidInvoices}\n" .
+                    "Current Due: ₹{$formattedCurrentDue}\n" .
+                    "─────────────────────\n" .
+                    "New Invoice Balance: ₹{$formattedNewBalance}\n" .
+                    "Total After Invoice: ₹{$formattedTotalDue}\n" .
+                    "─────────────────────\n" .
+                    "Available Credit: ₹{$formattedAvailable}\n\n" .
+                    "💡 Customer can only take items worth ₹{$formattedAvailable} on credit.\n" .
+                    "Please collect payment or increase credit limit."
+                );
+            }
+
             $billingAddress = $party->addresses
                 ->where('type', 'billing')
                 ->where('is_default', true)
@@ -800,7 +905,7 @@ public function index(Request $request)
     {
         try {
 
-            $invoice = SalesInvoice::with(['items'])->findOrFail($id);
+            $invoice = SalesInvoice::with(['items','party'])->findOrFail($id);
 
             // Check if invoice is in draft status
             if ($invoice->status !== 'draft') {
@@ -858,6 +963,7 @@ public function index(Request $request)
             if ($invoice->total_paid > 0) {
                 SalesPayment::create([
                     'sales_invoice_id' => $invoice->_id,
+                    'party_id' => $invoice->party_id,
                     'amount' => $invoice->total_paid,
                     'payment_method' => request()->payment_method ?? 'cash',
                     'payment_date' => now(),
@@ -1106,8 +1212,8 @@ public function index(Request $request)
                 'email' => $party->email,
                 'party_type' => $party->party_type,
                 'party_type_text' => ucfirst($party->party_type),
-                'opening_balance' => $party->opening_balance,
-                'credit_limit' => $party->credit_limit,
+                'opening_balance' => $party->opening_balance ?? 0,
+                'credit_limit' => $party->credit_limit ?? 0,
                 'salesman_id' => $party->salesman_id,
                 'salesman_name' => $party->salesman ? $party->salesman->name : null,
                 'billing_address' => $billing?->full_address ?? '',
@@ -1227,6 +1333,7 @@ public function index(Request $request)
             // Create payment
             $payment = SalesPayment::create([
                 'sales_invoice_id' => $invoice->_id,
+                'party_id' => $invoice->party_id,
                 'amount' => $request->amount,
                 'payment_method' => $request->payment_method,
                 'payment_date' => $request->payment_date,
@@ -1291,4 +1398,72 @@ public function index(Request $request)
         }
         return (float) $value;
     }
+    /**
+ * Get party credit limit status
+ */
+/**
+ * Get party credit limit status with opening balance included
+ */
+public function getPartyCreditStatus($partyId)
+{
+    try {
+        $party = Customer::findOrFail($partyId);
+
+        // Opening balance
+        $openingBalance = (float) ($party->opening_balance ?? 0);
+
+        // Unpaid invoices balance
+        $unpaidInvoicesBalance = SalesInvoice::where('party_id', $partyId)
+            ->where('status', '!=', 'draft')
+            ->where('payment_status', '!=', 'paid')
+            ->sum('balance_amount');
+
+        $unpaidInvoicesBalance = $this->decimalToFloat($unpaidInvoicesBalance);
+
+        // TOTAL CURRENT DUE = Opening Balance + Unpaid Invoices
+        $currentDue = $openingBalance + $unpaidInvoicesBalance;
+
+        $creditLimit = (float) ($party->credit_limit ?? 0);
+        $availableCredit = $creditLimit > 0 ? max(0, $creditLimit - $currentDue) : null;
+
+        // Usage percentage for warning
+        $usagePercent = 0;
+        if ($creditLimit > 0 && $currentDue > 0) {
+            $usagePercent = min(100, ($currentDue / $creditLimit) * 100);
+        }
+
+        return response()->json([
+            'success' => true,
+            'credit_info' => [
+                'party_name' => $party->name,
+                'opening_balance' => $openingBalance,
+                'unpaid_invoices' => $unpaidInvoicesBalance,
+                'current_due' => $currentDue,
+                'credit_limit' => $creditLimit,
+                'available_credit' => $availableCredit,
+                'has_limit' => $creditLimit > 0,
+                'is_exceeded' => $creditLimit > 0 && $currentDue >= $creditLimit,
+                'usage_percent' => round($usagePercent, 2),
+                'warning_level' => $this->getWarningLevel($usagePercent)
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Helper to determine warning level based on usage percentage
+ */
+private function getWarningLevel($percent)
+{
+    if ($percent >= 100) return 'danger';
+    if ($percent >= 80) return 'warning';
+    if ($percent > 0) return 'info';
+    return 'safe';
+}
 }

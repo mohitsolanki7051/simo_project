@@ -12,18 +12,23 @@ class SalesPayment extends Model
     protected $collection = 'sales_payments';
 
     protected $fillable = [
+        'payment_number',
+        'party_id',
         'sales_invoice_id',
         'amount',
         'payment_method',
         'payment_date',
         'status',
         'reference_no',
-        'notes'
+        'notes',
+        'payment_type',
+        'allocations'
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
-        'payment_date' => 'date'
+        'payment_date' => 'date',
+        'allocations' => 'array'
     ];
 
     // Relationships
@@ -31,7 +36,10 @@ class SalesPayment extends Model
     {
         return $this->belongsTo(SalesInvoice::class, 'sales_invoice_id');
     }
-
+    public function party()
+    {
+        return $this->belongsTo(Customer::class, 'party_id');
+    }
     // Accessors
     public function getPaymentMethodTextAttribute()
     {

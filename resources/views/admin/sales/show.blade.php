@@ -367,8 +367,8 @@
     .iv-table tbody td {
         padding: 6px 5px;
         border-right: 1px solid #e5e7eb;
-        text-align: right;
-        font-size: 10.5px;
+        text-align: center;
+        font-size: 9px;
     }
 
     .iv-table tbody td:first-child {
@@ -376,9 +376,7 @@
         font-weight: 600;
     }
 
-    .iv-table tbody td:nth-child(2) {
-        text-align: left;
-    }
+
 
     .iv-table tbody td:last-child {
         border-right: none;
@@ -412,7 +410,7 @@
 
     .iv-table tfoot td {
         padding: 8px 6px;
-        text-align: right;
+        text-align: center;
     }
 
     /* Bottom Sections */
@@ -633,7 +631,7 @@
                     {{-- FIX 1: SALESMAN NAME DISPLAY --}}
                     @if($invoice->salesman && $invoice->salesman->name)
                     <div style="margin-top: 8px; font-size: 11px; background: #f3f4f6; padding: 4px 8px; border-radius: 4px; display: inline-block;">
-                        <strong>Sales Person:</strong> {{ $invoice->salesman->name }}
+                        <strong>Sales Executive:</strong> {{ $invoice->salesman->name }}
                     </div>
                     @endif
                 </div>
@@ -689,7 +687,7 @@
             <table class="iv-table">
                 <thead>
                     <tr>
-                        <th width="30">#</th>
+                        <th width="30">S. No.</th>
                         <th>Product</th>
                         @if($showGST)<th>HSN</th>@endif
                         <th>Qty</th>

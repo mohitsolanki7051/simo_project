@@ -503,22 +503,22 @@
         <div class="nav-item">
             <div class="nav-link {{ $salesmenActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
                 <span class="nav-icon">🧑‍💼</span>
-                <span class="nav-text">Salesmen</span>
+                <span class="nav-text">Sales Executive</span>
                 <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
             </div>
             <div class="submenu">
                 <div class="submenu-inner">
-                    <a href="{{ url('/admin/salesmen') }}" class="submenu-item {{ request()->is('admin/salesmen') ? 'active' : '' }}"><span class="submenu-dot"></span> View Salesmen</a>
+                    <a href="{{ url('/admin/salesmen') }}" class="submenu-item {{ request()->is('admin/salesmen') ? 'active' : '' }}"><span class="submenu-dot"></span> View Sales Executive</a>
                 </div>
             </div>
-            <span class="nav-tooltip">Salesmen</span>
+            <span class="nav-tooltip">Sales Executive</span>
         </div>
 
         <div class="nav-section-label">Finance</div>
 
         @php
-            $salesActive = !request()->is('admin/salesmen*') && (
-                request()->is('admin/sales*') || request()->is('admin/payments*') || request()->is('admin/invoice-settings*')
+            $salesActive = !request()->is('admin/salesmen*') && !request()->is('admin/warranty*') && (
+                request()->is('admin/sales*') || request()->is('admin/payments*')
             );
         @endphp
         <div class="nav-item">
@@ -529,14 +529,29 @@
             </div>
             <div class="submenu">
                 <div class="submenu-inner">
-                    <a href="{{ url('/admin/sales') }}" class="submenu-item {{ !request()->is('admin/salesmen*') && request()->is('admin/sales') ? 'active' : '' }}"><span class="submenu-dot"></span> Sales Invoices</a>
-                    {{-- <a href="{{ url('/admin/payments') }}" class="submenu-item {{ request()->is('admin/payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a> --}}
-                    {{-- <a href="{{ url('/admin/payment-in') }}" class="submenu-item {{ request()->is('admin/payment-in*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a> --}}
-                    <a href="{{ url('/admin/invoice-settings') }}" class="submenu-item {{ request()->is('admin/invoice-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Invoice Settings</a>
-                    <a href="{{ url('/admin/cashmemo-invoice-settings') }}" class="submenu-item {{ request()->is('admin/cashmemo-invoice-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Cash Memo Invoice Settings</a>
+                    <a href="{{ url('/admin/sales') }}" class="submenu-item {{ !request()->is('admin/salesmen*') && !request()->is('admin/warranty*') && request()->is('admin/sales') ? 'active' : '' }}"><span class="submenu-dot"></span> Sales Invoices</a>
+                    <a href="{{ url('/admin/quotations') }}" class="submenu-item {{ request()->is('admin/quotations*') ? 'active' : '' }}"><span class="submenu-dot"></span> Quotations </a>
+                    <a href="{{ url('/admin/payments') }}" class="submenu-item {{ request()->is('admin/payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a>
                 </div>
             </div>
             <span class="nav-tooltip">Sales</span>
+        </div>
+
+        <!-- WARRANTY SECTION - Placed between Sales and Purchase Orders -->
+        @php $warrantyActive = request()->is('admin/warranty*'); @endphp
+        <div class="nav-item">
+            <div class="nav-link {{ $warrantyActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
+                <span class="nav-icon">🛡️</span>
+                <span class="nav-text">Warranty</span>
+                <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+            <div class="submenu">
+                <div class="submenu-inner">
+                    <a href="{{ route('admin.warranty.index') }}" class="submenu-item {{ request()->routeIs('admin.warranty.index') ? 'active' : '' }}"><span class="submenu-dot"></span> All Claims</a>
+                    <a href="{{ route('admin.warranty.create') }}" class="submenu-item {{ request()->routeIs('admin.warranty.create') ? 'active' : '' }}"><span class="submenu-dot"></span> New Claim</a>
+                </div>
+            </div>
+            <span class="nav-tooltip">Warranty</span>
         </div>
 
         @php $purchaseActive = request()->is('admin/purchases*') || request()->is('admin/suppliers*') || request()->is('admin/supplier-payments*'); @endphp
@@ -566,21 +581,25 @@
             <span class="nav-tooltip">Reports</span>
         </div>
 
-        @php $settingsActive = request()->is('admin/settings*'); @endphp
+        <!-- ADMIN CONTROL - With Invoice Settings inside -->
+        @php $adminControlActive = request()->is('admin/invoice-settings*') || request()->is('admin/cashmemo-invoice-settings*') || request()->is('admin/settings*'); @endphp
         <div class="nav-item">
-            <div class="nav-link {{ $settingsActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
+            <div class="nav-link {{ $adminControlActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
                 <span class="nav-icon">⚙️</span>
-                <span class="nav-text">Settings</span>
+                <span class="nav-text">Admin Control</span>
                 <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
             </div>
             <div class="submenu">
                 <div class="submenu-inner">
+                    <!-- Invoice Settings inside Admin Control -->
+                    <a href="{{ url('/admin/invoice-settings') }}" class="submenu-item {{ request()->is('admin/invoice-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Invoice Settings</a>
+                    <a href="{{ url('/admin/cashmemo-invoice-settings') }}" class="submenu-item {{ request()->is('admin/cashmemo-invoice-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Cash Memo Settings</a>
                     <a href="#" class="submenu-item"><span class="submenu-dot"></span> General Settings</a>
                     <a href="#" class="submenu-item"><span class="submenu-dot"></span> Payment Settings</a>
                     <a href="#" class="submenu-item"><span class="submenu-dot"></span> Shipping Settings</a>
                 </div>
             </div>
-            <span class="nav-tooltip">Settings</span>
+            <span class="nav-tooltip">Admin Control</span>
         </div>
 
     </nav>
@@ -700,11 +719,14 @@ const searchPages = [
     { name: 'View Salesmen',     path: '/admin/salesmen',           icon: '🧑‍💼',group: 'People' },
     { name: 'Sales Invoices',    path: '/admin/sales',              icon: '🛍️', group: 'Sales' },
     { name: 'Payment In',        path: '/admin/payments',           icon: '💳',  group: 'Sales' },
-    { name: 'Invoice Settings',  path: '/admin/invoice-settings',   icon: '⚙️', group: 'Sales' },
+    { name: 'All Claims',        path: '/admin/warranty',           icon: '🛡️', group: 'Warranty' },
+    { name: 'New Claim',         path: '/admin/warranty/create',    icon: '➕',  group: 'Warranty' },
     { name: 'All Purchases',     path: '/admin/purchases',          icon: '📋',  group: 'Purchases' },
     { name: 'All Suppliers',     path: '/admin/suppliers',          icon: '🚚',  group: 'Purchases' },
     { name: 'Supplier Payments', path: '/admin/supplier-payments',  icon: '💰',  group: 'Purchases' },
     { name: 'Reports',           path: '/admin/reports',            icon: '📊',  group: 'More' },
+    { name: 'Invoice Settings',  path: '/admin/invoice-settings',   icon: '⚙️', group: 'Admin Control' },
+    { name: 'Cash Memo Settings',path: '/admin/cashmemo-invoice-settings', icon: '📝', group: 'Admin Control' },
 ];
 
 const searchOverlay = document.getElementById('searchOverlay');
@@ -796,6 +818,7 @@ document.addEventListener('keydown', e => {
 });
 </script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @stack('scripts')
 </body>
 </html>

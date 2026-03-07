@@ -746,9 +746,42 @@
 
 @push('styles')
 <style>
-/* [KEEP ALL YOUR EXISTING CSS - Copy from create version] */
-/* Additional CSS for disabled extra fields links */
+/* Credit limit badge styles */
+.credit-limit-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 8px;
+    font-weight: 600;
+    margin-left: 5px;
+    vertical-align: middle;
+}
 
+.credit-limit-badge.warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+.credit-limit-badge.danger {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.credit-limit-badge.info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.available-credit {
+    display: block;
+    font-size: 9px;
+    color: #28a745;
+    margin-top: 2px;
+    font-weight: normal;
+}
 .disabled-link {
     pointer-events: none !important;
     opacity: 0.5 !important;
@@ -2418,7 +2451,7 @@
 @push('scripts')
 <script>
 // ===================== EDIT INVOICE JAVASCRIPT =====================
-
+window.currentPartyCreditInfo = null;
 let items = {!! json_encode($invoice->items->map(function($item) {
     return [
         'product_id' => $item->product_id,
@@ -3108,9 +3141,108 @@ function selectParty(partyId) {
 
         closeSelectPartyModal();
         showAlert('Party changed to ' + p.name + ' successfully', 'success');
+
+        // ✅ NEW: Check credit limit status after party selection
+        checkCreditLimitStatus(p.id);
     });
 }
-// ===================== CREATE PARTY FORM =====================
+// Function to check credit limit status with opening balance
+function checkCreditLimitStatus(partyId) {
+    $.get('/admin/sales/party-credit-status/' + partyId, function(res) {
+        if (res.success) {
+            const info = res.credit_info;
+
+            // Store credit info globally for later use
+            window.currentPartyCreditInfo = info;
+
+            // Update UI with credit information
+            updateCreditDisplay(info);
+
+            // Show warnings based on usage
+            if (info.has_limit) {
+                if (info.is_exceeded) {
+                    showAlert(
+                        '⚠️ CREDIT LIMIT EXCEEDED!\n' +
+                        'Current Due: ₹' + info.current_due.toFixed(2) + '\n' +
+                        'Credit Limit: ₹' + info.credit_limit.toFixed(2) + '\n' +
+                        'Available Credit: ₹0.00',
+                        'error'
+                    );
+                } else if (info.warning_level === 'warning') {
+                    showAlert(
+                        '⚠️ Approaching Credit Limit\n' +
+                        'Used: ' + info.usage_percent + '%\n' +
+                        'Available Credit: ₹' + info.available_credit.toFixed(2),
+                        'warning'
+                    );
+                }
+            }
+        }
+    }).fail(function() {
+        // Silently fail
+    });
+}
+
+// Function to validate credit limit before submission
+function validateCreditLimit(newInvoiceBalance) {
+    if (!window.currentPartyCreditInfo) return true;
+
+    const info = window.currentPartyCreditInfo;
+
+    // Agar credit limit nahi hai to allow
+    if (!info.has_limit) return true;
+
+    const currentDue = info.current_due;
+    const creditLimit = info.credit_limit;
+    const newTotalDue = currentDue + newInvoiceBalance;
+
+    if (newTotalDue > creditLimit) {
+        const availableCredit = creditLimit - currentDue;
+
+        showAlert(
+            '❌ Credit Limit Exceeded!\n\n' +
+            'Current Due: ₹' + currentDue.toFixed(2) + '\n' +
+            'New Invoice Balance: ₹' + newInvoiceBalance.toFixed(2) + '\n' +
+            'Total After Invoice: ₹' + newTotalDue.toFixed(2) + '\n' +
+            'Credit Limit: ₹' + creditLimit.toFixed(2) + '\n\n' +
+            '💡 Available Credit: ₹' + availableCredit.toFixed(2) + '\n' +
+            'Please reduce invoice amount or collect payment.',
+            'error'
+        );
+
+        return false;
+    }
+
+    return true;
+}
+
+// Function to update credit display in UI
+function updateCreditDisplay(info) {
+    // Update opening balance display
+    $('#partyOpeningBalance').text('₹ ' + info.opening_balance.toFixed(2));
+
+    // Update credit limit with visual indicator and usage
+    if (info.has_limit) {
+        let badgeClass = 'credit-limit-badge';
+        if (info.warning_level === 'danger') badgeClass += ' danger';
+        else if (info.warning_level === 'warning') badgeClass += ' warning';
+
+        $('#partyCreditLimit').html(
+            '₹ ' + info.credit_limit.toFixed(2) +
+            ' <span class="' + badgeClass + '">' + info.usage_percent + '% used</span>'
+        );
+
+        // Add available credit info
+        if (info.available_credit !== null) {
+            $('#partyCreditLimit').append(
+                '<br><small class="available-credit">Available: ₹ ' +
+                info.available_credit.toFixed(2) + '</small>'
+            );
+        }
+    } else {
+        $('#partyCreditLimit').text('No Limit');
+    }
+}
 
 $('#createPartyForm').submit(function(e) {
     e.preventDefault();
@@ -3437,6 +3569,12 @@ $(document).ready(function() {
     // Set payment terms input
     $('#paymentTermsInput').val('{{ $invoice->payment_terms }}');
 
+    const currentPartyId = $('#partyIdInput').val();
+    if (currentPartyId) {
+        setTimeout(function() {
+            checkCreditLimitStatus(currentPartyId);
+        }, 500);
+    }
     // Initialize invoice type display
     if (currentInvoiceType === 'gst') {
         showGSTInvoiceFields();
@@ -3509,6 +3647,15 @@ $(document).ready(function() {
 
         if (!validateForm()) {
             return;
+        }
+
+            // ✅ NEW: Credit limit validation before submission
+        const grandTotal = parseFloat($('#grandTotal').text()) || 0;
+        const amountPaid = parseFloat($('#amountPaid').val()) || 0;
+        const newInvoiceBalance = grandTotal - amountPaid;
+
+        if (!validateCreditLimit(newInvoiceBalance)) {
+            return; // Stop submission if credit limit exceeded
         }
 
         isSubmitting = true;

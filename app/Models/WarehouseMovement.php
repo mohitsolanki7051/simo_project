@@ -32,6 +32,8 @@ class WarehouseMovement extends Model
     const TYPE_TRANSFER_IN = 'transfer_in';
     const TYPE_TRANSFER_OUT = 'transfer_out';
     const TYPE_ADJUSTMENT = 'adjustment';
+    const TYPE_WARRANTY_REPLACEMENT = 'warranty_replacement';
+    const TYPE_WARRANTY_REPAIR_RETURN = 'warranty_repair_return';
 
     public function warehouse()
     {
