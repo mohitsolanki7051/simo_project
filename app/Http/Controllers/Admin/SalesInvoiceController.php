@@ -405,6 +405,7 @@ public function index(Request $request)
             /* ================= CREATE INVOICE AS DRAFT ================= */
             $invoice = SalesInvoice::create([
                 'invoice_number' => $invoiceNumber,
+                'public_token'   => \Illuminate\Support\Str::random(40),
                 'invoice_type' => $request->invoice_type,
                 'invoice_date' => $request->invoice_date,
                 'party_id' => $request->party_id,

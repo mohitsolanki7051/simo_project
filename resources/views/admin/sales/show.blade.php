@@ -919,16 +919,27 @@ function sendWhatsApp() {
     }
 
     const invoiceNumber = '{{ $invoice->invoice_number }}';
-    const partyName = '{{ $party->name ?? "Customer" }}';
-    const grandTotal = '{{ number_format($invoice->grand_total, 2) }}';
-    const invoiceDate = '{{ $invoice->invoice_date->format("d/m/Y") }}';
-    const dueDate = '{{ $invoice->due_date ? $invoice->due_date->format("d/m/Y") : "N/A" }}';
+    const partyName     = '{{ $party->name ?? "Customer" }}';
+    const grandTotal    = '{{ number_format($invoice->grand_total, 2) }}';
+    const invoiceDate   = '{{ $invoice->invoice_date->format("d/m/Y") }}';
+    const dueDate       = '{{ $invoice->due_date ? $invoice->due_date->format("d/m/Y") : "N/A" }}';
     const paymentStatus = '{{ ucfirst($invoice->payment_status) }}';
-    const invoiceLink = '{{ url("/admin/sales/" . $invoice->_id) }}';
 
-    const message = `Hello ${partyName},
+    @if($invoice->public_token)
+        const invoiceLink = '{{ url("/invoice/" . $invoice->public_token) }}';
+    @else
+        const invoiceLink = null;
+    @endif
 
-Please find your invoice details below:
+    if (!invoiceLink) {
+        showAlert('Public link not available for this invoice. Please regenerate it.', 'error');
+        return;
+    }
+
+    const message =
+`Hello ${partyName},
+
+Your invoice details are below:
 
 Invoice No: ${invoiceNumber}
 Date: ${invoiceDate}
@@ -936,7 +947,7 @@ Due Date: ${dueDate}
 Amount: Rs. ${grandTotal}
 Payment Status: ${paymentStatus}
 
-View your invoice here:
+View & Download your invoice here:
 ${invoiceLink}
 
 Thank you for your business!`;
@@ -945,6 +956,7 @@ Thank you for your business!`;
     const whatsappUrl = 'https://wa.me/' + cleanPhone + '?text=' + encodedMessage;
     window.open(whatsappUrl, '_blank');
 }
+
 function generateInvoice() {
     if (!confirm('Generate this invoice?')) return;
     const btn = event.target.closest('button');

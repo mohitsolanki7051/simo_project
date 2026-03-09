@@ -191,6 +191,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/party-credit-status/{partyId}', [SalesInvoiceController::class, 'getPartyCreditStatus'])->name('credit-status');
     });
 
+
+
         // Invoice Settings Routes
         Route::get('/invoice-settings', [InvoiceSettingController::class, 'index'])
             ->name('invoice-settings.index');
@@ -292,7 +294,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     });
 });
-
+//whatsapp invoice route
+ Route::get('/invoice/{token}', [App\Http\Controllers\InvoicePublicController::class, 'show'])
+            ->name('invoice.public');
 // In routes/web.php - Add this route in the middleware group
 Route::get('/api/warehouse-stock', function (Illuminate\Http\Request $request) {
     $warehouseId = $request->get('warehouse_id');

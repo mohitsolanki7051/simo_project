@@ -13,6 +13,7 @@ class SalesInvoice extends Model
 
     protected $fillable = [
         'invoice_number',
+        'public_token',
         'invoice_type', // New field: 'gst' or 'cash'
         'invoice_date',
         'party_id',
