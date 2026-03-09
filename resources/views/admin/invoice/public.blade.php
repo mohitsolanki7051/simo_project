@@ -434,16 +434,16 @@
                     </div>
                 @endif
                 <div class="iv-company-details">
-                    <h2>{{ $settings->company_name ?? 'Company Name' }}</h2>
-                    <p>{{ $settings->company_address ?? '' }}</p>
+                    <h2>{{ $settings?->company_name ?? 'Company Name' }}</h2>
+                    <p>{{ $settings?->company_address ?? '' }}</p>
                     <div class="iv-company-contact">
-                        @if($settings->company_phone) <span>Phone: {{ $settings->company_phone }}</span> @endif
-                        @if($settings->company_email) <span>Email: {{ $settings->company_email }}</span> @endif
+                        @if($settings?->company_phone) <span>Phone: {{ $settings?->company_phone }}</span> @endif
+                        @if($settings?->company_email) <span>Email: {{ $settings?->company_email }}</span> @endif
                     </div>
                     @if($showGST && ($settings?->gstin || $settings?->pan))
                     <div style="margin-top:5px;font-size:11px;font-weight:500;">
-                        @if($settings->gstin) GSTIN: {{ $settings->gstin }} @endif
-                        @if($settings->pan) | PAN: {{ $settings->pan }} @endif
+                        @if($settings?->gstin) GSTIN: {{ $settings?->gstin }} @endif
+                        @if($settings?->pan) | PAN: {{ $settings?->pan }} @endif
                     </div>
                     @endif
                     @if($invoice->salesman && $invoice->salesman->name)
@@ -559,7 +559,7 @@
                 <div class="iv-notes">{{ $invoice->notes }}</div>
                 @endif
 
-                @if($settings && ($settings->bank_name || $settings->account_number))
+                @if($settings && ($settings?->bank_name || $settings?->account_number))
                 <div class="iv-panel-title" style="margin-top:{{ $invoice->notes ? '15px' : '0' }};">Bank Details</div>
                 @if($settings->bank_name)
                 <div class="iv-bank-row"><span class="iv-bank-label">Bank:</span><span class="iv-bank-value">{{ $settings->bank_name }}</span></div>
@@ -650,7 +650,7 @@
 
         <!-- Footer -->
         <div class="iv-footer">
-            {{ $settings->footer_note ?? 'This is a computer generated invoice.' }}
+            {{ $settings?->footer_note ?? 'This is a computer generated invoice.' }}
         </div>
 
     </div>
