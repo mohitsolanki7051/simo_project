@@ -592,6 +592,9 @@
             @endif
             <button onclick="printInvoice()" class="iv-btn iv-btn-outline">Print</button>
             <button onclick="downloadPDF()" class="iv-btn iv-btn-primary">PDF</button>
+            <button onclick="sendWhatsApp()" class="iv-btn" style="background: #25D366; color: white;">
+                📱 WhatsApp
+            </button>
         </div>
     </div>
 
@@ -902,6 +905,46 @@ function downloadPDF() {
     .catch(() => showAlert('PDF failed!', 'error'));
 }
 
+function sendWhatsApp() {
+    const phone = '{{ $party->phone ?? "" }}';
+
+    if (!phone) {
+        showAlert('Customer phone number not available!', 'error');
+        return;
+    }
+
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10) {
+        cleanPhone = '91' + cleanPhone;
+    }
+
+    const invoiceNumber = '{{ $invoice->invoice_number }}';
+    const partyName = '{{ $party->name ?? "Customer" }}';
+    const grandTotal = '{{ number_format($invoice->grand_total, 2) }}';
+    const invoiceDate = '{{ $invoice->invoice_date->format("d/m/Y") }}';
+    const dueDate = '{{ $invoice->due_date ? $invoice->due_date->format("d/m/Y") : "N/A" }}';
+    const paymentStatus = '{{ ucfirst($invoice->payment_status) }}';
+    const invoiceLink = '{{ url("/admin/sales/" . $invoice->_id) }}';
+
+    const message = `Hello ${partyName},
+
+Please find your invoice details below:
+
+Invoice No: ${invoiceNumber}
+Date: ${invoiceDate}
+Due Date: ${dueDate}
+Amount: Rs. ${grandTotal}
+Payment Status: ${paymentStatus}
+
+View your invoice here:
+${invoiceLink}
+
+Thank you for your business!`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = 'https://wa.me/' + cleanPhone + '?text=' + encodedMessage;
+    window.open(whatsappUrl, '_blank');
+}
 function generateInvoice() {
     if (!confirm('Generate this invoice?')) return;
     const btn = event.target.closest('button');

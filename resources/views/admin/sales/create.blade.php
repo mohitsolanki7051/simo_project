@@ -204,9 +204,15 @@
                                     <p>Add products to invoice</p>
                                 </div>
                             </div>
-                            <button type="button" class="btn-add-item" id="addItemBtn" onclick="openAddItemModal()" disabled style="opacity: 0.5; cursor: not-allowed;">
-                                + Add Item
-                            </button>
+                            <!-- Warehouse badge + Add Item button -->
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="selectedWarehouseBadge" style="display: none; font-size: 10px; font-weight: 600; color: #fa8725; background: #fff3e6; border: 1px solid #fa8725; padding: 4px 10px; border-radius: 12px;">
+                                    🏭 <span id="selectedWarehouseBadgeText"></span>
+                                </span>
+                                <button type="button" class="btn-add-item" id="addItemBtn" onclick="openAddItemModal()">
+                                    + Add Item
+                                </button>
+                            </div>
                         </div>
 
                         <div class="section-body">
@@ -452,6 +458,7 @@
                         <input type="text" id="searchParty" class="search-input" placeholder="Search by name, phone or email...">
                     </div>
                 </div>
+
                 <button type="button" class="btn-create-new-party" onclick="openCreatePartyModal()">
                     <span class="btn-icon">+</span>
                     Create New Party
@@ -686,14 +693,45 @@
             <button type="button" class="modal-close" onclick="closeAddItemModal()">×</button>
         </div>
         <div class="modal-body">
-            <div class="search-container">
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="searchProduct" class="search-input" placeholder="Search items by name, SKU or barcode...">
+            <!-- Warehouse Selector - Prominent -->
+            <div style="text-align: center; padding: 20px 0 15px 0;" id="warehouseSelectSection">
+                <div style="font-size: 13px; font-weight: 600; color: #333; margin-bottom: 12px;">🏭 Select Warehouse to Load Products</div>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <div class="select-wrapper" style="width: 280px;">
+                        <select id="itemModalWarehouse" class="form-control" onchange="onWarehouseChange()" style="font-size: 12px; padding: 8px 12px;">
+                            <option value="">-- Select Warehouse --</option>
+                            @foreach($warehouses as $wh)
+                                <option value="{{ $wh->_id }}">
+                                    {{ $wh->name }}{{ $wh->is_main ? ' (Main)' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div class="products-table-container">
+            <!-- Search + Selected Warehouse Info - hidden initially -->
+            <div id="productSearchSection" style="display: none; margin-bottom: 12px;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="search-container" style="flex: 1; margin-bottom: 0;">
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="searchProduct" class="search-input" placeholder="Search items by name, SKU or barcode...">
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                        <span id="selectedWarehouseName" style="font-size: 11px; font-weight: 600; color: #555; background: #f0f0f0; padding: 6px 10px; border-radius: 3px; border: 1px solid #ddd;">
+                            🏭 —
+                        </span>
+                        <button type="button" onclick="resetWarehouseSelection()" style="font-size: 10px; padding: 5px 8px; background: #eee; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; color: #555;">
+                            ↩ Change
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Table - hidden initially -->
+            <div class="products-table-container" id="productsTableWrapper" style="display: none;">
                 <table class="products-table">
                     <thead id="productsTableHeader">
                         <tr>
@@ -709,7 +747,7 @@
                     <tbody id="productsTableBody">
                     </tbody>
                 </table>
-                <div id="productsLoading" class="loading-state">
+                <div id="productsLoading" class="loading-state" style="display: none;">
                     <div class="loading-spinner"></div>
                     <p>Loading products...</p>
                 </div>
@@ -725,8 +763,70 @@
 
 @push('styles')
 <style>
-/* Credit limit badge */
-/* Credit limit badge styles */
+/* Warehouse Selection Screen */
+#warehouseSelectSection {
+    background: #f8f9fa;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 30px 20px;
+    margin-bottom: 5px;
+}
+
+#warehouseSelectSection > div:first-child {
+    color: #555;
+    margin-bottom: 15px;
+}
+
+#itemModalWarehouse {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    border: 1.5px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    height: 38px;
+}
+
+#itemModalWarehouse:focus {
+    border-color: #fa8725;
+    box-shadow: 0 0 0 2px rgba(250, 135, 37, 0.15);
+    outline: none;
+}
+
+/* Product search section */
+#productSearchSection {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
+
+#selectedWarehouseName {
+    background: #fff3e6 !important;
+    color: #fa8725 !important;
+    border: 1px solid #fa8725 !important;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+}
+
+#productSearchSection button[onclick="resetWarehouseSelection()"] {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #666;
+    font-size: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#productSearchSection button[onclick="resetWarehouseSelection()"]:hover {
+    background: #fee;
+    color: #c33;
+    border-color: #f5c6cb;
+}
 .credit-limit-badge {
     display: inline-block;
     padding: 2px 6px;
@@ -2737,15 +2837,15 @@ function openAddItemModal() {
         showAlert('Please select a party first', 'error');
         return;
     }
-
     if (!invoiceType) {
         showAlert('Please select invoice type (GST Invoice or Cash Memo)', 'error');
         return;
     }
 
+    // Reset to warehouse selection state
+    resetWarehouseSelection();
+
     $('#addItemModal').css('display', 'flex');
-    $('#searchProduct').val('');
-    loadProducts();
 }
 
 function closeAddItemModal() {
@@ -2753,7 +2853,7 @@ function closeAddItemModal() {
     $('#searchProduct').val('');
 }
 
-function loadProducts(search = '') {
+function loadProducts(search = '', warehouseId = null) {
     const tbody = $('#productsTableBody');
     const loading = $('#productsLoading');
     const partyType = getCurrentPartyType();
@@ -2761,17 +2861,20 @@ function loadProducts(search = '') {
     tbody.empty();
     loading.show();
 
+    const selectedWarehouse = warehouseId || $('#itemModalWarehouse').val() || '{{ $mainWarehouse->_id }}';
+
     $.get('{{ route('admin.sales.get-main-warehouse-products') }}', {
-        search: search
+        search: search,
+        warehouse_id: selectedWarehouse
     }, function(response) {
         loading.hide();
 
         if (response.products.length === 0) {
             tbody.html(`
                 <tr>
-                    <td colspan="7" class="text-center" style="padding: 40px 20px;">
+                    <td colspan="7" class="text-center" style="padding: 40px 20px;text-align: center;">
                         <div style="font-size: 32px; opacity: 0.3; margin-bottom: 10px;">📦</div>
-                        <p style="font-size: 11px; color: #6b7280;">No products found</p>
+                        <p style="font-size: 11px; color: #6b7280;">No products found in this warehouse</p>
                     </td>
                 </tr>
             `);
@@ -2833,6 +2936,35 @@ function loadProducts(search = '') {
 }
 
 function addSelectedProducts() {
+    const selectedWarehouseId = $('#itemModalWarehouse').val();
+
+    if (!selectedWarehouseId) {
+        showAlert('Please select a warehouse', 'error');
+        return;
+    }
+
+    const hasSelected = $('#productsTableBody tr').toArray().some(row =>
+        $(row).find('.select-product').is(':checked')
+    );
+
+    if (!hasSelected) {
+        closeAddItemModal();
+        return;
+    }
+
+    // ✅ FIX: Agar warehouse change hua hai toh SAARE purane items clear karo
+    const existingWarehouseId = items.length > 0 ? items[0].warehouse_id : null;
+
+    if (existingWarehouseId && existingWarehouseId !== selectedWarehouseId) {
+        // Different warehouse select hua - saare purane items hatao
+        items = [];
+        showAlert('Warehouse changed — previous items removed', 'info');
+    }
+
+    // Form ka warehouse_id update karo
+    $('input[name="warehouse_id"]').val(selectedWarehouseId);
+
+    // Selected products add karo
     $('#productsTableBody tr').each(function() {
         const checkbox = $(this).find('.select-product');
         if (!checkbox.is(':checked')) return;
@@ -2843,7 +2975,7 @@ function addSelectedProducts() {
 
         if (qty <= 0) return;
         if (qty > maxStock) {
-            showAlert(`Only ${maxStock} items available`, 'error');
+            showAlert(`Only ${maxStock} items available in stock`, 'error');
             return;
         }
 
@@ -2862,24 +2994,31 @@ function addSelectedProducts() {
             product_type: input.data('type'),
             name: input.data('name'),
             sku: input.data('sku'),
-            hsn_sac: currentInvoiceType === 'gst' ? input.data('hsn') : '', // Clear HSN for cash memo
+            hsn_sac: currentInvoiceType === 'gst' ? input.data('hsn') : '',
             mrp_price: mrpPrice,
             price: price,
             quantity: qty,
             discount: parseFloat(autoDiscount.toFixed(2)),
-            tax_percent: currentInvoiceType === 'gst' ? parseFloat(input.data('tax')) || 0 : 0, // Tax 0 for cash memo
+            tax_percent: currentInvoiceType === 'gst' ? parseFloat(input.data('tax')) || 0 : 0,
             unit: input.data('unit') || 'PCS',
             warranty_type: input.data('warranty-type') || 'none',
             warranty_period: parseInt(input.data('warranty-period')) || 0,
-            party_type: partyType
+            party_type: partyType,
+            warehouse_id: selectedWarehouseId,
+             max_stock: parseFloat(input.data('stock')),
         };
 
         addItemToInvoice(item);
     });
-
+    const warehouseName = $('#itemModalWarehouse option:selected').text().trim();
+    if (warehouseName && warehouseName !== '-- Select Warehouse --') {
+        $('#selectedWarehouseBadgeText').text(warehouseName);
+        $('#selectedWarehouseBadge').show();
+    } else {
+        $('#selectedWarehouseBadge').hide();
+    }
     closeAddItemModal();
 }
-
 function addItemToInvoice(item) {
     const existingIndex = items.findIndex(i =>
         i.product_id === item.product_id &&
@@ -2887,8 +3026,22 @@ function addItemToInvoice(item) {
     );
 
     if (existingIndex > -1) {
-        items[existingIndex].quantity += item.quantity;
-        showAlert(`Updated quantity for ${item.name}`, 'info');
+        const newQty = items[existingIndex].quantity + item.quantity;
+        const maxStock = items[existingIndex].max_stock || item.max_stock || 0;
+
+        // ✅ Stock check karo
+        if (newQty > maxStock) {
+            const remaining = maxStock - items[existingIndex].quantity;
+            if (remaining <= 0) {
+                showAlert(`❌ ${item.name} — stock full! Already added max qty (${maxStock})`, 'error');
+            } else {
+                showAlert(`❌ ${item.name} — only ${remaining} more units available (stock: ${maxStock})`, 'error');
+            }
+            return; // Add mat karo
+        }
+
+        items[existingIndex].quantity = newQty;
+        showAlert(`Updated quantity for ${item.name} (${newQty}/${maxStock})`, 'info');
     } else {
         items.push(item);
         showAlert(`Added ${item.name} to invoice`, 'success');
@@ -2896,9 +3049,24 @@ function addItemToInvoice(item) {
 
     renderItemsTable();
 }
-
 function updateItem(index, field, value) {
     if (items[index]) {
+        if (field === 'quantity') {
+            const newQty = parseFloat(value) || 0;
+            const maxStock = items[index].max_stock || 0;
+
+            if (newQty <= 0) {
+                showAlert('Quantity must be greater than 0', 'error');
+                renderItemsTable(); // revert
+                return;
+            }
+
+            if (maxStock > 0 && newQty > maxStock) {
+                showAlert(`❌ Only ${maxStock} units available in stock for ${items[index].name}`, 'error');
+                renderItemsTable(); // revert to old value
+                return;
+            }
+        }
         items[index][field] = parseFloat(value) || 0;
 
         if (field === 'discount') {
@@ -2924,6 +3092,33 @@ function updateItem(index, field, value) {
 
         renderItemsTable();
     }
+}
+
+function onWarehouseChange() {
+    const warehouseId = $('#itemModalWarehouse').val();
+    if (!warehouseId) return;
+
+    // Warehouse name nikaalo
+    const warehouseName = $('#itemModalWarehouse option:selected').text();
+
+    // Selector section hide, search+table section show
+    $('#warehouseSelectSection').hide();
+    $('#productSearchSection').show();
+    $('#productsTableWrapper').show();
+    $('#selectedWarehouseName').text('🏭 ' + warehouseName);
+
+    $('#searchProduct').val('');
+    loadProducts('', warehouseId);
+}
+
+function resetWarehouseSelection() {
+    // Wapas warehouse select screen pe
+    $('#warehouseSelectSection').show();
+    $('#productSearchSection').hide();
+    $('#productsTableWrapper').hide();
+    $('#itemModalWarehouse').val('');
+    $('#productsTableBody').empty();
+    $('#searchProduct').val('');
 }
 
 function removeItem(index) {
@@ -3022,7 +3217,7 @@ function renderItemsTable() {
         row += `
                 <td class="item-unit">${item.unit || 'PCS'}</td>
                 <td class="item-qty">
-                    <input type="number" class="qty-edit" min="1" value="${quantity}"
+                    <input type="number" class="qty-edit" min="1" max="${item.max_stock || 9999}" value="${quantity}"
                         onchange="updateItem(${index}, 'quantity', this.value)">
                 </td>
                 <td class="item-warranty">
@@ -3596,8 +3791,7 @@ $(document).ready(function() {
     // Initially show intra-state tax by default
     showIntraStateTax();
 
-    // Load products for item modal
-    loadProducts();
+
 
     // Attach input event handlers
     $('#extraDiscount').on('input', calculateTotals);

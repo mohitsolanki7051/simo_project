@@ -217,18 +217,24 @@
 
                     <!-- Items Section -->
                     <div class="form-section">
-                        <div class="section-header">
-                            <div class="section-header-left">
-                                <div class="section-icon">🛒</div>
-                                <div class="section-title">
-                                    <h3>Items</h3>
-                                    <p>Add products to invoice</p>
-                                </div>
+                    <div class="section-header">
+                        <div class="section-header-left">
+                            <div class="section-icon">🛒</div>
+                            <div class="section-title">
+                                <h3>Items</h3>
+                                <p>Add products to invoice</p>
                             </div>
+                        </div>
+                        <!-- Warehouse badge + Add Item button -->
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="selectedWarehouseBadge" style="display: none; font-size: 10px; font-weight: 600; color: #fa8725; background: #fff3e6; border: 1px solid #fa8725; padding: 4px 10px; border-radius: 12px;">
+                                🏭 <span id="selectedWarehouseBadgeText"></span>
+                            </span>
                             <button type="button" class="btn-add-item" id="addItemBtn" onclick="openAddItemModal()">
                                 + Add Item
                             </button>
                         </div>
+                    </div>
 
                         <div class="section-body">
                             <div class="items-table-container {{ $invoice->invoice_type == 'gst' ? 'gst-mode' : 'cash-mode' }}" id="itemsTableContainer">
@@ -707,14 +713,45 @@
             <button type="button" class="modal-close" onclick="closeAddItemModal()">×</button>
         </div>
         <div class="modal-body">
-            <div class="search-container">
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="searchProduct" class="search-input" placeholder="Search items by name, SKU or barcode...">
+            <!-- Warehouse Selector -->
+            <div style="text-align: center; padding: 20px 0 15px 0;" id="warehouseSelectSection">
+                <div style="font-size: 13px; font-weight: 600; color: #333; margin-bottom: 12px;">🏭 Select Warehouse to Load Products</div>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <div class="select-wrapper" style="width: 280px;">
+                        <select id="itemModalWarehouse" class="form-control" onchange="onWarehouseChange()" style="font-size: 12px; padding: 8px 12px;">
+                            <option value="">-- Select Warehouse --</option>
+                            @foreach($warehouses as $wh)
+                                <option value="{{ $wh->_id }}">
+                                    {{ $wh->name }}{{ $wh->is_main ? ' (Main)' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div class="products-table-container">
+            <!-- Search + Selected Warehouse Info -->
+            <div id="productSearchSection" style="display: none; margin-bottom: 12px;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="search-container" style="flex: 1; margin-bottom: 0;">
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="searchProduct" class="search-input" placeholder="Search items by name, SKU or barcode...">
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                        <span id="selectedWarehouseName" style="font-size: 11px; font-weight: 600; color: #555; background: #f0f0f0; padding: 6px 10px; border-radius: 3px; border: 1px solid #ddd;">
+                            🏭 —
+                        </span>
+                        <button type="button" onclick="resetWarehouseSelection()" style="font-size: 10px; padding: 5px 8px; background: #eee; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; color: #555;">
+                            ↩ Change
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Table -->
+            <div class="products-table-container" id="productsTableWrapper" style="display: none;">
                 <table class="products-table">
                     <thead id="productsTableHeader">
                         <tr>
@@ -730,7 +767,7 @@
                     <tbody id="productsTableBody">
                     </tbody>
                 </table>
-                <div id="productsLoading" class="loading-state">
+                <div id="productsLoading" class="loading-state" style="display: none;">
                     <div class="loading-spinner"></div>
                     <p>Loading products...</p>
                 </div>
@@ -746,7 +783,47 @@
 
 @push('styles')
 <style>
-/* Credit limit badge styles */
+/* Warehouse Selection Screen */
+#warehouseSelectSection {
+    background: #f8f9fa;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 30px 20px;
+    margin-bottom: 5px;
+}
+
+#itemModalWarehouse {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    border: 1.5px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    height: 38px;
+}
+
+#itemModalWarehouse:focus {
+    border-color: #fa8725;
+    box-shadow: 0 0 0 2px rgba(250, 135, 37, 0.15);
+    outline: none;
+}
+
+#productSearchSection {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
+
+#selectedWarehouseName {
+    background: #fff3e6 !important;
+    color: #fa8725 !important;
+    border: 1px solid #fa8725 !important;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+}
 .credit-limit-badge {
     display: inline-block;
     padding: 2px 6px;
@@ -2452,7 +2529,8 @@
 <script>
 // ===================== EDIT INVOICE JAVASCRIPT =====================
 window.currentPartyCreditInfo = null;
-let items = {!! json_encode($invoice->items->map(function($item) {
+// NAYA - warehouse_id aur max_stock dono add karo
+let items = {!! json_encode($invoice->items->map(function($item) use ($invoice) {
     return [
         'product_id' => $item->product_id,
         'variant_id' => $item->variant_id,
@@ -2468,6 +2546,8 @@ let items = {!! json_encode($invoice->items->map(function($item) {
         'unit' => $item->unit,
         'warranty_type' => $item->warranty_type,
         'warranty_period' => (int)$item->warranty_period,
+        'warehouse_id' => $invoice->warehouse_id,
+        'max_stock' => 0,
     ];
 })->values()) !!};
 
@@ -2722,9 +2802,8 @@ function openAddItemModal() {
         return;
     }
 
+    resetWarehouseSelection();
     $('#addItemModal').css('display', 'flex');
-    $('#searchProduct').val('');
-    loadProducts();
 }
 
 function closeAddItemModal() {
@@ -2732,7 +2811,7 @@ function closeAddItemModal() {
     $('#searchProduct').val('');
 }
 
-function loadProducts(search = '') {
+function loadProducts(search = '', warehouseId = null) {
     const tbody = $('#productsTableBody');
     const loading = $('#productsLoading');
     const partyType = getCurrentPartyType();
@@ -2740,17 +2819,20 @@ function loadProducts(search = '') {
     tbody.empty();
     loading.show();
 
+    const selectedWarehouse = warehouseId || $('#itemModalWarehouse').val() || '{{ $mainWarehouse->_id }}';
+
     $.get('{{ route('admin.sales.get-main-warehouse-products') }}', {
-        search: search
+        search: search,
+        warehouse_id: selectedWarehouse
     }, function(response) {
         loading.hide();
 
         if (response.products.length === 0) {
             tbody.html(`
                 <tr>
-                    <td colspan="7" class="text-center" style="padding: 40px 20px;">
+                    <td colspan="7" class="text-center" style="padding: 40px 20px; text-align: center;">
                         <div style="font-size: 32px; opacity: 0.3; margin-bottom: 10px;">📦</div>
-                        <p style="font-size: 11px; color: #6b7280;">No products found</p>
+                        <p style="font-size: 11px; color: #6b7280;">No products found in this warehouse</p>
                     </td>
                 </tr>
             `);
@@ -2810,8 +2892,32 @@ function loadProducts(search = '') {
         `);
     });
 }
-
 function addSelectedProducts() {
+    const selectedWarehouseId = $('#itemModalWarehouse').val();
+
+    if (!selectedWarehouseId) {
+        showAlert('Please select a warehouse', 'error');
+        return;
+    }
+
+    const hasSelected = $('#productsTableBody tr').toArray().some(row =>
+        $(row).find('.select-product').is(':checked')
+    );
+
+    if (!hasSelected) {
+        closeAddItemModal();
+        return;
+    }
+
+    const existingWarehouseId = items.length > 0 ? items[0].warehouse_id : null;
+
+    if (existingWarehouseId && existingWarehouseId !== selectedWarehouseId) {
+        items = [];
+        showAlert('Warehouse changed — previous items removed', 'info');
+    }
+
+    $('input[name="warehouse_id"]').val(selectedWarehouseId);
+
     $('#productsTableBody tr').each(function() {
         const checkbox = $(this).find('.select-product');
         if (!checkbox.is(':checked')) return;
@@ -2822,7 +2928,7 @@ function addSelectedProducts() {
 
         if (qty <= 0) return;
         if (qty > maxStock) {
-            showAlert(`Only ${maxStock} items available`, 'error');
+            showAlert(`Only ${maxStock} items available in stock`, 'error');
             return;
         }
 
@@ -2850,15 +2956,48 @@ function addSelectedProducts() {
             unit: input.data('unit') || 'PCS',
             warranty_type: input.data('warranty-type') || 'none',
             warranty_period: parseInt(input.data('warranty-period')) || 0,
-            party_type: partyType
+            party_type: partyType,
+            warehouse_id: selectedWarehouseId,
+            max_stock: parseFloat(input.data('stock')),
         };
 
         addItemToInvoice(item);
     });
-
+    // Warehouse badge update
+    const warehouseName = $('#itemModalWarehouse option:selected').text().trim();
+    if (warehouseName && warehouseName !== '-- Select Warehouse --') {
+        $('#selectedWarehouseBadgeText').text(warehouseName);
+        $('#selectedWarehouseBadge').show();
+    } else {
+        $('#selectedWarehouseBadge').hide();
+    }
     closeAddItemModal();
 }
 
+function onWarehouseChange() {
+    const warehouseId = $('#itemModalWarehouse').val();
+    if (!warehouseId) return;
+
+    const warehouseName = $('#itemModalWarehouse option:selected').text();
+
+    $('#warehouseSelectSection').hide();
+    $('#productSearchSection').show();
+    $('#productsTableWrapper').show();
+    $('#selectedWarehouseName').text('🏭 ' + warehouseName);
+
+    $('#searchProduct').val('');
+    loadProducts('', warehouseId);
+}
+
+function resetWarehouseSelection() {
+    $('#warehouseSelectSection').show();
+    $('#productSearchSection').hide();
+    $('#productsTableWrapper').hide();
+    $('#itemModalWarehouse').val('');
+    $('#productsTableBody').empty();
+    $('#searchProduct').val('');
+}
+// NAYA - create se exact same stock check logic
 function addItemToInvoice(item) {
     const existingIndex = items.findIndex(i =>
         i.product_id === item.product_id &&
@@ -2866,8 +3005,22 @@ function addItemToInvoice(item) {
     );
 
     if (existingIndex > -1) {
-        items[existingIndex].quantity += item.quantity;
-        showAlert(`Updated quantity for ${item.name}`, 'info');
+        const newQty = items[existingIndex].quantity + item.quantity;
+        const maxStock = items[existingIndex].max_stock || item.max_stock || 0;
+
+        // ✅ Stock check - sirf agar max_stock > 0 ho (existing items ke liye 0 = no check)
+        if (maxStock > 0 && newQty > maxStock) {
+            const remaining = maxStock - items[existingIndex].quantity;
+            if (remaining <= 0) {
+                showAlert(`❌ ${item.name} — stock full! Already added max qty (${maxStock})`, 'error');
+            } else {
+                showAlert(`❌ ${item.name} — only ${remaining} more units available (stock: ${maxStock})`, 'error');
+            }
+            return;
+        }
+
+        items[existingIndex].quantity = newQty;
+        showAlert(`Updated quantity for ${item.name} (${newQty}${maxStock > 0 ? '/'+maxStock : ''})`, 'info');
     } else {
         items.push(item);
         showAlert(`Added ${item.name} to invoice`, 'success');
@@ -2875,9 +3028,27 @@ function addItemToInvoice(item) {
 
     renderItemsTable();
 }
-
+// NAYA - create se exact same inline stock check
 function updateItem(index, field, value) {
     if (items[index]) {
+        if (field === 'quantity') {
+            const newQty = parseFloat(value) || 0;
+            const maxStock = items[index].max_stock || 0;
+
+            if (newQty <= 0) {
+                showAlert('Quantity must be greater than 0', 'error');
+                renderItemsTable(); // revert
+                return;
+            }
+
+            // ✅ Stock check - sirf agar max_stock > 0 ho
+            if (maxStock > 0 && newQty > maxStock) {
+                showAlert(`❌ Only ${maxStock} units available in stock for ${items[index].name}`, 'error');
+                renderItemsTable(); // revert to old value
+                return;
+            }
+        }
+
         items[index][field] = parseFloat(value) || 0;
 
         if (field === 'discount') {
@@ -2904,7 +3075,6 @@ function updateItem(index, field, value) {
         renderItemsTable();
     }
 }
-
 function removeItem(index) {
     items.splice(index, 1);
     renderItemsTable();
@@ -3589,12 +3759,51 @@ $(document).ready(function() {
         showInterStateTax();
     }
 
+    // Page load pe existing warehouse badge show karo
+    const existingWarehouseId = '{{ $invoice->warehouse_id }}';
+    if (existingWarehouseId) {
+        // Items array mein se warehouse_id match karo ya sirf invoice ka warehouse dikhao
+        const warehouseName = '{{ optional(App\Models\Warehouse::find($invoice->warehouse_id))->name ?? "" }}';
+        if (warehouseName) {
+            $('#selectedWarehouseBadgeText').text(warehouseName);
+            $('#selectedWarehouseBadge').show();
+        }
+    }
+    function fetchStockForExistingItems() {
+        const warehouseId = $('input[name="warehouse_id"]').val();
+        if (!warehouseId || items.length === 0) {
+            renderItemsTable();
+            return;
+        }
+
+        $.get('{{ route('admin.sales.get-main-warehouse-products') }}', {
+            warehouse_id: warehouseId
+        }, function(response) {
+            if (response.products && response.products.length > 0) {
+                items.forEach(function(item, index) {
+                    const match = response.products.find(function(p) {
+                        if (item.variant_id) {
+                            return String(p.id) === String(item.product_id) &&
+                                String(p.variant_id) === String(item.variant_id);
+                        }
+                        return String(p.id) === String(item.product_id);
+                    });
+                    if (match) {
+                        // current stock + item's own qty = total available for this item
+                        items[index].max_stock = parseFloat(match.current_stock);
+                    }
+                });
+            }
+            renderItemsTable();
+        }).fail(function() {
+            renderItemsTable();
+        });
+    }
     // Render items table
-    renderItemsTable();
+     fetchStockForExistingItems();
 
     // Load initial data
     loadParties();
-    loadProducts();
 
     // Attach input event handlers
     $('#extraDiscount').on('input', calculateTotals);

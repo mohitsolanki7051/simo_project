@@ -116,13 +116,43 @@ public function index(Request $request)
     if ($request->filled('status') && $request->status != '') {
         $query->where('status', $request->status);
     }
-
+    if ($request->filled('warehouse_id') && $request->warehouse_id != '') {
+        $query->where('warehouse_id', $request->warehouse_id);
+    }
     $invoices = $query->paginate(20)->withQueryString();
 
-    // ── Summary stats (global, not filtered)
-    $totalSalesRaw  = SalesInvoice::where('status', '!=', 'draft')->sum('grand_total');
-    $totalPaidRaw   = SalesInvoice::whereIn('payment_status', ['paid', 'partial'])->where('status', '!=', 'draft')->sum('total_paid');
-    $totalUnpaidRaw = SalesInvoice::whereIn('payment_status', ['unpaid', 'partial'])->where('status', '!=', 'draft')->sum('balance_amount');
+    $statsQuery = SalesInvoice::where('status', '!=', 'draft');
+
+    // Same filters apply karo stats pe bhi
+    if ($request->filled('period')) {
+        $period = $request->period;
+        if ($period === 'today') {
+            $statsQuery->whereDate('invoice_date', today());
+        } elseif ($period === 'custom') {
+            if ($request->filled('date_from'))
+                $statsQuery->whereDate('invoice_date', '>=', $request->date_from);
+            if ($request->filled('date_to'))
+                $statsQuery->whereDate('invoice_date', '<=', $request->date_to);
+        } elseif (is_numeric($period)) {
+            $statsQuery->whereDate('invoice_date', '>=', now()->subDays((int)$period)->toDateString());
+        }
+    }
+    if ($request->filled('date'))
+        $statsQuery->whereDate('invoice_date', $request->date);
+    if ($request->filled('invoice_number'))
+        $statsQuery->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
+    if ($request->filled('invoice_type') && $request->invoice_type != '')
+        $statsQuery->where('invoice_type', $request->invoice_type);
+    if ($request->filled('party_id') && $request->party_id != '')
+        $statsQuery->where('party_id', $request->party_id);
+    if ($request->filled('payment_status') && $request->payment_status != '')
+        $statsQuery->where('payment_status', $request->payment_status);
+    if ($request->filled('warehouse_id') && $request->warehouse_id != '')
+        $statsQuery->where('warehouse_id', $request->warehouse_id);
+
+    $totalSalesRaw  = (clone $statsQuery)->sum('grand_total');
+    $totalPaidRaw   = (clone $statsQuery)->whereIn('payment_status', ['paid', 'partial'])->sum('total_paid');
+    $totalUnpaidRaw = (clone $statsQuery)->whereIn('payment_status', ['unpaid', 'partial'])->sum('balance_amount');
 
     $totalSales  = $this->decimalToFloat($totalSalesRaw);
     $totalPaid   = $this->decimalToFloat($totalPaidRaw);
@@ -1034,22 +1064,27 @@ public function index(Request $request)
     public function getMainWarehouseProducts(Request $request)
     {
         try {
-            $mainWarehouse = Warehouse::main()->first();
+            // Use warehouse_id from request, fallback to main warehouse
+            if ($request->filled('warehouse_id')) {
+                $warehouse = Warehouse::find($request->warehouse_id);
+            } else {
+                $warehouse = Warehouse::main()->first();
+            }
 
-            if (!$mainWarehouse) {
+            if (!$warehouse) {
                 return response()->json(['products' => []]);
             }
 
             /* ================= SIMPLE PRODUCTS ================= */
-            $simpleStocks = WarehouseStock::where('warehouse_id', $mainWarehouse->_id)
+            $simpleStocks = WarehouseStock::where('warehouse_id', $warehouse->_id)
                 ->where('product_type', 'simple')
                 ->where('quantity', '>', 0)
                 ->pluck('product_id');
 
             $simpleProducts = SimpleProduct::whereIn('_id', $simpleStocks)
                 ->get()
-                ->map(function ($product) use ($mainWarehouse) {
-                    $stock = WarehouseStock::where('warehouse_id', $mainWarehouse->_id)
+                ->map(function ($product) use ($warehouse) {
+                    $stock = WarehouseStock::where('warehouse_id', $warehouse->_id)
                         ->where('product_id', $product->_id)
                         ->where('product_type', 'simple')
                         ->first();
@@ -1075,33 +1110,27 @@ public function index(Request $request)
             /* ================= VARIANT PRODUCTS ================= */
             $variantProducts = collect();
 
-            $variantStocks = WarehouseStock::where('warehouse_id', $mainWarehouse->_id)
+            $variantStocks = WarehouseStock::where('warehouse_id', $warehouse->_id)
                 ->where('product_type', 'variant')
                 ->where('quantity', '>', 0)
                 ->get();
 
-            $productIds = $variantStocks
-                ->pluck('product_id')
-                ->unique();
+            $productIds = $variantStocks->pluck('product_id')->unique();
 
             foreach ($productIds as $productId) {
                 $product = VariantProduct::find($productId);
-
                 if (!$product) continue;
 
                 $rawVariants = $product->getRawOriginal('variants');
-
                 if (is_string($rawVariants)) {
                     $variants = json_decode($rawVariants, true);
                 } else {
                     $variants = $rawVariants;
                 }
-
                 if (!is_array($variants)) continue;
 
                 foreach ($variants as $variant) {
                     $variantId = null;
-
                     if (isset($variant['_id'])) {
                         if (is_array($variant['_id']) && isset($variant['_id']['$oid'])) {
                             $variantId = $variant['_id']['$oid'];

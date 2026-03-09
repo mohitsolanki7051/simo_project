@@ -169,6 +169,19 @@
                     </select>
                 </div>
 
+                {{-- Warehouse Filter --}}
+                <div class="si-filter-group">
+                    <label class="si-filter-label">Warehouse</label>
+                    <select name="warehouse_id" class="si-select">
+                        <option value="">All Warehouses</option>
+                        @foreach(\App\Models\Warehouse::active()->get() as $wh)
+                            <option value="{{ $wh->_id }}" {{ request('warehouse_id') == $wh->_id ? 'selected' : '' }}>
+                                {{ $wh->name }}{{ $wh->is_main ? ' (Main)' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 {{-- Buttons --}}
                 <div class="si-filter-btns">
                     <button type="submit" class="si-btn-filter">
@@ -212,6 +225,7 @@
                         <th class="tc-type">Type</th>
                         <th class="tc-party">Party</th>
                         <th class="tc-due">Due</th>
+                        <th class="tc-wh">Warehouse</th>
                         <th class="tc-amount">Amount</th> {{-- Combined Amount Column --}}
                         <th class="tc-payment-status">Payment Status</th>
                         <th class="tc-inv-status">Invoice Status</th>
@@ -281,7 +295,11 @@
                                 <span class="td-muted">—</span>
                             @endif
                         </td>
-
+                        <td class="tc-wh">
+                            <span class="si-wh-badge">
+                                {{ optional($invoice->warehouse)->name ?? '—' }}
+                            </span>
+                        </td>
                         {{-- Combined Amount Column with Payment Status --}}
                         <td class="tc-amount">
                             <div class="amount-display">
@@ -361,7 +379,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="si-empty-cell">
+                        <td colspan="11" class="si-empty-cell">
                             <div class="si-empty">
                                 <div class="si-empty-icon">
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -644,7 +662,18 @@
     width: 150px;
     min-width: 150px;
 }
-
+.tc-wh { width: 110px; }
+.si-wh-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #166534;
+    white-space: nowrap;
+}
 .amount-display {
     display: flex;
     flex-direction: column;
