@@ -548,7 +548,7 @@
             <div class="submenu">
                 <div class="submenu-inner">
                     <a href="{{ route('admin.warranty.index') }}" class="submenu-item {{ request()->routeIs('admin.warranty.index') ? 'active' : '' }}"><span class="submenu-dot"></span> All Claims</a>
-                    <a href="{{ route('admin.warranty.create') }}" class="submenu-item {{ request()->routeIs('admin.warranty.create') ? 'active' : '' }}"><span class="submenu-dot"></span> New Claim</a>
+                    <a href="{{ route('admin.defective-stock.index') }}" class="submenu-item {{ request()->routeIs('admin.defective-stock.index') ? 'active' : '' }}"><span class="submenu-dot"></span> Defective Product</a>
                 </div>
             </div>
             <span class="nav-tooltip">Warranty</span>

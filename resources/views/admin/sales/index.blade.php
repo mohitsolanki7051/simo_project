@@ -166,6 +166,8 @@
                         <option value="">All</option>
                         <option value="draft"     {{ request('status') == 'draft'     ? 'selected' : '' }}>Draft</option>
                         <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
+                        <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+
                     </select>
                 </div>
 
@@ -364,15 +366,6 @@
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                         </svg>
                                     </button>
-                                @else
-                                    <a href="{{ route('admin.sales.show', $invoice->_id) }}?print=1"
-                                    class="si-act si-act--print" title="Print Invoice" target="_blank">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <polyline points="6 9 6 2 18 2 18 9"/>
-                                            <path d="M6 21H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/>
-                                            <rect x="6" y="17" width="12" height="4"/>
-                                        </svg>
-                                    </a>
                                 @endif
                             </div>
                         </td>

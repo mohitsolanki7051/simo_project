@@ -397,7 +397,19 @@
     font-size: 11px;
     font-weight: 600;
 }
-
+.wc-result-warehouse {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 2px 7px;
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    font-size: 9.5px;
+    font-weight: 600;
+    vertical-align: middle;
+}
 /* ─── Invoice Card ────────────────────────────────────────── */
 .wc-invoice-card {
     background: #f9fafb;
@@ -471,6 +483,34 @@
     cursor: pointer;
     transition: all .15s;
     background: #fff;
+}
+/* ─── Qty Summary ─────────────────────────────────────────── */
+.wc-qty-summary {
+    display: flex;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 8px 10px;
+    margin: 8px 0;
+}
+.wc-qty-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+.wc-qty-label {
+    font-size: 9px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    margin-bottom: 2px;
+}
+.wc-qty-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
 }
 .wc-product-card:hover {
     border-color: var(--c-brand);
@@ -883,11 +923,19 @@ function displaySearchResults(invoices) {
             month: 'short',
             year: 'numeric'
         });
+         let warehouseName = invoice.warehouse?.name || '—';
 
         html += `
             <div class="wc-result-item" onclick="selectInvoice('${invoice.id}')">
                 <div class="wc-result-info">
-                    <div class="wc-result-invoice">${invoice.invoice_number}</div>
+                    <div class="wc-result-invoice">${invoice.invoice_number}
+                        <span class="wc-result-warehouse">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:2px;">
+                                <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                            </svg>
+                            ${warehouseName}
+                        </span>
+                    </div>
                     <div class="wc-result-customer">
                         <span>${invoice.party?.name || 'N/A'}</span>
                         <span>${invoice.party?.phone || ''}</span>
@@ -950,7 +998,7 @@ function displayInvoiceDetails(invoice) {
         month: 'short',
         year: 'numeric'
     });
-
+    let warehouseName = invoice.warehouse?.name || 'N/A';
     let html = `
         <div class="wc-invoice-header">
             <span class="wc-invoice-number">${invoice.invoice_number}</span>
@@ -968,6 +1016,15 @@ function displayInvoiceDetails(invoice) {
             <div class="wc-invoice-item">
                 <span class="wc-invoice-label">Invoice Type</span>
                 <span class="wc-invoice-value">${invoice.invoice_type?.toUpperCase() || 'N/A'}</span>
+            </div>
+            <div class="wc-invoice-item">
+                <span class="wc-invoice-label">Warehouse</span>
+                <span class="wc-invoice-value">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" style="vertical-align:middle;margin-right:3px;">
+                        <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
+                    ${warehouseName}
+                </span>
             </div>
         </div>
         <div class="wc-address-box">
@@ -1006,8 +1063,7 @@ function displayProducts(items) {
                             <span>Days Left:</span>
                             <span>${item.warranty_valid.days_left} days</span>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             } else if (item.warranty_valid.status === 'expired') {
                 warrantyClass = 'warranty-expired';
                 warrantyBadge = '<span class="wc-badge expired">✗ Expired</span>';
@@ -1025,23 +1081,39 @@ function displayProducts(items) {
                             <span>Expired:</span>
                             <span>${item.warranty_valid.days_overdue} days ago</span>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             } else {
                 warrantyClass = 'warranty-no-warranty';
                 warrantyBadge = '<span class="wc-badge no-warranty">No Warranty</span>';
             }
         }
 
-        let canClaim = item.can_claim && item.can_claim.can_claim;
-        let disabledClass = !canClaim ? 'opacity-50' : '';
+        let canClaim      = item.can_claim && item.can_claim.can_claim;
+        let remainingQty  = item.can_claim?.remaining_qty ?? 0;
+        let purchasedQty  = item.can_claim?.purchased_qty ?? item.quantity;
+        let claimedSoFar  = item.can_claim?.claimed_qty   ?? 0;
+        let variantName   = item.variant_name ? ` (${item.variant_name})` : '';
 
-        // Get variant name if exists
-        let variantName = item.variant_name ? ` (${item.variant_name})` : '';
+        // Qty summary bar shown on every card
+        let qtySummary = `
+            <div class="wc-qty-summary">
+                <div class="wc-qty-row">
+                    <span class="wc-qty-label">Purchased</span>
+                    <span class="wc-qty-val">${purchasedQty}</span>
+                </div>
+                <div class="wc-qty-row">
+                    <span class="wc-qty-label">Claimed</span>
+                    <span class="wc-qty-val" style="color:#f97316">${claimedSoFar}</span>
+                </div>
+                <div class="wc-qty-row">
+                    <span class="wc-qty-label">Remaining</span>
+                    <span class="wc-qty-val" style="color:${remainingQty > 0 ? '#10b981' : '#ef4444'};font-weight:700">${remainingQty}</span>
+                </div>
+            </div>`;
 
         html += `
-            <div class="wc-product-card ${warrantyClass} ${disabledClass}"
-                 onclick="${canClaim ? `selectProduct('${item.id}', '${item.product_name}', '${item.sku || ''}', '${item.variant_name || ''}')` : ''}"
+            <div class="wc-product-card ${warrantyClass} ${!canClaim ? 'opacity-50' : ''}"
+                 onclick="${canClaim ? `selectProduct('${item.id}', '${item.product_name}', '${item.sku || ''}', '${item.variant_name || ''}', ${remainingQty})` : ''}"
                  data-item-id="${item.id}">
                 <div class="wc-product-header">
                     <span class="wc-product-name" title="${item.product_name}">${item.product_name}${variantName}</span>
@@ -1054,7 +1126,7 @@ function displayProducts(items) {
                         <span class="wc-detail-value">${item.sku || 'N/A'}</span>
                     </div>
                     <div class="wc-detail-sm">
-                        <span class="wc-detail-label">Qty</span>
+                        <span class="wc-detail-label">Qty Bought</span>
                         <span class="wc-detail-value">${item.quantity}</span>
                     </div>
                     <div class="wc-detail-sm">
@@ -1062,38 +1134,27 @@ function displayProducts(items) {
                         <span class="wc-detail-value">₹${parseFloat(item.price).toFixed(2)}</span>
                     </div>
                 </div>
+                ${qtySummary}
                 ${warrantyDates}
-                ${!canClaim ? '<div class="wc-disabled-message">❌ ' + (item.can_claim?.reason || 'Cannot claim') + '</div>' : ''}
-            </div>
-        `;
+                ${!canClaim ? `<div class="wc-disabled-message">❌ ${item.can_claim?.reason || 'Cannot claim'}</div>` : ''}
+            </div>`;
     });
 
     productsGrid.innerHTML = html;
 }
-
-function selectProduct(itemId, productName, sku, variantName) {
+function selectProduct(itemId, productName, sku, variantName, remainingQty) {
     selectedItem = itemId;
 
-    // Remove selected class from all products
-    document.querySelectorAll('.wc-product-card').forEach(card => {
-        card.classList.remove('selected');
-    });
+    document.querySelectorAll('.wc-product-card').forEach(c => c.classList.remove('selected'));
+    document.querySelector(`.wc-product-card[data-item-id="${itemId}"]`)?.classList.add('selected');
 
-    // Add selected class to clicked product
-    let selectedCard = document.querySelector(`.wc-product-card[data-item-id="${itemId}"]`);
-    if (selectedCard) {
-        selectedCard.classList.add('selected');
-    }
-
-    // Find the selected item details
     let selectedProduct = selectedInvoice.items.find(item => item.id === itemId);
 
-    // Update form
-    document.getElementById('sales_invoice_id').value = selectedInvoice.id;
+    document.getElementById('sales_invoice_id').value      = selectedInvoice.id;
     document.getElementById('sales_invoice_item_id').value = itemId;
 
-    // Show selected product info
     let displayName = variantName ? `${productName} (${variantName})` : productName;
+
     document.getElementById('selectedProductInfo').innerHTML = `
         <div class="wc-selected-row">
             <div>
@@ -1105,11 +1166,27 @@ function selectProduct(itemId, productName, sku, variantName) {
                   selectedProduct.warranty_valid?.status === 'expired' ? '✗ Expired' : 'No Warranty'}
             </span>
         </div>
+        <div style="margin-top:10px;">
+            <label class="wc-form-label">
+                Qty to Claim
+                <span class="wc-required">*</span>
+                <span style="color:#6b7280;font-weight:400;margin-left:6px;">(max: ${remainingQty})</span>
+            </label>
+            <input type="number"
+                   class="wc-form-select"
+                   name="claimed_qty"
+                   id="claimed_qty"
+                   min="1"
+                   max="${remainingQty}"
+                   value="1"
+                   style="width:120px;margin-top:4px;"
+                   required>
+            <div class="wc-form-hint">${remainingQty} unit(s) available for warranty claim</div>
+        </div>
     `;
     document.getElementById('selectedProductInfo').style.display = 'block';
 
-    // Show warranty info
-    if (selectedProduct.warranty_valid && selectedProduct.warranty_valid.status === 'valid') {
+    if (selectedProduct.warranty_valid?.status === 'valid') {
         document.getElementById('warrantyInfo').innerHTML = `
             <div class="wc-warranty-title">✅ Valid Warranty</div>
             <div class="wc-warranty-grid">
@@ -1125,20 +1202,15 @@ function selectProduct(itemId, productName, sku, variantName) {
                     <span class="wc-warranty-item-label">Days Left</span>
                     <span class="wc-warranty-item-value">${selectedProduct.warranty_valid.days_left} days</span>
                 </div>
-            </div>
-        `;
+            </div>`;
         document.getElementById('warrantyInfo').style.display = 'block';
     } else {
         document.getElementById('warrantyInfo').style.display = 'none';
     }
 
-    // Show claim form
     document.getElementById('claimFormSection').style.display = 'block';
-
-    // Scroll to form
     document.getElementById('claimFormSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
-
 // Form submission
 document.getElementById('claimForm').addEventListener('submit', function(e) {
     e.preventDefault();

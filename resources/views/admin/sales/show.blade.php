@@ -275,7 +275,24 @@
         margin-top: 6px;
         font-size: 11px;
     }
-
+.iv-cancelled-stamp {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: 80px;
+    font-weight: 900;
+    color: rgba(220, 38, 38, 0.18);
+    border: 8px solid rgba(220, 38, 38, 0.18);
+    border-radius: 12px;
+    padding: 10px 30px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10;
+    letter-spacing: 8px;
+    font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
+}
     /* Invoice Title Row */
     .iv-title-row {
         display: flex;
@@ -590,6 +607,11 @@
                 <a href="{{ route('admin.sales.edit', $invoice->_id) }}" class="iv-btn iv-btn-outline">Edit</a>
                 <button onclick="deleteInvoice()" class="iv-btn iv-btn-danger">Delete</button>
             @endif
+             @if($invoice->status === 'confirmed' || $invoice->status === 'completed')
+                <button onclick="cancelInvoice()" class="iv-btn" style="background: #dc2626; color: white;">
+                    🚫 Cancel
+                </button>
+            @endif
             <button onclick="printInvoice()" class="iv-btn iv-btn-outline">Print</button>
             <button onclick="downloadPDF()" class="iv-btn iv-btn-primary">PDF</button>
             <button onclick="sendWhatsApp()" class="iv-btn" style="background: #25D366; color: white;">
@@ -686,7 +708,10 @@
         </div>
 
         <!-- Items Table - Professional Format -->
-        <div class="iv-items-section">
+        <div class="iv-items-section" style="position: relative;">
+            @if($invoice->status === 'cancelled')
+            <div class="iv-cancelled-stamp">CANCELLED</div>
+            @endif
             <table class="iv-table">
                 <thead>
                     <tr>
@@ -699,6 +724,7 @@
                         <th>Disc%</th>
                         <th>Rate</th>
                         @if($showGST)<th>Tax%</th>@endif
+                        <th>Warranty</th>
                         <th>Amount</th>
                     </tr>
                 </thead>
@@ -711,6 +737,19 @@
                             $lineTotal += $item->tax_amount ?? 0;
                         }
                         $totalAmount += $lineTotal;
+                        $warrantyText = 'No Warranty';
+                        if ($item->warranty_type && $item->warranty_type !== 'none' && $item->warranty_period > 0) {
+                            $period = $item->warranty_period;
+                            $type = $item->warranty_type === 'year' ? 'Year' : 'Month';
+                            $warrantyText = $period . ' ' . $type . ($period > 1 ? 's' : '');
+
+                            // Add dates if available
+                            if ($item->warranty_start && $item->warranty_end) {
+                                $start = \Carbon\Carbon::parse($item->warranty_start)->format('d/m/y');
+                                $end = \Carbon\Carbon::parse($item->warranty_end)->format('d/m/y');
+                                $warrantyText .= '<br><small style="font-size:8px;">' . $start . ' - ' . $end . '</small>';
+                            }
+                        }
                     @endphp
                     <tr>
                         <td>{{ $idx + 1 }}</td>
@@ -737,13 +776,14 @@
                         @if($showGST)
                         <td>{{ number_format($item->tax_percent, 0) }}%</td>
                         @endif
+                        <td style="font-size: 9px;">{!! $warrantyText !!}</td>
                         <td>₹ {{ number_format($lineTotal, 2) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="{{ $showGST ? '9' : '7' }}" style="text-align: right;">Total</td>
+                        <td colspan="{{ $showGST ? '10' : '8' }}" style="text-align: right;">Total</td>
                         <td><strong>₹ {{ number_format($totalAmount, 2) }}</strong></td>
                     </tr>
                 </tfoot>
@@ -1010,6 +1050,37 @@ function deleteInvoice() {
         showAlert('Error!', 'error');
         btn.disabled = false;
         btn.innerHTML = 'Delete';
+    });
+}
+function cancelInvoice() {
+    if (!confirm('⚠️ Cancel this invoice?\n\nThis will:\n• Mark invoice as CANCELLED\n• Return all items to stock\n• This action CANNOT be undone!\n\nAre you sure?')) return;
+
+    const btn = event.target.closest('button');
+    btn.disabled = true;
+    btn.innerHTML = 'Cancelling...';
+
+    fetch('{{ route("admin.sales.cancel", $invoice->_id) }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('✅ Invoice cancelled! Stock returned.', 'success');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('❌ ' + data.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = 'Cancel';
+        }
+    })
+    .catch(() => {
+        showAlert('❌ Error cancelling invoice!', 'error');
+        btn.disabled = false;
+        btn.innerHTML = 'Cancel';
     });
 }
 </script>

@@ -12,33 +12,53 @@ class WarrantyClaim extends Model
     protected $collection = 'warranty_claims';
 
     protected $fillable = [
-        'warranty_claim_number',   // WC/25-26/0001
+        'warranty_claim_number',
         'sales_invoice_id',
         'sales_invoice_item_id',
         'party_id',
         'product_id',
         'variant_id',
-        'product_type',             // simple or variant
+        'product_type',
         'claim_date',
-        'warranty_status',          // valid / expired
-        'claim_type',                // replacement
-        'replacement_status',        // pending / done
-        'repair_status',             // pending / completed
+        'warranty_status',
+        'claim_type',
+        'replacement_status',
+        'repair_status',
+        'claimed_qty',
+        'replaced_qty',
+        'repaired_qty',
+        'scrapped_qty',           // ← NEW: kitne scrap huye
+        'warehouse_id',
+        'defective_stock_status', // pending_repair | repaired | scrapped
         'notes',
+        'scrap_reason',           // ← NEW: scrap ka reason
         'created_by',
         'approved_by',
         'approved_at',
         'repaired_by',
         'repaired_at',
+        'scrapped_by',            // ← NEW
+        'scrapped_at',            // ← NEW
     ];
 
     protected $casts = [
-        'claim_date' => 'date',
-        'approved_at' => 'datetime',
-        'repaired_at' => 'datetime',
+        'claim_date'   => 'date',
+        'approved_at'  => 'datetime',
+        'repaired_at'  => 'datetime',
+        'scrapped_at'  => 'datetime',   // ← NEW
+        'claimed_qty'  => 'integer',
+        'replaced_qty' => 'integer',
+        'repaired_qty' => 'integer',
+        'scrapped_qty' => 'integer',    // ← NEW
     ];
 
-    // Relationships
+    // ─── Relationships ───────────────────────────────────────────
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
+    }
+
     public function salesInvoice()
     {
         return $this->belongsTo(SalesInvoice::class, 'sales_invoice_id');
@@ -64,11 +84,6 @@ class WarrantyClaim extends Model
         return $this->belongsTo(VariantProduct::class, 'product_id');
     }
 
-    // public function variant()
-    // {
-    //     return $this->belongsTo(VariantProduct::class, 'variant_id');
-    // }
-
     public function creator()
     {
         return $this->belongsTo(Admin::class, 'created_by');
@@ -84,38 +99,30 @@ class WarrantyClaim extends Model
         return $this->belongsTo(Admin::class, 'repaired_by');
     }
 
-    // Accessors
+    public function scrapper()
+    {
+        return $this->belongsTo(Admin::class, 'scrapped_by'); // ← NEW
+    }
+
+    // ─── Accessors / Badges ──────────────────────────────────────
+
     public function getWarrantyStatusBadgeAttribute()
     {
-        $badges = [
-            'valid' => 'badge-success',
-            'expired' => 'badge-danger'
-        ];
-
-        return $badges[$this->warranty_status] ?? 'badge-secondary';
+        return ['valid' => 'badge-success', 'expired' => 'badge-danger'][$this->warranty_status] ?? 'badge-secondary';
     }
 
     public function getReplacementStatusBadgeAttribute()
     {
-        $badges = [
-            'pending' => 'badge-warning',
-            'done' => 'badge-success'
-        ];
-
-        return $badges[$this->replacement_status] ?? 'badge-secondary';
+        return ['pending' => 'badge-warning', 'done' => 'badge-success'][$this->replacement_status] ?? 'badge-secondary';
     }
 
     public function getRepairStatusBadgeAttribute()
     {
-        $badges = [
-            'pending' => 'badge-warning',
-            'completed' => 'badge-success'
-        ];
-
-        return $badges[$this->repair_status] ?? 'badge-secondary';
+        return ['pending' => 'badge-warning', 'completed' => 'badge-success'][$this->repair_status] ?? 'badge-secondary';
     }
 
-    // Helper Methods
+    // ─── Helper Methods ──────────────────────────────────────────
+
     public function isReplacementDone()
     {
         return $this->replacement_status === 'done';
@@ -129,13 +136,50 @@ class WarrantyClaim extends Model
     public function canApprove()
     {
         return $this->warranty_status === 'valid' &&
-               $this->replacement_status === 'pending' &&
-               $this->repair_status === 'pending';
+            in_array($this->replacement_status, ['pending', 'partial']) &&
+            $this->replacementRemainingQty() > 0;
     }
 
+    public function replacementRemainingQty()
+    {
+        return max(0, (int) $this->claimed_qty - (int) $this->replaced_qty);
+    }
+
+    /**
+     * Repair button dikhao jab koi replaced unit abhi repair/scrap ke liye pending ho
+     */
     public function canMarkRepairCompleted()
     {
-        return $this->replacement_status === 'done' &&
-               $this->repair_status === 'pending';
+        return $this->replaced_qty > 0 && $this->repairRemainingQty() > 0;
+    }
+
+    /**
+     * Scrap button dikhao same condition pe jab repair pending ho
+     */
+    public function canMarkScrapped()
+    {
+        return $this->replaced_qty > 0 && $this->repairRemainingQty() > 0;
+    }
+
+    /**
+     * Pending units = replaced - (repaired + scrapped)
+     * Ye same pool hai — repair ya scrap dono isi se aate hain
+     */
+    public function repairRemainingQty()
+    {
+        return max(0, (int) $this->replaced_qty - (int) $this->repaired_qty - (int) $this->scrapped_qty);
+    }
+
+    public static function remainingQty($salesInvoiceItemId, $purchasedQty)
+    {
+        $totalClaimed = self::where('sales_invoice_item_id', $salesInvoiceItemId)
+            ->whereIn('replacement_status', ['pending', 'done'])
+            ->sum('claimed_qty');
+
+        return max(0, $purchasedQty - $totalClaimed);
+    }
+    public function isEditable(): bool
+    {
+        return $this->approved_at === null;
     }
 }

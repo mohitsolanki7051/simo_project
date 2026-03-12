@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\SalesPaymentController;
 use App\Http\Controllers\Admin\SalesmanController;
 use App\Http\Controllers\Admin\WarrantyController;
 use App\Http\Controllers\Admin\QuotationController;
+use App\Http\Controllers\Admin\DefectiveStockController;
 // Redirect root URL based on authentication status
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -187,6 +188,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/{id}/generate', [SalesInvoiceController::class, 'generate'])->name('generate');
         Route::post('/{id}/payment', [SalesInvoiceController::class, 'createPayment'])->name('create-payment');
         Route::delete('/{id}', [SalesInvoiceController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/cancel', [SalesInvoiceController::class, 'cancel'])->name('cancel');
 
         Route::get('/party-credit-status/{partyId}', [SalesInvoiceController::class, 'getPartyCreditStatus'])->name('credit-status');
     });
@@ -227,22 +229,27 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         });
 
-
-        // Add these inside your admin middleware group
         Route::prefix('salesmen')->name('salesmen.')->group(function () {
-            Route::get('/', [SalesmanController::class, 'index'])->name('index');
-            Route::get('/create', [SalesmanController::class, 'create'])->name('create');
-            Route::post('/', [SalesmanController::class, 'store'])->name('store');
-            Route::get('/{id}', [SalesmanController::class, 'show'])->name('show'); // View route
-            Route::get('/{id}/edit', [SalesmanController::class, 'edit'])->name('edit');
-            Route::put('/{id}', [SalesmanController::class, 'update'])->name('update');
-            Route::post('/bulk-update-status', [SalesmanController::class, 'bulkUpdateStatus'])->name('bulk-update-status');
-            Route::get('/check-phone', [SalesmanController::class, 'checkPhone'])->name('check-phone');
-            Route::get('/check-email', [SalesmanController::class, 'checkEmail'])->name('check-email');
 
-            // AJAX routes
-            Route::get('/party-counts', [SalesmanController::class, 'getPartyCounts'])->name('party-counts');
-            Route::get('/{id}/parties', [SalesmanController::class, 'getAssignedParties'])->name('assigned-parties');
+            // ── Static routes FIRST ──────────────────────────────────────
+            Route::get('/',                        [SalesmanController::class, 'index'])->name('index');
+            Route::get('/create',                  [SalesmanController::class, 'create'])->name('create');
+            Route::post('/',                       [SalesmanController::class, 'store'])->name('store');
+            Route::post('/bulk-update-status',     [SalesmanController::class, 'bulkUpdateStatus'])->name('bulk-update-status');
+            Route::get('/check-phone',             [SalesmanController::class, 'checkPhone'])->name('check-phone');
+            Route::get('/check-email',             [SalesmanController::class, 'checkEmail'])->name('check-email');
+            Route::get('/party-counts',            [SalesmanController::class, 'getPartyCounts'])->name('party-counts');
+
+            // ── {id} routes AFTER static ─────────────────────────────────
+            Route::get('/{id}',                    [SalesmanController::class, 'show'])->name('show');
+            Route::get('/{id}/edit',               [SalesmanController::class, 'edit'])->name('edit');
+            Route::put('/{id}',                    [SalesmanController::class, 'update'])->name('update');
+            Route::get('/{id}/parties',            [SalesmanController::class, 'getAssignedParties'])->name('assigned-parties');
+            Route::post('/{id}/pay-commission',    [SalesmanController::class, 'payCommission'])->name('pay-commission');
+            Route::post('/{id}/pay-fixed',         [SalesmanController::class, 'payFixed'])->name('pay-fixed');
+            Route::get('/{id}/check-fixed-paid',   [SalesmanController::class, 'checkFixedPaidStatus'])->name('check-fixed-paid');
+            Route::get('/{id}/search-parties',     [SalesmanController::class, 'searchParties'])->name('search-parties');
+            Route::get('/{id}/download-report',    [SalesmanController::class, 'downloadReport'])->name('download-report');
         });
         // Warranty Routes
         Route::prefix('warranty')->name('warranty.')->group(function () {
@@ -252,9 +259,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/invoice/{id}', [WarrantyController::class, 'getInvoiceDetails'])->name('invoice-details');
             Route::post('/', [WarrantyController::class, 'store'])->name('store');
             Route::get('/{id}', [WarrantyController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [WarrantyController::class, 'edit'])->name('edit');        // <-- NEW
+            Route::put('/{id}', [WarrantyController::class, 'update'])->name('update');
             Route::post('/{id}/approve-replacement', [WarrantyController::class, 'approveReplacement'])->name('approve-replacement');
             Route::post('/{id}/mark-repair-completed', [WarrantyController::class, 'markRepairCompleted'])->name('mark-repair-completed');
+            Route::post('/{id}/mark-scrapped', [WarrantyController::class, 'markScrapped'])->name('mark-scrapped');
         });
+
+        // Defective Stock (read-only)
+        Route::get('defective-stock', [DefectiveStockController::class, 'index'])->name('defective-stock.index');
+        Route::get('defective-stock/{id}/detail', [DefectiveStockController::class, 'detail'])->name('defective-stock.detail');
 
         Route::prefix('quotations')->name('quotations.')->group(function () {
             // List all quotations
@@ -297,6 +311,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 //whatsapp invoice route
  Route::get('/invoice/{token}', [App\Http\Controllers\InvoicePublicController::class, 'show'])
             ->name('invoice.public');
+Route::get('/quotation/{token}', [App\Http\Controllers\PublicQuotationController::class, 'show'])
+    ->name('quotation.public');
 // In routes/web.php - Add this route in the middleware group
 Route::get('/api/warehouse-stock', function (Illuminate\Http\Request $request) {
     $warehouseId = $request->get('warehouse_id');

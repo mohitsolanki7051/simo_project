@@ -1,36 +1,41 @@
-{{-- resources/views/admin/quotations/create.blade.php --}}
+{{-- resources/views/admin/quotations/edit.blade.php --}}
 @extends('layouts.admin')
 
-@section('title', 'Create Quotation - Admin Panel')
-@section('header-title', 'Create Quotation')
+@section('title', 'Edit Quotation - Admin Panel')
+@section('header-title', 'Edit Quotation #' . $quotation->quotation_number)
 
 @section('content')
-<div class="products-container">
+<div class="quotation-container">
     <!-- Alert Messages -->
     <div id="alertContainer"></div>
 
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
-            <h2 class="page-title">Create Quotation</h2>
+            <h2 class="page-title">Edit Quotation</h2>
+            <span style="background: #f3f4f6; color: #374151; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-left: 8px;">
+                DRAFT
+            </span>
         </div>
         <div class="header-right">
-            <a href="{{ route('admin.quotations.index') }}" class="btn-small btn-secondary">
-                ← Back to Quotations
+            <a href="{{ route('admin.quotations.show', $quotation->id) }}" class="btn-small btn-secondary">
+                ← Back to Quotation
             </a>
         </div>
     </div>
 
     <!-- Quotation Form -->
     <div class="invoice-form-wrapper">
-        <form id="quotationForm" class="invoice-form">
+        <form id="quotationForm" class="invoice-form" data-quotation-id="{{ $quotation->id }}">
             @csrf
-            <input type="hidden" name="quotation_number" value="{{ $quotationNumber }}">
-            <input type="hidden" name="warehouse_id" id="warehouseIdInput" value="{{ $mainWarehouse->_id }}">
-            <input type="hidden" name="tax_amount" id="taxAmountInput" value="0">
-            <input type="hidden" name="discount_amount" id="discountAmountInput" value="0">
-            <input type="hidden" id="extraDiscountTypeInput" name="extra_discount_type" value="amount">
-            <input type="hidden" name="salesman_id" id="salesmanIdInput">
+            @method('PUT')
+            <input type="hidden" name="quotation_number" value="{{ $quotation->quotation_number }}">
+            <input type="hidden" name="warehouse_id" id="warehouseIdInput" value="{{ $quotation->warehouse_id ?? $mainWarehouse->_id }}">
+            <input type="hidden" name="tax_amount" id="taxAmountInput" value="{{ $quotation->tax_total }}">
+            <input type="hidden" name="discount_amount" id="discountAmountInput" value="{{ $quotation->discount_amount }}">
+            <input type="hidden" id="extraDiscountTypeInput" name="extra_discount_type" value="{{ $quotation->extra_discount_type ?? 'amount' }}">
+            <input type="hidden" name="salesman_id" id="salesmanIdInput" value="{{ $quotation->salesman_id }}">
+            <input type="hidden" name="invoice_type" id="invoiceTypeHidden" value="{{ $quotation->invoice_type }}">
 
             <div class="form-row">
                 <div class="form-col-main">
@@ -43,20 +48,22 @@
                                         <div class="section-icon">👤</div>
                                         <div class="section-title">
                                             <h3>Bill To</h3>
-                                            <p>Select party and address details</p>
+                                            <p>Party and address details</p>
                                         </div>
                                     </div>
                                     <button type="button" class="btn-select-customer" id="selectPartyBtn" onclick="openSelectPartyModal()">
                                         <span class="btn-icon">👤</span>
-                                        Select Party
+                                        Change Party
                                     </button>
                                 </div>
 
                                 <div class="section-body">
-                                    <div id="selectedPartyDetails" class="selected-customer-details" style="display: none;">
+                                    <div id="selectedPartyDetails" class="selected-customer-details">
                                         <div class="customer-header">
-                                            <h4 id="partyNameDisplay">Party Name</h4>
-                                            <span id="partyTypeBadge" class="party-type-badge"></span>
+                                            <h4 id="partyNameDisplay">{{ optional($quotation->party)->name ?? 'Party Name' }}</h4>
+                                            <span id="partyTypeBadge" class="party-type-badge {{ optional($quotation->party)->party_type ?? '' }}">
+                                                {{ ucfirst(optional($quotation->party)->party_type ?? 'customer') }}
+                                            </span>
                                             <button type="button" class="btn-change-customer" onclick="openSelectPartyModal()">
                                                 Change
                                             </button>
@@ -66,21 +73,21 @@
                                             <div class="info-column">
                                                 <div class="info-row">
                                                     <span class="info-label">Phone:</span>
-                                                    <span id="partyPhone" class="info-value">-</span>
+                                                    <span id="partyPhone" class="info-value">{{ optional($quotation->party)->phone ?? '-' }}</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">Email:</span>
-                                                    <span id="partyEmail" class="info-value">-</span>
+                                                    <span id="partyEmail" class="info-value">{{ optional($quotation->party)->email ?? '-' }}</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">GST:</span>
-                                                    <span id="partyGst" class="info-value">-</span>
+                                                    <span id="partyGst" class="info-value">{{ optional($quotation->party)->gst_number ?? '-' }}</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <input type="hidden" name="party_id" id="partyIdInput">
-                                        <input type="hidden" name="party_type" id="partyTypeInput">
+                                        <input type="hidden" name="party_id" id="partyIdInput" value="{{ $quotation->party_id }}">
+                                        <input type="hidden" name="party_type" id="partyTypeInput" value="{{ optional($quotation->party)->party_type ?? 'customer' }}">
 
                                         <div class="address-section">
                                             <div class="address-header">
@@ -93,9 +100,9 @@
                                                         <span class="address-type">Billing Address</span>
                                                     </div>
                                                     <div class="address-content">
-                                                        <p id="billingAddressText">Select a party to view address</p>
+                                                        <p id="billingAddressText">{{ $quotation->billing_address ?: 'No billing address' }}</p>
                                                     </div>
-                                                    <input type="hidden" name="billing_address" id="billingAddressInput">
+                                                    <input type="hidden" name="billing_address" id="billingAddressInput" value="{{ $quotation->billing_address }}">
                                                 </div>
 
                                                 <div class="address-card">
@@ -103,9 +110,9 @@
                                                         <span class="address-type">Shipping Address</span>
                                                     </div>
                                                     <div class="address-content">
-                                                        <p id="shippingAddressText">Select a party to view address</p>
+                                                        <p id="shippingAddressText">{{ $quotation->shipping_address ?: 'Same as billing' }}</p>
                                                     </div>
-                                                    <input type="hidden" name="shipping_address" id="shippingAddressInput">
+                                                    <input type="hidden" name="shipping_address" id="shippingAddressInput" value="{{ $quotation->shipping_address }}">
                                                 </div>
                                             </div>
                                         </div>
@@ -130,40 +137,45 @@
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">Quotation No.</label>
-                                            <input type="text" class="form-control" value="{{ $quotationNumber }}" readonly tabindex="-1">
+                                            <input type="text" class="form-control" value="{{ $quotation->quotation_number }}" readonly tabindex="-1">
                                         </div>
 
                                         <div class="form-group col-6">
                                             <label class="form-label required">Quotation Date</label>
-                                            <input type="date" name="quotation_date" id="quotationDate" class="form-control" value="{{ date('Y-m-d') }}" required>
+                                            <input type="date" name="quotation_date" id="quotationDate" class="form-control" value="{{ $quotation->quotation_date->format('Y-m-d') }}" required>
                                         </div>
                                     </div>
 
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">Valid Till</label>
-                                            <input type="date" name="valid_till" id="validTill" class="form-control" value="{{ date('Y-m-d', strtotime('+30 days')) }}">
+                                            <input type="date" name="valid_till" id="validTill" class="form-control" value="{{ $quotation->valid_till ? $quotation->valid_till->format('Y-m-d') : '' }}">
                                             <small style="font-size: 9px; color: #666;">Offer validity date</small>
                                         </div>
                                         <div class="form-group col-6">
                                             <label class="form-label">Assigned Salesman</label>
                                             <div class="salesman-display" id="salesmanNameDisplay">
-                                                —
+                                                {{ optional($quotation->salesman)->name ?? '—' }}
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="form-row">
-
                                         <div class="form-group col-6">
-                                            <!-- Quotation Type Dropdown -->
+                                            <!-- Quotation Type Display (Read-only) -->
                                             <label class="form-label required">Quotation Type</label>
-                                            <select name="invoice_type" id="invoiceType" class="form-control" required onchange="handleInvoiceTypeChange()">
-                                                <option value="">Select Quotation Type</option>
-                                                <option value="gst" selected>GST Quotation</option>
-                                                <option value="cash">Cash Memo</option>
-                                            </select>
-                                            <small id="invoiceTypeHelp" class="form-text text-muted" style="font-size: 10px; margin-top: 3px;">GST Quotation includes HSN code and tax calculations</small>
+                                            <div class="form-control" style="background: #f5f5f5; padding: 6px 10px; border: 1px solid #ddd; border-radius: 3px;">
+                                                @if($quotation->invoice_type == 'gst')
+                                                    <span>GST Quotation</span>
+                                                    <small style="color: #666; margin-left: 8px;">(HSN code and tax calculations included)</small>
+                                                @else
+                                                    <span>Cash Memo Quotation</span>
+                                                    <small style="color: #666; margin-left: 8px;">(No HSN code or GST tax calculations)</small>
+                                                @endif
+                                            </div>
+                                            <small class="form-text text-muted" style="font-size: 10px; margin-top: 3px; color: #dc3545;">
+                                                ⚠️ Quotation type cannot be changed
+                                            </small>
                                         </div>
                                     </div>
                                 </div>
@@ -193,35 +205,35 @@
                         </div>
 
                         <div class="section-body">
-                            <div class="items-table-container" id="itemsTableContainer">
+                            <div class="items-table-container {{ $quotation->invoice_type == 'gst' ? 'gst-mode' : 'cash-mode' }}" id="itemsTableContainer">
                                 <table class="items-table" id="mainItemsTable">
                                     <thead>
                                         <tr id="itemsHeaderRow">
                                             <th class="th-item">Item</th>
-                                            <th class="th-hsn" id="hsnHeader">HSN/SAC</th>
+                                            <th class="th-hsn" id="hsnHeader" {{ $quotation->invoice_type != 'gst' ? 'style=display:none;' : '' }}>HSN/SAC</th>
                                             <th class="th-unit">Unit</th>
                                             <th class="th-qtys">Qty</th>
                                             <th class="th-warranty">Warranty</th>
                                             <th class="th-mrp">MRP (₹)</th>
                                             <th class="th-discount">Disc %</th>
                                             <th class="th-sale-price" id="priceColumnHeader">Sale Price (₹)</th>
-                                            <th class="th-tax" id="taxHeader">Tax %</th>
+                                            <th class="th-tax" id="taxHeader" {{ $quotation->invoice_type != 'gst' ? 'style=display:none;' : '' }}>Tax %</th>
                                             <th class="th-amount">Final Amt (₹)</th>
                                             <th class="th-action">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="itemsTableBody">
                                     </tbody>
-                                    <tfoot id="itemsTableFooter" style="background-color: #f0f0f0; font-weight: 600; border-top: 2px solid #333;">
+                                    <tfoot id="itemsTableFooter" style="background-color: #f0f0f0; font-weight: 600; border-top: 2px solid #333; {{ count($quotation->items) == 0 ? 'display: none;' : '' }}">
                                         <tr>
-                                            <td colspan="5" style="text-align: right; padding: 10px; font-size: 12px;">
+                                            <td colspan="{{ $quotation->invoice_type == 'gst' ? '5' : '4' }}" style="text-align: right; padding: 10px; font-size: 12px;">
                                                 <strong>SUBTOTAL:</strong>
                                             </td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerMRP">₹ 0.00</td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerDiscount">₹ 0.00</td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerSalePrice">₹ 0.00</td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerTax">₹ 0.00</td>
-                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerFinalAmount">₹ 0.00</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerMRP">₹ {{ number_format($quotation->total_mrp, 2) }}</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerDiscount">₹ {{ number_format($quotation->discount_amount, 2) }}</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerSalePrice">₹ {{ number_format($quotation->subtotal, 2) }}</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px; {{ $quotation->invoice_type != 'gst' ? 'display: none;' : '' }}" id="footerTax">₹ {{ number_format($quotation->tax_total, 2) }}</td>
+                                            <td style="padding: 10px; text-align: center; font-size: 12px;" id="footerFinalAmount">₹ {{ number_format($quotation->grand_total - ($quotation->extra_charge ?? 0) + ($quotation->extra_discount ?? 0), 2) }}</td>
                                             <td style="padding: 10px;"></td>
                                         </tr>
                                     </tfoot>
@@ -230,12 +242,12 @@
                         </div>
                     </div>
 
-                    <!-- Summary Section (No Payment Details) -->
+                    <!-- Summary Section (No Payment) -->
                     <div class="form-col-sidebar">
                         <div class="invoice-bottom-layout">
                             <div class="invoice-row">
                                 <!-- Quotation Summary -->
-                                <div class="invoice-col">
+                                <div class="invoice-col" style="width: 100%;">
                                     <div class="summary-section">
                                         <div class="summary-header">
                                             <div class="summary-icon">💰</div>
@@ -243,49 +255,57 @@
                                         </div>
 
                                         <div class="summary-body">
+                                            <!-- Total MRP -->
                                             <div class="summary-row">
                                                 <span class="summary-label">Total MRP</span>
-                                                <span class="summary-value">₹ <span id="totalMRP">0.00</span></span>
+                                                <span class="summary-value">₹ <span id="totalMRP">{{ number_format($quotation->total_mrp, 2) }}</span></span>
                                             </div>
 
+                                            <!-- Total Discount -->
                                             <div class="summary-row">
                                                 <span class="summary-label">Total Discount</span>
-                                                <span class="summary-value">- ₹ <span id="totalDiscount">0.00</span></span>
+                                                <span class="summary-value">- ₹ <span id="totalDiscount">{{ number_format($quotation->discount_amount, 2) }}</span></span>
                                             </div>
 
+                                            <!-- Divider before Subtotal -->
                                             <div class="summary-divider"></div>
 
+                                            <!-- SUBTOTAL (WITHOUT TAX) -->
                                             <div class="summary-row">
                                                 <span class="summary-label" style="font-weight: 600;">Subtotal</span>
-                                                <span class="summary-value">₹ <span id="subtotal">0.00</span></span>
+                                                <span class="summary-value">₹ <span id="subtotal">{{ number_format($quotation->subtotal, 2) }}</span></span>
                                             </div>
 
                                             <!-- TAX BREAKUP - Only for GST Quotation -->
-                                            <div id="taxBreakupContainer" style="display: none;">
-                                                <div id="intraStateTax" style="display: none;">
+                                            <div id="taxBreakupContainer" style="display: {{ $quotation->invoice_type == 'gst' ? 'block' : 'none' }};">
+                                                <!-- Intra-state tax breakup (CGST + SGST) -->
+                                                <div id="intraStateTax" style="display: {{ $quotation->tax_type === 'intra' ? 'block' : 'none' }};">
                                                     <div class="summary-row">
                                                         <span class="summary-label">CGST</span>
-                                                        <span class="summary-value">+ ₹ <span id="cgstTotal">0.00</span></span>
+                                                        <span class="summary-value">+ ₹ <span id="cgstTotal">{{ number_format($quotation->cgst_total, 2) }}</span></span>
                                                     </div>
                                                     <div class="summary-row">
                                                         <span class="summary-label">SGST</span>
-                                                        <span class="summary-value">+ ₹ <span id="sgstTotal">0.00</span></span>
+                                                        <span class="summary-value">+ ₹ <span id="sgstTotal">{{ number_format($quotation->sgst_total, 2) }}</span></span>
                                                     </div>
                                                 </div>
 
-                                                <div id="interStateTax" style="display: none;">
+                                                <!-- Inter-state tax breakup (IGST) -->
+                                                <div id="interStateTax" style="display: {{ $quotation->tax_type === 'inter' ? 'block' : 'none' }};">
                                                     <div class="summary-row">
                                                         <span class="summary-label">IGST</span>
-                                                        <span class="summary-value">+ ₹ <span id="igstTotal">0.00</span></span>
+                                                        <span class="summary-value">+ ₹ <span id="igstTotal">{{ number_format($quotation->igst_total, 2) }}</span></span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div class="summary-row" id="totalTaxRow" style="border-top: 1px dashed #ddd; padding-top: 5px; display: none;">
+                                            <!-- TOTAL TAX (for reference) - Only for GST Quotation -->
+                                            <div class="summary-row" id="totalTaxRow" style="border-top: 1px dashed #ddd; padding-top: 5px; display: {{ $quotation->invoice_type == 'gst' ? 'flex' : 'none' }};">
                                                 <span class="summary-label">Total Tax</span>
-                                                <span class="summary-value">+ ₹ <span id="totalTax">0.00</span></span>
+                                                <span class="summary-value">+ ₹ <span id="totalTax">{{ number_format($quotation->tax_total, 2) }}</span></span>
                                             </div>
 
+                                            <!-- Divider before additional charges -->
                                             <div class="summary-divider"></div>
 
                                             <!-- Add Discount Link -->
@@ -294,8 +314,8 @@
                                                     <a href="javascript:void(0)" id="addDiscountLink" onclick="toggleExtraDiscount()">+ Add Discount</a>
                                                 </span>
                                             </div>
-                                            <div id="extraDiscountRow" style="display:none;" class="summary-row">
-                                                <input type="number" id="extraDiscount" placeholder="Enter discount amount" step="0.01" oninput="calculateTotals()" class="summary-input">
+                                            <div id="extraDiscountRow" style="display: {{ $quotation->extra_discount > 0 && $quotation->extra_discount_type == 'amount' ? 'flex' : 'none' }};" class="summary-row">
+                                                <input type="number" id="extraDiscount" placeholder="Enter discount amount" step="0.01" value="{{ $quotation->extra_discount_type == 'amount' ? $quotation->extra_discount : '' }}" oninput="calculateTotals()" class="summary-input">
                                             </div>
 
                                             <!-- Add Discount % Link -->
@@ -304,8 +324,8 @@
                                                     <a href="javascript:void(0)" id="addDiscountPercentLink" onclick="toggleExtraDiscountPercent()">+ Add Discount %</a>
                                                 </span>
                                             </div>
-                                            <div id="extraDiscountPercentRow" style="display:none;" class="summary-row">
-                                                <input type="number" id="extraDiscountPercent" placeholder="Enter discount %" step="0.01" oninput="calculateTotals()" class="summary-input">
+                                            <div id="extraDiscountPercentRow" style="display: {{ $quotation->extra_discount > 0 && $quotation->extra_discount_type == 'percent' ? 'flex' : 'none' }};" class="summary-row">
+                                                <input type="number" id="extraDiscountPercent" placeholder="Enter discount %" step="0.01" value="{{ $quotation->extra_discount_type == 'percent' ? $quotation->extra_discount : '' }}" oninput="calculateTotals()" class="summary-input">
                                             </div>
 
                                             <!-- Add Another Charge Link -->
@@ -314,23 +334,23 @@
                                                     <a href="javascript:void(0)" id="addChargeLink" onclick="toggleExtraCharge()">+ Add Another Charge</a>
                                                 </span>
                                             </div>
-                                            <div id="extraChargeRow" style="display:none;" class="summary-row">
-                                                <input type="text" placeholder="Charge Name" id="chargeName" class="summary-input">
-                                                <input type="number" placeholder="₹" id="extraCharge" oninput="calculateTotals()" class="summary-input-small">
+                                            <div id="extraChargeRow" style="display: {{ $quotation->extra_charge > 0 ? 'flex' : 'none' }};" class="summary-row">
+                                                <input type="text" placeholder="Charge Name" id="chargeName" value="{{ $quotation->charge_name }}" class="summary-input">
+                                                <input type="number" placeholder="₹" id="extraCharge" value="{{ $quotation->extra_charge }}" oninput="calculateTotals()" class="summary-input-small">
                                             </div>
 
-                                            <!-- Auto Round Off -->
+                                            <!-- Auto Round Off Checkbox -->
                                             <div class="summary-row">
                                                 <label>
-                                                    <input type="checkbox" id="autoRoundOff" onchange="calculateTotals()">
+                                                    <input type="checkbox" id="autoRoundOff" onchange="calculateTotals()" {{ $quotation->round_off != 0 ? 'checked' : '' }}>
                                                     Auto Round Off
                                                 </label>
                                             </div>
 
-                                            <!-- Grand Total -->
+                                            <!-- Grand Total (Final) -->
                                             <div class="summary-row total-row">
                                                 <span class="summary-label">Grand Total</span>
-                                                <span class="summary-value">₹ <span id="grandTotal">0.00</span></span>
+                                                <span class="summary-value">₹ <span id="grandTotal">{{ number_format($quotation->grand_total, 2) }}</span></span>
                                             </div>
                                         </div>
                                     </div>
@@ -343,7 +363,7 @@
                     <div class="form-row" style="margin-top: 10px;">
                         <div class="form-group col-12">
                             <label class="form-label">Notes</label>
-                            <textarea name="notes" class="form-control" rows="2" placeholder="Add any notes or remarks for the customer..."></textarea>
+                            <textarea name="notes" class="form-control" rows="2">{{ $quotation->notes }}</textarea>
                         </div>
                     </div>
 
@@ -351,7 +371,7 @@
                     <div style="display:flex; justify-content:flex-end;">
                         <button type="submit" class="btn-submit-invoice">
                             <span class="btn-icon">💾</span>
-                            Save Quotation
+                            Update Quotation
                         </button>
                     </div>
                 </div>
@@ -374,6 +394,7 @@
         </div>
 
         <div class="modal-body">
+            <!-- Party Type Filter Tabs -->
             <div class="party-type-tabs">
                 <button type="button" class="party-type-tab active" data-type="all">All</button>
                 <button type="button" class="party-type-tab" data-type="customer">Customers</button>
@@ -629,7 +650,7 @@
                 </div>
             </div>
 
-            <!-- Search + Selected Warehouse Info -->
+            <!-- Search + Selected Warehouse Info - hidden initially -->
             <div id="productSearchSection" style="display: none; margin-bottom: 12px;">
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <div class="search-container" style="flex: 1; margin-bottom: 0;">
@@ -649,7 +670,7 @@
                 </div>
             </div>
 
-            <!-- Products Table -->
+            <!-- Products Table - hidden initially -->
             <div class="products-table-container" id="productsTableWrapper" style="display: none;">
                 <table class="products-table">
                     <thead id="productsTableHeader">
@@ -691,11 +712,6 @@
     margin-bottom: 5px;
 }
 
-#warehouseSelectSection > div:first-child {
-    color: #555;
-    margin-bottom: 15px;
-}
-
 #itemModalWarehouse {
     font-size: 12px !important;
     padding: 8px 12px !important;
@@ -711,7 +727,6 @@
     outline: none;
 }
 
-/* Product search section */
 #productSearchSection {
     background: #fff;
     border: 1px solid #e9ecef;
@@ -730,22 +745,6 @@
     padding: 5px 10px;
 }
 
-#productSearchSection button[onclick="resetWarehouseSelection()"] {
-    background: #f8f9fa;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    color: #666;
-    font-size: 10px;
-    padding: 5px 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-#productSearchSection button[onclick="resetWarehouseSelection()"]:hover {
-    background: #fee;
-    color: #c33;
-    border-color: #f5c6cb;
-}
 .credit-limit-badge {
     display: inline-block;
     padding: 2px 6px;
@@ -782,34 +781,6 @@
     font-weight: normal;
 }
 
-/* Credit limit warning in customer info */
-.info-row .credit-warning {
-    color: #dc3545;
-    font-weight: 600;
-}
-
-/* Credit status indicator in party selection */
-.credit-status {
-    font-size: 9px;
-    padding: 2px 6px;
-    border-radius: 10px;
-    display: inline-block;
-}
-
-.credit-status.ok {
-    background: #d4edda;
-    color: #155724;
-}
-
-.credit-status.warning {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.credit-status.danger {
-    background: #f8d7da;
-    color: #721c24;
-}
 .disabled-link {
     pointer-events: none !important;
     opacity: 0.5 !important;
@@ -829,12 +800,14 @@
     background: #e0e0e0 !important;
     color: #999 !important;
 }
-.products-container {
+
+.quotation-container {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 11px;
     line-height: 1.3;
     color: #333;
 }
+
 .btn-submit-invoice {
     align-self: flex-start;
 }
@@ -911,8 +884,6 @@
     transition: all 0.2s;
     text-decoration: none;
 }
-
-
 
 /* Invoice Form */
 .invoice-form-wrapper {
@@ -1069,7 +1040,6 @@
     gap: 5px;
 }
 
-
 .btn-select-customer .btn-icon {
     font-size: 12px;
 }
@@ -1096,6 +1066,7 @@
     color: #333;
     margin: 0;
 }
+
 /* Spinner for loading state */
 .spinner {
     display: inline-block;
@@ -1107,8 +1078,6 @@
     animation: spin 0.8s linear infinite;
     margin-right: 5px;
 }
-
-
 
 /* Disabled button style */
 .btn-submit-invoice:disabled {
@@ -1156,6 +1125,7 @@
     font-size: 10px;
     color: #333;
 }
+
 .invoice-bottom-layout {
     display: flex;
     flex-direction: column;
@@ -1170,6 +1140,7 @@
 .invoice-col {
     flex: 1;
 }
+
 /* Salesman Display */
 .salesman-display {
     padding: 6px 10px;
@@ -1189,56 +1160,13 @@
     border: none;
     cursor: pointer;
     font-size: 16px;
-    color: #28a745;
+    color: #fa8725;
     transition: all 0.2s;
 }
 
 .btn-select-party-row:hover {
     transform: scale(1.1);
-    color: #218838;
-}
-
-
-/* Terms box */
-.terms-box {
-    background: #f1f3f5;
-    padding: 12px;
-    font-size: 10px;
-    border-radius: 4px;
-    line-height: 1.5;
-}
-
-/* Bank details */
-.bank-details-box {
-    background: #fafafa;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 12px;
-    font-size: 10px;
-}
-
-.bank-details-box h4 {
-    margin-bottom: 8px;
-    font-size: 11px;
-}
-
-.change-bank {
-    display: inline-block;
-    margin-top: 8px;
-    font-size: 10px;
-    color: #007bff;
-    text-decoration: none;
-}
-
-.change-bank:hover {
-    text-decoration: underline;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .invoice-row {
-        flex-direction: column;
-    }
+    color: #e06e1f;
 }
 
 .summary-input {
@@ -1294,29 +1222,10 @@
     color: #333;
 }
 
-/* Address content only - no radio buttons */
 .address-content {
     font-size: 10px;
     color: #555;
     line-height: 1.4;
-}
-
-/* Invoice Details - Payment Terms */
-.payment-terms-days {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.payment-terms-days .form-control {
-    width: 50%;
-    flex-shrink: 0;
-}
-
-.payment-terms-days span {
-    font-size: 10px;
-    color: #666;
-    white-space: nowrap;
 }
 
 /* Items Section */
@@ -1355,7 +1264,6 @@
     table-layout: auto;
 }
 
-/* GST mode: more columns, needs horizontal scroll on small screens */
 .items-table-container.gst-mode {
     overflow-x: auto;
 }
@@ -1363,7 +1271,6 @@
     min-width: 980px;
 }
 
-/* Cash mode: fewer columns, no scroll needed */
 .items-table-container.cash-mode {
     overflow-x: auto;
 }
@@ -1399,12 +1306,7 @@
     background-color: #f9f9f9;
 }
 
-.items-table tbody tr {
-    transition: background-color 0.2s;
-}
-
 /* Column widths */
-/* Column widths - flexible, no fixed px so table reflows when columns are hidden */
 .th-item { min-width: 140px; text-align: left !important; }
 .th-hsn { width: 75px; min-width: 70px; }
 .th-qtys { width: 65px; min-width: 55px; }
@@ -1498,41 +1400,11 @@
     background: #444;
 }
 
-/* Terms and Conditions */
-.terms-list {
-    margin-top: 12px;
-}
-
-.term-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 6px;
-}
-
-.term-item input[type="checkbox"] {
-    margin-top: 2px;
-    flex-shrink: 0;
-}
-
-.term-item label {
-    font-size: 10px;
-    color: #555;
-    line-height: 1.4;
-}
-
-/* Summary and Payment Layout */
+/* Summary Section */
 .form-col-sidebar {
     margin-top: 10px;
 }
 
-.summary-and-payment {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-}
-
-/* Summary Section */
 .summary-section {
     background: white;
     border: 1px solid #ddd;
@@ -1624,8 +1496,8 @@
     font-weight: 700;
     color: #fa8725;
 }
-/* ================== 50-50 TOP LAYOUT ================== */
 
+/* ================== 50-50 TOP LAYOUT ================== */
 .two-col-row {
     display: flex;
     gap: 15px;
@@ -1636,55 +1508,13 @@
     width: 50%;
 }
 
-/* Mobile pe stack ho jaye */
 @media (max-width: 768px) {
     .two-col-row {
         flex-direction: column;
     }
-
     .col-50 {
         width: 100%;
     }
-}
-.btn-mark-paid{
-    background: #555555;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    transition: all 0.2s;
-    text-decoration: none;
-}
-
-/* Payment Section */
-.payment-section-container {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 15px;
-}
-
-.payment-section-container h4 {
-    font-size: 11px;
-    font-weight: 600;
-    color: #333;
-    margin: 0 0 12px 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
-}
-
-.balance-amount {
-    padding: 6px 10px;
-    background: #f8f9fa;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #333;
 }
 
 /* Submit Button */
@@ -1705,7 +1535,6 @@
     gap: 6px;
     margin-top: 15px;
 }
-
 
 /* Modal Styles */
 .modal {
@@ -1820,118 +1649,90 @@
     padding: 20px;
 }
 
-/* Customer Modal Specific */
-.customer-modal-header {
+/* Party Modal Specific */
+.party-type-tabs {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 15px;
+    gap: 8px;
     margin-bottom: 15px;
+    padding: 5px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
 }
 
-.search-container {
+.party-type-tab {
     flex: 1;
-}
-
-.search-box {
-    position: relative;
-}
-
-.search-icon {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 11px;
-    color: #666;
-}
-
-.search-input {
-    width: 100%;
-    padding: 7px 10px 7px 30px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    font-size: 10px;
-    background: #fff;
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: #666;
-}
-
-.btn-create-new-customer {
-    padding: 7px 14px;
-    background: #555;
-    color: white;
+    padding: 8px 12px;
+    background: transparent;
     border: none;
-    border-radius: 3px;
-    font-size: 10px;
+    border-radius: 4px;
+    font-size: 11px;
     font-weight: 500;
+    color: #6c757d;
     cursor: pointer;
     transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    white-space: nowrap;
+    text-align: center;
 }
 
-.btn-create-new-customer:hover {
-    background: #444;
+.party-type-tab:hover {
+    background: #e9ecef;
+    color: #495057;
 }
 
-/* Customers Table */
-.customers-table-container {
+.party-type-tab.active {
+    background: #fa8725;
+    color: white;
+}
+
+.party-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-left: 8px;
+}
+
+.party-type-badge.customer { background: #d4edda; color: #155724; }
+.party-type-badge.dealer { background: #cce5ff; color: #004085; }
+.party-type-badge.distributor { background: #fff3cd; color: #856404; }
+
+.parties-table-container {
     max-height: 400px;
     overflow-y: auto;
     border: 1px solid #ddd;
     border-radius: 4px;
-    position: relative;
 }
 
-.customers-table {
+.parties-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 10px;
 }
 
-.customers-table th {
+.parties-table th {
     background: #f8f9fa;
     padding: 8px 10px;
     text-align: left;
     font-weight: 600;
     color: #333;
     border-bottom: 1px solid #ddd;
-    white-space: nowrap;
     position: sticky;
     top: 0;
     z-index: 1;
 }
 
-.customers-table td {
+.parties-table td {
     padding: 8px 10px;
     border-bottom: 1px solid #eee;
     vertical-align: middle;
 }
 
-.customers-table tr:hover {
+.parties-table tr:hover {
     background: #f9f9f9;
 }
 
-.customers-table tr.selected {
-    background: #e8f4ff;
-}
-
-/* Column widths */
-.th-name { width: 180px; }
-.th-phone { width: 100px; }
-.th-email { width: 150px; }
-.th-company { width: 120px; }
-.th-type { width: 80px; }
-.th-status { width: 70px; }
-.th-action { width: 80px; }
-
-/* Status badges */
 .status-badge {
     display: inline-block;
     padding: 2px 6px;
@@ -1950,22 +1751,50 @@
     color: #721c24;
 }
 
-/* Select button */
-.btn-select-customer-row {
-    padding: 4px 10px;
-    background: #555;
+.btn-create-new-party {
+    padding: 7px 14px;
+    background: #28a745;
     color: white;
     border: none;
     border-radius: 3px;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.btn-create-new-party:hover {
+    background: #218838;
+}
+
+.btn-create-first-party {
+    padding: 6px 12px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    font-size: 10px;
     cursor: pointer;
     transition: all 0.2s;
 }
 
-.btn-select-customer-row:hover {
-    background: #444;
+.btn-create-first-party:hover {
+    background: #218838;
 }
+
+.party-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+/* Warranty wrapper */
 .warranty-wrapper {
     display: flex;
     gap: 4px;
@@ -2001,22 +1830,7 @@
     margin: 0 0 12px 0;
 }
 
-.btn-create-first-customer {
-    padding: 6px 12px;
-    background: #555;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    font-size: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-create-first-customer:hover {
-    background: #444;
-}
-
-/* Create Customer Modal */
+/* Form Section Small */
 .form-section-small {
     margin-bottom: 15px;
     padding-bottom: 12px;
@@ -2065,13 +1879,12 @@
     cursor: pointer;
 }
 
-/* Add Item Modal */
+/* Products Table Modal */
 .products-table-container {
     max-height: 400px;
     overflow-y: auto;
     border: 1px solid #ddd;
     border-radius: 4px;
-    position: relative;
 }
 
 .products-table {
@@ -2104,9 +1917,13 @@
 }
 
 /* Products table column widths */
-.th-code { width: 90px; }
-.th-stock { width: 90px; }
-.th-qty { width: 70px; }
+.th-name { width: 30%; }
+.th-code { width: 15%; }
+.th-mrp { width: 10%; }
+.th-price { width: 12%; }
+.th-stock { width: 10%; }
+.th-qty { width: 10%; }
+.th-action { width: 13%; }
 
 /* Quantity Input */
 .products-table input[type="number"] {
@@ -2116,23 +1933,6 @@
     border-radius: 2px;
     font-size: 10px;
     text-align: center;
-}
-
-/* Add Button */
-.products-table .btn-add {
-    padding: 4px 10px;
-    background: #555;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    font-size: 9px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.products-table .btn-add:hover {
-    background: #444;
 }
 
 /* Loading State */
@@ -2215,10 +2015,9 @@
     margin-top: 2px;
 }
 
-
 /* Responsive */
 @media (max-width: 768px) {
-    .products-container {
+    .quotation-container {
         padding: 10px;
     }
 
@@ -2242,12 +2041,12 @@
         max-height: calc(100vh - 30px);
     }
 
-    .customer-modal-header {
+    .party-modal-header {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .btn-create-new-customer {
+    .btn-create-new-party {
         width: 100%;
         justify-content: center;
     }
@@ -2258,11 +2057,6 @@
     }
 
     .customer-info-grid {
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-    .summary-and-payment {
         grid-template-columns: 1fr;
         gap: 10px;
     }
@@ -2306,8 +2100,8 @@
     .items-table td,
     .products-table th,
     .products-table td,
-    .customers-table th,
-    .customers-table td {
+    .parties-table th,
+    .parties-table td {
         padding: 6px 8px;
     }
 
@@ -2315,198 +2109,49 @@
         padding: 12px;
     }
 
-    .customers-table-container,
+    .parties-table-container,
     .products-table-container {
         font-size: 9px;
     }
-}
-
-.party-type-tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
-    padding: 5px;
-    background: #f8f9fa;
-    border-radius: 6px;
-    border: 1px solid #dee2e6;
-}
-
-.party-type-tab {
-    flex: 1;
-    padding: 8px 12px;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 500;
-    color: #6c757d;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-}
-
-.party-type-tab:hover {
-    background: #e9ecef;
-    color: #495057;
-}
-
-.party-type-tab.active {
-    background: #007bff;
-    color: white;
-}
-
-.party-type-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    background: #e7f1ff;
-    color: #0066cc;
-    margin-left: 8px;
-}
-
-.party-type-badge.customer { background: #d4edda; color: #155724; }
-.party-type-badge.dealer { background: #cce5ff; color: #004085; }
-.party-type-badge.distributor { background: #fff3cd; color: #856404; }
-
-.parties-table-container {
-    max-height: 400px;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-.parties-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 10px;
-}
-
-.parties-table th {
-    background: #f8f9fa;
-    padding: 8px 10px;
-    text-align: left;
-    font-weight: 600;
-    color: #333;
-    border-bottom: 1px solid #ddd;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-
-.parties-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #eee;
-    vertical-align: middle;
-}
-
-.parties-table tr:hover {
-    background: #f9f9f9;
-}
-
-.parties-table .party-type {
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 9px;
-    font-weight: 500;
-}
-
-.parties-table .type-customer {
-    background: #d4edda;
-    color: #155724;
-}
-
-.parties-table .type-dealer {
-    background: #cce5ff;
-    color: #004085;
-}
-
-.parties-table .type-distributor {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.btn-create-new-party {
-    padding: 7px 14px;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    font-size: 10px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    white-space: nowrap;
-}
-
-.btn-create-new-party:hover {
-    background: #218838;
-}
-
-.btn-create-first-party {
-    padding: 6px 12px;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    font-size: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-create-first-party:hover {
-    background: #218838;
-}
-
-.party-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 15px;
 }
 </style>
 @endpush
 
 @push('scripts')
 <script>
-// ===================== QUOTATION CREATE - SAME AS SALES INVOICE =====================
+// ===================== EDIT QUOTATION JAVASCRIPT =====================
 
-let items = [];
-let currentPartyType = 'all';
-let cgstTotal = 0;
-let sgstTotal = 0;
-let igstTotal = 0;
-let currentTaxType = 'intra';
+// Load existing items from PHP
+let items = {!! json_encode($quotation->items->map(function($item) use ($quotation) {
+    return [
+        'product_id' => $item->product_id,
+        'variant_id' => $item->variant_id,
+        'product_type' => $item->variant_id ? 'variant' : 'simple',
+        'name' => $item->product_name . ($item->variant_name ? ' - ' . $item->variant_name : ''),
+        'sku' => $item->sku,
+        'hsn_sac' => $item->hsn_sac,
+        'mrp_price' => (float)$item->mrp_price,
+        'price' => (float)$item->price,
+        'quantity' => (float)$item->quantity,
+        'discount' => (float)$item->discount,
+        'tax_percent' => (float)$item->tax_percent,
+        'unit' => $item->unit,
+        'warranty_type' => $item->warranty_type,
+        'warranty_period' => (int)$item->warranty_period,
+        'warehouse_id' => $quotation->warehouse_id,
+        'max_stock' => 0, // Will be fetched later
+    ];
+})->values()) !!};
+
+let currentPartyType = '{{ optional($quotation->party)->party_type ?? 'customer' }}';
+let cgstTotal = {{ $quotation->cgst_total ?? 0 }};
+let sgstTotal = {{ $quotation->sgst_total ?? 0 }};
+let igstTotal = {{ $quotation->igst_total ?? 0 }};
+let currentTaxType = '{{ $quotation->tax_type ?? 'intra' }}';
 let isSubmitting = false;
-let currentInvoiceType = 'gst';
+let currentInvoiceType = '{{ $quotation->invoice_type ?? 'gst' }}';
 
-// ===================== INVOICE TYPE FUNCTIONS =====================
-
-function handleInvoiceTypeChange() {
-    const invoiceType = $('#invoiceType').val();
-    currentInvoiceType = invoiceType;
-
-    const helpElement = $('#invoiceTypeHelp');
-    if (invoiceType === 'gst') {
-        helpElement.text('GST Quotation includes HSN code and tax calculations');
-        showGSTInvoiceFields();
-    } else if (invoiceType === 'cash') {
-        helpElement.text('Cash Memo - No HSN code or GST tax calculations');
-        showCashMemoFields();
-    } else {
-        helpElement.text('Select quotation type to continue');
-    }
-
-    items = [];
-    renderItemsTable();
-    updateAddItemButtonState();
-}
+// ===================== INVOICE TYPE FUNCTIONS (Read-only) =====================
 
 function showGSTInvoiceFields() {
     $('.items-table-container').removeClass('cash-mode').addClass('gst-mode');
@@ -2515,6 +2160,8 @@ function showGSTInvoiceFields() {
     $('.th-hsn, .th-tax').show();
     $('#taxBreakupContainer').show();
     $('#totalTaxRow').show();
+    $('#footerTax').show();
+    $('#itemsTableFooter tr td:first-child').attr('colspan', '5');
 
     if (items.length > 0) {
         renderItemsTable();
@@ -2528,6 +2175,8 @@ function showCashMemoFields() {
     $('.th-hsn, .th-tax').hide();
     $('#taxBreakupContainer').hide();
     $('#totalTaxRow').hide();
+    $('#footerTax').hide();
+    $('#itemsTableFooter tr td:first-child').attr('colspan', '4');
 
     cgstTotal = 0;
     sgstTotal = 0;
@@ -2583,6 +2232,7 @@ function loadParties(search = '') {
 
         response.parties.forEach(party => {
             const statusClass = party.status === 'active' ? 'status-active' : 'status-inactive';
+
             const row = `
                 <tr data-party-id="${party.id}" data-party-type="${party.party_type}">
                     <td class="party-name">${party.name}</td>
@@ -2593,7 +2243,7 @@ function loadParties(search = '') {
                         <span class="status-badge ${statusClass}">${party.status}</span>
                     </td>
                     <td class="party-action">
-                        <button type="button" onclick="selectParty('${party.id}')" style="background: none; border: none; cursor: pointer; font-size: 16px;" title="Select">
+                        <button type="button" class="btn-select-party-row" onclick="selectParty('${party.id}')" style="background: none; border: none; cursor: pointer; font-size: 16px;" title="Select">
                             ✓
                         </button>
                     </td>
@@ -2663,10 +2313,9 @@ function getCurrentPartyType() {
 
 function updateAddItemButtonState() {
     const partyType = getCurrentPartyType();
-    const invoiceType = $('#invoiceType').val();
     const addItemBtn = $('#addItemBtn');
 
-    if (partyType && invoiceType) {
+    if (partyType) {
         addItemBtn.prop('disabled', false).css({ opacity: '1', cursor: 'pointer' });
     } else {
         addItemBtn.prop('disabled', true).css({ opacity: '0.5', cursor: 'not-allowed' });
@@ -2704,6 +2353,14 @@ function calculateDiscountPercentage(mrp, price) {
 // ===================== SELECT PARTY =====================
 
 function selectParty(partyId) {
+    const currentPartyId = $('#partyIdInput').val();
+
+    if (currentPartyId && currentPartyId === partyId) {
+        showAlert('This party is already selected', 'info');
+        closeSelectPartyModal();
+        return;
+    }
+
     $.get('{{ route('admin.quotations.get-party-details', ':id') }}'.replace(':id', partyId), function(res) {
         if (!res.success) return;
 
@@ -2723,6 +2380,7 @@ function selectParty(partyId) {
         updatePriceColumnHeaders();
         updateAddItemButtonState();
 
+        // Clear items when party changes
         items = [];
 
         const warehouseState = '{{ $mainWarehouse->state ?? "" }}';
@@ -2764,7 +2422,7 @@ function selectParty(partyId) {
         }
 
         closeSelectPartyModal();
-        showAlert('Party selected successfully', 'success');
+        showAlert('Party changed to ' + p.name + ' successfully', 'success');
     });
 }
 
@@ -2772,10 +2430,11 @@ function selectParty(partyId) {
 
 function openAddItemModal() {
     const partyType = getCurrentPartyType();
-    const invoiceType = $('#invoiceType').val();
 
-    if (!partyType) { showAlert('Please select a party first', 'error'); return; }
-    if (!invoiceType) { showAlert('Please select quotation type (GST or Cash Memo)', 'error'); return; }
+    if (!partyType) {
+        showAlert('Please select a party first', 'error');
+        return;
+    }
 
     resetWarehouseSelection();
     $('#addItemModal').css('display', 'flex');
@@ -2984,7 +2643,7 @@ function addItemToList(item) {
         const newQty = items[existingIndex].quantity + item.quantity;
         const maxStock = items[existingIndex].max_stock || item.max_stock || 0;
 
-        if (newQty > maxStock) {
+        if (maxStock > 0 && newQty > maxStock) {
             const remaining = maxStock - items[existingIndex].quantity;
             if (remaining <= 0) {
                 showAlert(`❌ ${item.name} — stock full! Already added max qty (${maxStock})`, 'error');
@@ -2995,7 +2654,7 @@ function addItemToList(item) {
         }
 
         items[existingIndex].quantity = newQty;
-        showAlert(`Updated quantity for ${item.name} (${newQty}/${maxStock})`, 'info');
+        showAlert(`Updated quantity for ${item.name} (${newQty}${maxStock > 0 ? '/'+maxStock : ''})`, 'info');
     } else {
         items.push(item);
         showAlert(`Added ${item.name} to quotation`, 'success');
@@ -3004,6 +2663,8 @@ function addItemToList(item) {
     renderItemsTable();
 }
 
+// ===================== ITEMS TABLE RENDER =====================
+
 function updateItem(index, field, value) {
     if (!items[index]) return;
 
@@ -3011,7 +2672,12 @@ function updateItem(index, field, value) {
         const newQty = parseFloat(value) || 0;
         const maxStock = items[index].max_stock || 0;
 
-        if (newQty <= 0) { showAlert('Quantity must be greater than 0', 'error'); renderItemsTable(); return; }
+        if (newQty <= 0) {
+            showAlert('Quantity must be greater than 0', 'error');
+            renderItemsTable();
+            return;
+        }
+
         if (maxStock > 0 && newQty > maxStock) {
             showAlert(`❌ Only ${maxStock} units available in stock for ${items[index].name}`, 'error');
             renderItemsTable();
@@ -3058,7 +2724,7 @@ function updateWarrantyPeriod(index, value) {
 function renderItemsTable() {
     const tbody = $('#itemsTableBody');
     const partyType = getCurrentPartyType();
-    const invoiceType = $('#invoiceType').val() || 'gst';
+    const invoiceType = currentInvoiceType;
 
     tbody.empty();
     enableExtraFields();
@@ -3069,7 +2735,7 @@ function renderItemsTable() {
             <tr class="empty-row">
                 <td colspan="${emptyColspan}">
                     <div class="empty-items">
-                        <div class="empty-icon">🛒</div>
+                        <div class="empty-icon">📄</div>
                         <p>No items added yet</p>
                         <button type="button" class="btn-add-first-item" onclick="openAddItemModal()">
                             + Add First Item
@@ -3134,7 +2800,7 @@ function renderItemsTable() {
         row += `
                 <td class="item-unit">${item.unit || 'PCS'}</td>
                 <td class="item-qty">
-                    <input type="number" class="qty-edit" min="1" max="${item.max_stock || 9999}" value="${quantity}"
+                    <input type="number" class="qty-edit" min="1" value="${quantity}"
                         onchange="updateItem(${index}, 'quantity', this.value)">
                 </td>
                 <td class="item-warranty">
@@ -3193,15 +2859,15 @@ function renderItemsTable() {
     if (invoiceType === 'gst') { $('#footerTax').show(); } else { $('#footerTax').hide(); }
 
     calculateTaxBreakup();
-    calculateInvoiceSummary(footerMRP, footerDiscountAmount, footerTaxAmount, footerSalePrice);
+    calculateQuotationSummary(footerMRP, footerDiscountAmount, footerTaxAmount, footerSalePrice);
 }
 
 // ===================== SUMMARY CALCULATION =====================
 
-function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotal) {
+function calculateQuotationSummary(totalMRP, totalDiscount, totalTax, subtotal) {
     let extraDiscount = 0;
     const discountType = $('#extraDiscountTypeInput').val();
-    const invoiceType = $('#invoiceType').val();
+    const invoiceType = currentInvoiceType;
 
     if (discountType === 'percent') {
         const discountPercent = parseFloat($('#extraDiscountPercent').val()) || 0;
@@ -3384,7 +3050,6 @@ $('#createPartyForm').submit(function(e) {
 
 function validateForm() {
     if (!$('#partyIdInput').val()) { showAlert('Please select a party', 'error'); return false; }
-    if (!$('#invoiceType').val()) { showAlert('Please select quotation type (GST or Cash Memo)', 'error'); return false; }
     if (items.length === 0) { showAlert('Please add at least one item', 'error'); return false; }
     return true;
 }
@@ -3401,17 +3066,80 @@ function showAlert(message, type = 'success') {
 // ===================== DOCUMENT READY =====================
 
 $(document).ready(function() {
-    window.selectedParty = null;
+    // Set current invoice type from hidden input
+    currentInvoiceType = $('#invoiceTypeHidden').val();
 
-    $('#invoiceType').val('gst');
-    currentInvoiceType = 'gst';
-    showGSTInvoiceFields();
+    // Set party type badge
+    $('#partyTypeBadge').text(currentPartyType.charAt(0).toUpperCase() + currentPartyType.slice(1));
+
+    // Update price column headers
+    updatePriceColumnHeaders();
+
+    // Update add item button state
     updateAddItemButtonState();
-    $('.items-table-container').addClass('gst-mode');
-    showIntraStateTax();
 
+    // Initialize invoice type display
+    if (currentInvoiceType === 'gst') {
+        showGSTInvoiceFields();
+    } else {
+        showCashMemoFields();
+    }
+
+    // Initialize tax type display
+    if (currentTaxType === 'intra') {
+        showIntraStateTax();
+    } else {
+        showInterStateTax();
+    }
+
+    // Show warehouse badge if warehouse exists
+    const existingWarehouseId = '{{ $quotation->warehouse_id }}';
+    if (existingWarehouseId) {
+        const warehouseName = '{{ optional(\App\Models\Warehouse::find($quotation->warehouse_id))->name ?? "" }}';
+        if (warehouseName) {
+            $('#selectedWarehouseBadgeText').text(warehouseName);
+            $('#selectedWarehouseBadge').show();
+        }
+    }
+
+    // Fetch stock for existing items
+    function fetchStockForExistingItems() {
+        const warehouseId = $('input[name="warehouse_id"]').val();
+        if (!warehouseId || items.length === 0) {
+            renderItemsTable();
+            return;
+        }
+
+        $.get('{{ route('admin.quotations.get-main-warehouse-products') }}', {
+            warehouse_id: warehouseId
+        }, function(response) {
+            if (response.products && response.products.length > 0) {
+                items.forEach(function(item, index) {
+                    const match = response.products.find(function(p) {
+                        if (item.variant_id) {
+                            return String(p.id) === String(item.product_id) &&
+                                String(p.variant_id) === String(item.variant_id);
+                        }
+                        return String(p.id) === String(item.product_id);
+                    });
+                    if (match) {
+                        items[index].max_stock = parseFloat(match.current_stock);
+                    }
+                });
+            }
+            renderItemsTable();
+        }).fail(function() {
+            renderItemsTable();
+        });
+    }
+
+    fetchStockForExistingItems();
+    loadParties();
+
+    // Attach input event handlers
     $('#extraDiscount, #extraDiscountPercent, #extraCharge').on('input', calculateTotals);
 
+    // Modal close handlers
     $('.modal-overlay').on('click', function() {
         const modal = $(this).closest('.modal');
         if (modal.attr('id') === 'selectPartyModal') closeSelectPartyModal();
@@ -3427,10 +3155,11 @@ $(document).ready(function() {
         }
     });
 
+    // Form submission
     $('#quotationForm').submit(function(e) {
         e.preventDefault();
 
-        if (isSubmitting) { showAlert('Please wait, quotation is being created...', 'info'); return; }
+        if (isSubmitting) { showAlert('Please wait, quotation is being updated...', 'info'); return; }
         if (!validateForm()) return;
 
         isSubmitting = true;
@@ -3438,8 +3167,9 @@ $(document).ready(function() {
         const originalText = $submitBtn.html();
 
         $submitBtn.prop('disabled', true);
-        $submitBtn.html('<span class="spinner"></span> Creating...');
+        $submitBtn.html('<span class="spinner"></span> Updating...');
 
+        const quotationId = $(this).data('quotation-id');
         const formData = new FormData();
 
         $(this).serializeArray().forEach(item => {
@@ -3469,17 +3199,17 @@ $(document).ready(function() {
         formData.append('charge_name', $('#chargeName').val() || '');
         formData.append('auto_round_off', $('#autoRoundOff').is(':checked') ? 1 : 0);
 
-        showAlert('Creating quotation...', 'info');
+        showAlert('Updating quotation...', 'info');
 
         $.ajax({
-            url: '{{ route('admin.quotations.store') }}',
+            url: '{{ route('admin.quotations.update', ':id') }}'.replace(':id', quotationId),
             type: 'POST',
             data: formData,
             processData: false,
             contentType: false,
             success: function(response) {
                 if (response.success) {
-                    showAlert('Quotation created successfully!', 'success');
+                    showAlert('Quotation updated successfully!', 'success');
                     setTimeout(() => {
                         window.location.href = '/admin/quotations/' + response.quotation_id;
                     }, 1500);
@@ -3491,7 +3221,7 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr) {
-                let message = 'Failed to create quotation';
+                let message = 'Failed to update quotation';
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                     message = xhr.responseJSON.message;
                 } else if (xhr.responseJSON && xhr.responseJSON.errors) {

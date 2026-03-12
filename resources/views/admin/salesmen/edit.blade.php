@@ -83,15 +83,29 @@
                 <!-- Fixed Salary Section - Only visible when salary_type is fixed or both -->
                 <div id="fixedSalarySection" class="salary-section" style="{{ in_array(old('salary_type', $salesman->salary_type), ['fixed', 'both']) ? 'display: block;' : 'display: none;' }}">
                     <div class="section-subheader">
-                        <h4 class="subsection-title">Fixed Salary (Monthly)</h4>
+                        <h4 class="subsection-title">Fixed Salary</h4>
                         <span class="section-badge">Monthly Payment</span>
                     </div>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label class="form-label">Monthly Fixed Salary <span class="required">*</span></label>
+                            <label class="form-label">Fixed Salary Amount <span class="required">*</span></label>
                             <input type="number" step="0.01" min="0" class="form-input" name="fixed_salary" id="fixedSalary" value="{{ old('fixed_salary', $salesman->fixed_salary ?? 0) }}" placeholder="e.g., 15000">
-                            <div class="input-hint">Amount in ₹ per month</div>
+                            <div class="input-hint">Amount in ₹</div>
                             @error('fixed_salary')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Fixed Salary Period <span class="required">*</span></label>
+                            <select class="form-select" name="fixed_salary_period" id="fixedSalaryPeriod">
+                                <option value="monthly" {{ old('fixed_salary_period', $salesman->fixed_salary_period) == 'monthly' ? 'selected' : '' }}>Per Month</option>
+                                <option value="quarterly" {{ old('fixed_salary_period', $salesman->fixed_salary_period) == 'quarterly' ? 'selected' : '' }}>Per 3 Months</option>
+                                <option value="half_yearly" {{ old('fixed_salary_period', $salesman->fixed_salary_period) == 'half_yearly' ? 'selected' : '' }}>Per 6 Months</option>
+                                <option value="yearly" {{ old('fixed_salary_period', $salesman->fixed_salary_period) == 'yearly' ? 'selected' : '' }}>Per Year</option>
+                            </select>
+                            <div class="input-hint">Select payment frequency</div>
+                            @error('fixed_salary_period')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
                         </div>
@@ -111,6 +125,20 @@
 
                     <div class="commission-fields" id="commissionFields" style="{{ old('commission_enabled', $salesman->commission_enabled) ? '' : 'display: none;' }}">
                         <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Commission Period <span class="required">*</span></label>
+                                <select class="form-select" name="commission_period" id="commissionPeriod">
+                                    <option value="monthly" {{ old('commission_period', $salesman->commission_period) == 'monthly' ? 'selected' : '' }}>Monthly</option>
+                                    <option value="quarterly" {{ old('commission_period', $salesman->commission_period) == 'quarterly' ? 'selected' : '' }}>Quarterly (3 Months)</option>
+                                    <option value="half_yearly" {{ old('commission_period', $salesman->commission_period) == 'half_yearly' ? 'selected' : '' }}>Half Yearly (6 Months)</option>
+                                    <option value="yearly" {{ old('commission_period', $salesman->commission_period) == 'yearly' ? 'selected' : '' }}>Yearly</option>
+                                </select>
+                                <div class="input-hint">Commission calculation period</div>
+                                @error('commission_period')
+                                    <div class="error-message">{{ $message }}</div>
+                                @enderror
+                            </div>
+
                             <div class="form-group">
                                 <label class="form-label">Customer Commission %</label>
                                 <input type="number" step="0.01" min="0" max="100" class="form-input" name="customer_commission_percent" value="{{ old('customer_commission_percent', $salesman->customer_commission_percent ?? 0) }}" placeholder="e.g., 2">
@@ -447,19 +475,6 @@
         display: none;
     }
 
-    .phone-validation-message.error, .email-validation-message.error {
-        display: block;
-        background: #f8d7da;
-        color: #721c24;
-        border-left: 3px solid #dc3545;
-    }
-
-    .phone-validation-message.success, .email-validation-message.success {
-        display: block;
-        background: #d4edda;
-        color: #155724;
-        border-left: 3px solid #28a745;
-    }
 
     .phone-validation-message.checking, .email-validation-message.checking {
         display: block;
@@ -673,6 +688,8 @@
         const commissionSection = document.getElementById('commissionSection');
         const commissionEnabled = document.getElementById('commissionEnabled');
         const fixedSalaryInput = document.getElementById('fixedSalary');
+        const fixedSalaryPeriod = document.getElementById('fixedSalaryPeriod');
+        const commissionPeriod = document.getElementById('commissionPeriod');
 
         // Hide both sections first
         fixedSalarySection.style.display = 'none';
@@ -687,14 +704,24 @@
                 commissionEnabled.checked = false;
                 toggleCommissionFields();
             }
+            // Set required attributes
+            fixedSalary.setAttribute('required', 'required');
+            fixedSalaryPeriod.setAttribute('required', 'required');
+            commissionPeriod.removeAttribute('required');
         } else if (salaryType === 'commission') {
             fixedSalarySection.style.display = 'none';
             commissionSection.style.display = 'block';
             // Set fixed salary to 0
-            fixedSalaryInput.value = 0;
+            fixedSalary.value = 0;
+            fixedSalary.removeAttribute('required');
+            fixedSalaryPeriod.removeAttribute('required');
+            commissionPeriod.setAttribute('required', 'required');
         } else if (salaryType === 'both') {
             fixedSalarySection.style.display = 'block';
             commissionSection.style.display = 'block';
+            fixedSalary.setAttribute('required', 'required');
+            fixedSalaryPeriod.setAttribute('required', 'required');
+            commissionPeriod.setAttribute('required', 'required');
         }
     }
 
@@ -702,6 +729,7 @@
     function toggleCommissionFields() {
         const commissionEnabled = document.getElementById('commissionEnabled').checked;
         const commissionFields = document.getElementById('commissionFields');
+        const commissionPeriod = document.getElementById('commissionPeriod');
 
         commissionFields.style.display = commissionEnabled ? 'block' : 'none';
 
@@ -709,6 +737,9 @@
             document.querySelector('input[name="customer_commission_percent"]').value = 0;
             document.querySelector('input[name="dealer_commission_percent"]').value = 0;
             document.querySelector('input[name="distributor_commission_percent"]').value = 0;
+            commissionPeriod.removeAttribute('required');
+        } else {
+            commissionPeriod.setAttribute('required', 'required');
         }
     }
 
@@ -735,14 +766,30 @@
 
         const salaryType = document.getElementById('salaryType').value;
         const fixedSalary = document.getElementById('fixedSalary').value;
+        const fixedSalaryPeriod = document.getElementById('fixedSalaryPeriod');
+        const commissionEnabled = document.getElementById('commissionEnabled').checked;
+        const commissionPeriod = document.getElementById('commissionPeriod');
 
-        if ((salaryType === 'fixed' || salaryType === 'both') && (!fixedSalary || parseFloat(fixedSalary) <= 0)) {
-            showAlert('Please enter a valid monthly fixed salary amount', 'error');
-            document.getElementById('fixedSalary').focus();
-            return false;
+        if (salaryType === 'fixed' || salaryType === 'both') {
+            if (!fixedSalary || parseFloat(fixedSalary) <= 0) {
+                showAlert('Please enter a valid fixed salary amount', 'error');
+                document.getElementById('fixedSalary').focus();
+                return false;
+            }
+            if (!fixedSalaryPeriod.value) {
+                showAlert('Please select fixed salary period', 'error');
+                fixedSalaryPeriod.focus();
+                return false;
+            }
         }
 
-        if (salaryType !== 'fixed' && document.getElementById('commissionEnabled').checked) {
+        if (salaryType === 'commission' || (salaryType === 'both' && commissionEnabled)) {
+            if (!commissionPeriod.value) {
+                showAlert('Please select commission period', 'error');
+                commissionPeriod.focus();
+                return false;
+            }
+
             const customer = parseFloat(document.querySelector('input[name="customer_commission_percent"]').value) || 0;
             const dealer = parseFloat(document.querySelector('input[name="dealer_commission_percent"]').value) || 0;
             const distributor = parseFloat(document.querySelector('input[name="distributor_commission_percent"]').value) || 0;

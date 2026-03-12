@@ -97,7 +97,7 @@ public function index(Request $request)
         $query->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
     }
 
-    // ── Invoice Type filter (FIXED)
+    // ── Invoice Type filter
     if ($request->filled('invoice_type') && $request->invoice_type != '') {
         $query->where('invoice_type', $request->invoice_type);
     }
@@ -112,18 +112,22 @@ public function index(Request $request)
         $query->where('payment_status', $request->payment_status);
     }
 
-    // ── Invoice Status filter (DRAFT, CONFIRMED only)
+    // ── Invoice Status filter
     if ($request->filled('status') && $request->status != '') {
         $query->where('status', $request->status);
     }
+
+    // ── Warehouse filter
     if ($request->filled('warehouse_id') && $request->warehouse_id != '') {
         $query->where('warehouse_id', $request->warehouse_id);
     }
+
     $invoices = $query->paginate(20)->withQueryString();
 
+    /* ================= STATS QUERY - ALL FILTERS APPLY ================= */
     $statsQuery = SalesInvoice::where('status', '!=', 'draft');
 
-    // Same filters apply karo stats pe bhi
+    // Period filter on stats
     if ($request->filled('period')) {
         $period = $request->period;
         if ($period === 'today') {
@@ -137,19 +141,43 @@ public function index(Request $request)
             $statsQuery->whereDate('invoice_date', '>=', now()->subDays((int)$period)->toDateString());
         }
     }
-    if ($request->filled('date'))
-        $statsQuery->whereDate('invoice_date', $request->date);
-    if ($request->filled('invoice_number'))
-        $statsQuery->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
-    if ($request->filled('invoice_type') && $request->invoice_type != '')
-        $statsQuery->where('invoice_type', $request->invoice_type);
-    if ($request->filled('party_id') && $request->party_id != '')
-        $statsQuery->where('party_id', $request->party_id);
-    if ($request->filled('payment_status') && $request->payment_status != '')
-        $statsQuery->where('payment_status', $request->payment_status);
-    if ($request->filled('warehouse_id') && $request->warehouse_id != '')
-        $statsQuery->where('warehouse_id', $request->warehouse_id);
 
+    // Single date filter on stats
+    if ($request->filled('date')) {
+        $statsQuery->whereDate('invoice_date', $request->date);
+    }
+
+    // Invoice number filter on stats
+    if ($request->filled('invoice_number')) {
+        $statsQuery->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
+    }
+
+    // Invoice Type filter on stats
+    if ($request->filled('invoice_type') && $request->invoice_type != '') {
+        $statsQuery->where('invoice_type', $request->invoice_type);
+    }
+
+    // Party filter on stats
+    if ($request->filled('party_id') && $request->party_id != '') {
+        $statsQuery->where('party_id', $request->party_id);
+    }
+
+    // Payment Status filter on stats
+    if ($request->filled('payment_status') && $request->payment_status != '') {
+        $statsQuery->where('payment_status', $request->payment_status);
+    }
+
+    // Invoice Status filter on stats
+    if ($request->filled('status') && $request->status != '') {
+        $statsQuery->where('status', $request->status);
+    }
+
+    // Warehouse filter on stats
+    if ($request->filled('warehouse_id') && $request->warehouse_id != '') {
+        $statsQuery->where('warehouse_id', $request->warehouse_id);
+    }
+
+    // Calculate stats
     $totalSalesRaw  = (clone $statsQuery)->sum('grand_total');
     $totalPaidRaw   = (clone $statsQuery)->whereIn('payment_status', ['paid', 'partial'])->sum('total_paid');
     $totalUnpaidRaw = (clone $statsQuery)->whereIn('payment_status', ['unpaid', 'partial'])->sum('balance_amount');
@@ -193,6 +221,87 @@ public function index(Request $request)
         return view('admin.sales.create', compact('invoiceNumber', 'parties', 'salesmen', 'warehouses', 'mainWarehouse', 'invoiceSetting'));
     }
 
+    /**
+ * Cancel invoice (revert stock and mark as cancelled)
+ */
+public function cancel($id)
+{
+    try {
+        $invoice = SalesInvoice::with(['items', 'party'])->findOrFail($id);
+
+        // Check if invoice can be cancelled (only confirmed/completed)
+        if (!in_array($invoice->status, ['confirmed', 'completed'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only confirmed or completed invoices can be cancelled.'
+            ], 400);
+        }
+
+        // Check if already cancelled
+        if ($invoice->status === 'cancelled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invoice is already cancelled.'
+            ], 400);
+        }
+
+
+
+        // REVERT STOCK - Add back to warehouse
+        foreach ($invoice->items as $item) {
+            $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                ->where('product_id', $item->product_id)
+                ->where('product_type', $item->variant_id ? 'variant' : 'simple')
+                ->when($item->variant_id, function ($q) use ($item) {
+                    return $q->where('variant_id', $item->variant_id);
+                })
+                ->first();
+
+            if ($stock) {
+                // Increase stock (revert the deduction)
+                $stock->update([
+                    'quantity' => $stock->quantity + $item->quantity
+                ]);
+
+                // Create warehouse movement for cancellation
+                WarehouseMovement::create([
+                    'warehouse_id' => $invoice->warehouse_id,
+                    'product_id' => $item->product_id,
+                    'product_type' => $item->variant_id ? 'variant' : 'simple',
+                    'variant_id' => $item->variant_id ?? null,
+                    'type' => 'cancellation', // You may need to add this type
+                    'quantity' => +$item->quantity, // Positive quantity
+                    'reference_id' => $invoice->_id,
+                    'remarks' => "Invoice Cancelled: {$invoice->invoice_number} - Stock returned",
+                ]);
+            }
+        }
+
+        // If there were payments, maybe handle them?
+        // Optionally mark payments as refunded or keep as is based on your business logic
+
+        // Update invoice status to cancelled
+        $invoice->update([
+            'status' => 'cancelled',
+            'notes' => ($invoice->notes ? $invoice->notes . "\n" : '') .
+                      "[Cancelled on " . now()->format('d/m/Y H:i') . "]"
+        ]);
+
+
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Invoice cancelled successfully. Stock has been returned.'
+        ]);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to cancel invoice: ' . $e->getMessage()
+        ], 500);
+    }
+}
     public function store(Request $request)
     {
         // Decode items JSON if needed

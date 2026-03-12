@@ -29,6 +29,7 @@ class WarehouseMovement extends Model
     const TYPE_OPENING = 'opening';
     const TYPE_SALE = 'sale';
     const TYPE_PURCHASE = 'purchase';
+    const TYPE_CANCELLATION = 'cancellation';
     const TYPE_TRANSFER_IN = 'transfer_in';
     const TYPE_TRANSFER_OUT = 'transfer_out';
     const TYPE_ADJUSTMENT = 'adjustment';

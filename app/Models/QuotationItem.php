@@ -1,5 +1,5 @@
 <?php
-// app/Models/QuotationItem.php
+// app/Models/QuotationItem.php - Update model
 
 namespace App\Models;
 
@@ -20,13 +20,23 @@ class QuotationItem extends Model
         'product_name',
         'variant_name',
         'sku',
+        'barcode',
+        'hsn_sac', // New
         'unit',
         'quantity',
         'mrp_price',
         'price',
         'discount',
+        'tax_percent', // New
+        'tax_amount', // New
+        'cgst_amount', // New
+        'sgst_amount', // New
+        'igst_amount', // New
         'total',
-        'tax_percent',  // Added to store GST for invoice conversion
+        'warranty_type', // New
+        'warranty_period', // New
+        'warranty_start', // New
+        'warranty_end', // New
         'party_type',
     ];
 
@@ -35,11 +45,17 @@ class QuotationItem extends Model
         'mrp_price' => 'float',
         'price' => 'float',
         'discount' => 'float',
-        'total' => 'float',
         'tax_percent' => 'float',
+        'tax_amount' => 'float',
+        'cgst_amount' => 'float',
+        'sgst_amount' => 'float',
+        'igst_amount' => 'float',
+        'total' => 'float',
+        'warranty_period' => 'integer',
+        'warranty_start' => 'date',
+        'warranty_end' => 'date',
     ];
 
-    // Relationships
     public function quotation()
     {
         return $this->belongsTo(Quotation::class, 'quotation_id');
