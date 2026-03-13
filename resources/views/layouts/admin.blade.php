@@ -530,6 +530,10 @@
             <div class="submenu">
                 <div class="submenu-inner">
                     <a href="{{ url('/admin/sales') }}" class="submenu-item {{ !request()->is('admin/salesmen*') && !request()->is('admin/warranty*') && request()->is('admin/sales') ? 'active' : '' }}"><span class="submenu-dot"></span> Sales Invoices</a>
+                    <a href="{{ url('/admin/sales-returns') }}" class="submenu-item {{ request()->is('admin/sales-returns*') ? 'active' : '' }}"><span class="submenu-dot"></span> Sales Returns</a>
+
+                    <a href="{{ url('/admin/credit-notes') }}" class="submenu-item {{ request()->is('admin/credit-notes*') ? 'active' : '' }}"><span class="submenu-dot"></span> Credit Notes</a>
+                    
                     <a href="{{ url('/admin/quotations') }}" class="submenu-item {{ request()->is('admin/quotations*') ? 'active' : '' }}"><span class="submenu-dot"></span> Quotations </a>
                     <a href="{{ url('/admin/payments') }}" class="submenu-item {{ request()->is('admin/payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a>
                 </div>

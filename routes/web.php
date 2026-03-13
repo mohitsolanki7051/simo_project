@@ -22,6 +22,9 @@ use App\Http\Controllers\Admin\SalesmanController;
 use App\Http\Controllers\Admin\WarrantyController;
 use App\Http\Controllers\Admin\QuotationController;
 use App\Http\Controllers\Admin\DefectiveStockController;
+use App\Http\Controllers\Admin\SalesReturnController;
+use App\Http\Controllers\Admin\CreditNoteController;
+
 // Redirect root URL based on authentication status
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -303,6 +306,34 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             // Convert to invoice
             Route::post('/{id}/convert-to-invoice', [QuotationController::class, 'convertToInvoice'])->name('convert-to-invoice');
+        });
+
+        // Sales Returns Routes
+        Route::prefix('sales-returns')->name('sales-returns.')->group(function () {
+            // List all returns
+            Route::get('/', [SalesReturnController::class, 'index'])->name('index');
+
+            // Create new return
+            Route::get('/create', [SalesReturnController::class, 'create'])->name('create');
+            Route::post('/', [SalesReturnController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [SalesReturnController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [SalesReturnController::class, 'update'])->name('update');
+            // AJAX / helper routes (MUST come before {id} routes)
+            Route::get('/search-invoices', [SalesReturnController::class, 'searchInvoices'])->name('search-invoices');
+            Route::get('/invoice-details/{id}', [SalesReturnController::class, 'getInvoiceDetails'])->name('invoice-details');
+
+            // Dynamic routes with {id} parameter (these go LAST)
+            Route::get('/{id}', [SalesReturnController::class, 'show'])->name('show');
+            Route::post('/{id}/complete', [SalesReturnController::class, 'complete'])->name('complete');
+            Route::post('/{id}/cancel', [SalesReturnController::class, 'cancel'])->name('cancel');
+            Route::delete('/{id}', [SalesReturnController::class, 'destroy'])->name('destroy');
+        });
+
+        // Credit Notes Routes
+        Route::prefix('credit-notes')->name('credit-notes.')->group(function () {
+            Route::get('/', [CreditNoteController::class, 'index'])->name('index');
+            Route::get('/{id}', [CreditNoteController::class, 'show'])->name('show');
+            Route::post('/{id}/cancel', [CreditNoteController::class, 'cancel'])->name('cancel');
         });
 
 

@@ -53,26 +53,76 @@ class SalesPaymentController extends Controller
     public function index(Request $request)
     {
         $query = SalesPayment::with(['party'])
-            ->where('payment_type', 'payment_in')   // ← only Payment In records
+            ->where('payment_type', 'payment_in')
             ->orderBy('payment_date', 'desc')
-            ->orderBy('created_at',  'desc');
+            ->orderBy('created_at', 'desc');
 
-        if ($request->filled('party_id'))      $query->where('party_id',      $request->party_id);
-        if ($request->filled('from_date'))     $query->whereDate('payment_date', '>=', $request->from_date);
-        if ($request->filled('to_date'))       $query->whereDate('payment_date', '<=', $request->to_date);
-        if ($request->filled('payment_method')) $query->where('payment_method', $request->payment_method);
+        if ($request->filled('party_id'))       $query->where('party_id',       $request->party_id);
+        if ($request->filled('from_date'))      $query->whereDate('payment_date', '>=', $request->from_date);
+        if ($request->filled('to_date'))        $query->whereDate('payment_date', '<=', $request->to_date);
+        if ($request->filled('payment_method')) $query->where('payment_method',  $request->payment_method);
 
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
                 $q->where('payment_number', 'like', "%{$s}%")
-                  ->orWhere('reference_no',  'like', "%{$s}%");
+                ->orWhere('reference_no',  'like', "%{$s}%");
             });
         }
 
-        $payments = $query->paginate(50);
+        // Warehouse filter — match invoices allocated to this warehouse
+        $warehouseId = null;
+        if ($request->filled('warehouse_id')) {
+            $warehouseId = $request->warehouse_id;
+        }
 
-        $parties = Customer::orderBy('name')->get()->map(fn ($p) => [
+        $payments = $query->paginate(50)->withQueryString();
+
+        // Filter by warehouse in PHP (allocations mein invoice_id se match)
+        if ($warehouseId) {
+            $invoiceIdsInWarehouse = \App\Models\SalesInvoice::where('warehouse_id', $warehouseId)
+                ->pluck('_id')
+                ->map(fn($id) => (string)$id)
+                ->toArray();
+
+            $payments->setCollection(
+                $payments->getCollection()->filter(function($payment) use ($invoiceIdsInWarehouse) {
+                    $allocs = $payment->allocations ?? [];
+                    foreach ($allocs as $alloc) {
+                        if (($alloc['type'] ?? '') === 'invoice' &&
+                            in_array($alloc['invoice_id'] ?? '', $invoiceIdsInWarehouse)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
+            );
+        }
+
+        // Stats — same filters apply
+        $statsQuery = SalesPayment::where('payment_type', 'payment_in');
+        if ($request->filled('party_id'))       $statsQuery->where('party_id',       $request->party_id);
+        if ($request->filled('from_date'))      $statsQuery->whereDate('payment_date', '>=', $request->from_date);
+        if ($request->filled('to_date'))        $statsQuery->whereDate('payment_date', '<=', $request->to_date);
+        if ($request->filled('payment_method')) $statsQuery->where('payment_method',  $request->payment_method);
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $statsQuery->where(function ($q) use ($s) {
+                $q->where('payment_number', 'like', "%{$s}%")
+                ->orWhere('reference_no',  'like', "%{$s}%");
+            });
+        }
+
+        $allPayments   = $statsQuery->get();
+        $totalCount    = $allPayments->count();
+        $totalAmount   = $allPayments->sum(function($p) {
+            return $p->amount instanceof \MongoDB\BSON\Decimal128
+                ? (float) $p->amount->__toString()
+                : (float) $p->amount;
+        });
+
+        $warehouses = \App\Models\Warehouse::active()->get();
+        $parties    = \App\Models\Customer::orderBy('name')->get()->map(fn ($p) => [
             'id'              => (string) $p->_id,
             'name'            => $p->name,
             'phone'           => $p->phone,
@@ -80,7 +130,9 @@ class SalesPaymentController extends Controller
             'party_type_text' => ucfirst($p->party_type),
         ]);
 
-        return view('admin.payments.index', compact('payments', 'parties'));
+        return view('admin.payments.index', compact(
+            'payments', 'parties', 'warehouses', 'totalCount', 'totalAmount'
+        ));
     }
 
     public function create()
@@ -211,7 +263,7 @@ class SalesPaymentController extends Controller
                 // Always recalculate — never trust the stored balance_amount
                 // because it may be stale after previous partial payments.
                 $balance = max(0, round($grandTotal - $totalPaid, 2));
-
+                $invoice->load('warehouse');
                 return [
                     'id'             => (string) $invoice->_id,
                     'invoice_number' => $invoice->invoice_number,
@@ -223,6 +275,7 @@ class SalesPaymentController extends Controller
                             ? $invoice->due_date->format('d-m-Y')
                             : date('d-m-Y', strtotime($invoice->due_date)))
                         : '-',
+                    'warehouse_name' => $invoice->warehouse->name ?? '—',
                     'grand_total'    => $grandTotal,
                     'paid'           => $totalPaid,
                     'balance'        => $balance,   // ← pending amount only

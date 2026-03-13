@@ -1,119 +1,195 @@
 @extends('layouts.admin')
 
 @section('title', 'Payment In - Transactions')
-@section('header-title', 'Payment In Transactions')
+@section('header-title', 'Payment In')
 
 @section('content')
-<div class="payments-container">
+<div class="pi-wrap">
+    <div id="alertBox"></div>
 
-    {{-- ── Alert Container ──────────────────────────────────── --}}
-    <div id="alertContainer"></div>
-
-    {{-- ── Page Header ──────────────────────────────────────── --}}
-    <div class="page-header">
-        <div class="header-left">
-            <h2 class="page-title">💰 Payment In Transactions</h2>
+    {{-- ── Header ── --}}
+    <div class="pi-header">
+        <div class="pi-header-left">
+            <div class="pi-header-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="pi-title">Payment In Transactions</h1>
+                <p class="pi-sub">Track and manage all incoming payments</p>
+            </div>
         </div>
-        <div class="header-right">
-            <a href="{{ route('admin.payments.create') }}" class="btn-action btn-primary">
-                + New Payment In
+        <a href="{{ route('admin.payments.create') }}" class="pi-btn-create">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            New Payment In
+        </a>
+    </div>
+
+    {{-- ── Stats ── --}}
+    <div class="pi-stats">
+        <div class="pi-stat pi-stat--green">
+            <div class="pi-stat-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="7" width="20" height="14" rx="2"/>
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+            </div>
+            <div class="pi-stat-content">
+                <div class="pi-stat-label">Total Payments</div>
+                <div class="pi-stat-value">{{ $totalCount }}</div>
+
+            </div>
+        </div>
+        <div class="pi-stat pi-stat--blue">
+            <div class="pi-stat-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+            </div>
+            <div class="pi-stat-content">
+                <div class="pi-stat-label">Total Amount</div>
+                <div class="pi-stat-value">₹ {{ number_format($totalAmount, 2) }}</div>
+
+            </div>
+        </div>
+    </div>
+
+    {{-- ── Filters ── --}}
+    <div class="pi-filters">
+        <div class="pi-filters-header">
+            <div class="pi-filters-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                Filters
+            </div>
+            @if(request()->anyFilled(['search','party_id','payment_method','from_date','to_date','warehouse_id']))
+            <a href="{{ route('admin.payments.index') }}" class="pi-clear-filters">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Clear all filters
             </a>
+            @endif
         </div>
-    </div>
+        <form method="GET" action="{{ route('admin.payments.index') }}">
+            <div class="pi-filter-row">
 
-
-
-    {{-- ── Summary Stats ─────────────────────────────────────── --}}
-    @php
-        $totalAmount = $payments->sum(function($p) {
-            return $p->amount instanceof \MongoDB\BSON\Decimal128
-                ? (float) $p->amount->__toString()
-                : (float) $p->amount;
-        });
-    @endphp
-    <div class="stats-row">
-        <div class="stat-card">
-            <div class="stat-label">Total Payments</div>
-            <div class="stat-value">{{ $payments->total() }}</div>
-        </div>
-        <div class="stat-card stat-green">
-            <div class="stat-label">Amount (This Page)</div>
-            <div class="stat-value">₹{{ number_format($totalAmount, 2) }}</div>
-        </div>
-        <div class="stat-card stat-blue">
-            <div class="stat-label">Showing</div>
-            <div class="stat-value">{{ $payments->count() }} records</div>
-        </div>
-    </div>
-
-      {{-- ── Filters ───────────────────────────────────────────── --}}
-    <div class="filters-card">
-        <div class="filters-header">Filters</div>
-        <div class="filters-body">
-            <form method="GET" action="{{ route('admin.payments.index') }}">
-                <div class="filters-grid">
-                    <div class="filter-field">
-                        <label>Search</label>
-                        <input type="text" name="search" class="f-input"
-                               placeholder="Payment No / Reference…" value="{{ request('search') }}">
-                    </div>
-                    <div class="filter-field">
-                        <label>Party</label>
-                        <select name="party_id" class="f-input">
-                            <option value="">All Parties</option>
-                            @foreach($parties as $party)
-                            <option value="{{ $party['id'] }}" {{ request('party_id') == $party['id'] ? 'selected' : '' }}>
-                                {{ $party['name'] }} ({{ $party['party_type_text'] }})
-                            </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="filter-field">
-                        <label>Payment Method</label>
-                        <select name="payment_method" class="f-input">
-                            <option value="">All Methods</option>
-                            <option value="cash"          {{ request('payment_method') == 'cash'          ? 'selected' : '' }}>Cash</option>
-                            <option value="upi"           {{ request('payment_method') == 'upi'           ? 'selected' : '' }}>UPI</option>
-                            <option value="bank_transfer" {{ request('payment_method') == 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
-                            <option value="cheque"        {{ request('payment_method') == 'cheque'        ? 'selected' : '' }}>Cheque</option>
-                            <option value="card"          {{ request('payment_method') == 'card'          ? 'selected' : '' }}>Card</option>
-                        </select>
-                    </div>
-                    <div class="filter-field">
-                        <label>From Date</label>
-                        <input type="date" name="from_date" class="f-input" value="{{ request('from_date') }}">
-                    </div>
-                    <div class="filter-field">
-                        <label>To Date</label>
-                        <input type="date" name="to_date" class="f-input" value="{{ request('to_date') }}">
-                    </div>
-                    <div class="filter-field filter-btns">
-                        <button type="submit" class="btn-filter-apply">Apply</button>
-                        <a href="{{ route('admin.payments.index') }}" class="btn-filter-reset">Reset</a>
+                {{-- Search --}}
+                <div class="pi-filter-group">
+                    <label class="pi-filter-label">Search</label>
+                    <div class="pi-input-icon-wrap">
+                        <svg class="pi-input-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input type="text" name="search" class="pi-input pi-input-with-icon"
+                               placeholder="Payment No / Ref…" value="{{ request('search') }}">
                     </div>
                 </div>
-            </form>
-        </div>
+
+                {{-- Party --}}
+                <div class="pi-filter-group" style="min-width:155px;">
+                    <label class="pi-filter-label">Party</label>
+                    <select name="party_id" class="pi-select">
+                        <option value="">All Parties</option>
+                        @foreach($parties as $party)
+                        <option value="{{ $party['id'] }}" {{ request('party_id') == $party['id'] ? 'selected' : '' }}>
+                            {{ $party['name'] }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Payment Method --}}
+                <div class="pi-filter-group">
+                    <label class="pi-filter-label">Method</label>
+                    <select name="payment_method" class="pi-select">
+                        <option value="">All Methods</option>
+                        <option value="cash"          {{ request('payment_method') == 'cash'          ? 'selected' : '' }}>Cash</option>
+                        <option value="upi"           {{ request('payment_method') == 'upi'           ? 'selected' : '' }}>UPI</option>
+                        <option value="bank_transfer" {{ request('payment_method') == 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                        <option value="cheque"        {{ request('payment_method') == 'cheque'        ? 'selected' : '' }}>Cheque</option>
+                        <option value="card"          {{ request('payment_method') == 'card'          ? 'selected' : '' }}>Card</option>
+                    </select>
+                </div>
+
+
+                {{-- From Date --}}
+                <div class="pi-filter-group">
+                    <label class="pi-filter-label">From Date</label>
+                    <input type="date" name="from_date" class="pi-input" value="{{ request('from_date') }}">
+                </div>
+
+                {{-- To Date --}}
+                <div class="pi-filter-group">
+                    <label class="pi-filter-label">To Date</label>
+                    <input type="date" name="to_date" class="pi-input" value="{{ request('to_date') }}">
+                </div>
+
+                {{-- Buttons --}}
+                <div class="pi-filter-btns">
+                    <button type="submit" class="pi-btn-filter">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        Apply
+                    </button>
+                    <a href="{{ route('admin.payments.index') }}" class="pi-btn-reset">Reset</a>
+                </div>
+
+            </div>
+        </form>
     </div>
 
-    {{-- ── Payments Table ────────────────────────────────────── --}}
-    <div class="table-card">
-        <div class="table-wrapper">
-            <table class="pi-table">
+    {{-- ── Table Card ── --}}
+    <div class="pi-table-card">
+
+        <div class="pi-table-topbar">
+            <div class="pi-table-count">
+                <strong>{{ $payments->total() }}</strong> payment{{ $payments->total() != 1 ? 's' : '' }}
+                @if(request()->anyFilled(['search','party_id','payment_method','from_date','to_date','warehouse_id']))
+                <span class="pi-filtered-pill">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
+                    Filtered
+                </span>
+                @endif
+            </div>
+            <div class="pi-table-topbar-right">
+                <div class="pi-page-info-top">
+                    Showing {{ $payments->firstItem() ?? 0 }}–{{ $payments->lastItem() ?? 0 }} of {{ $payments->total() }}
+                </div>
+            </div>
+        </div>
+
+        <div class="pi-table-wrap">
+            <table class="pi-tbl">
                 <thead>
                     <tr>
-                        <th>Payment No</th>
-                        <th>Date</th>
-                        <th>Party</th>
-                        <th>Type</th>
-                        <th class="text-right">Amount</th>
-                        <th>Method</th>
-                        <th>Allocated To</th>
-                        <th class="text-center">Action</th>
+                        <th class="tc-no">S. No.</th>
+                        <th class="tc-date">Date</th>
+                        <th class="tc-pno">Payment No</th>
+                        <th class="tc-party">Party</th>
+                        <th class="tc-type">Type</th>
+                        <th class="tc-wh">Warehouse</th>
+                        <th class="tc-amount">Amount</th>
+                        <th class="tc-method">Method</th>
+                        <th class="tc-alloc">Allocated To</th>
+                        <th class="tc-act">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($payments as $payment)
+                    @forelse($payments as $i => $payment)
                     @php
                         $amount      = $payment->amount instanceof \MongoDB\BSON\Decimal128
                                         ? (float) $payment->amount->__toString()
@@ -121,66 +197,111 @@
                         $allocations = $payment->allocations ?? [];
                         $openingAlloc  = collect($allocations)->where('type', 'opening_balance')->sum('amount');
                         $invoiceAllocs = collect($allocations)->where('type', 'invoice')->count();
+
+                        $allocInvoiceIds = collect($allocations)
+                            ->where('type', 'invoice')
+                            ->pluck('invoice_id')
+                            ->unique()
+                            ->toArray();
+                        $warehouseNames = \App\Models\SalesInvoice::whereIn('_id', $allocInvoiceIds)
+                            ->with('warehouse')
+                            ->get()
+                            ->pluck('warehouse.name')
+                            ->unique()
+                            ->filter()
+                            ->implode(', ');
                     @endphp
-                    <tr>
-                        <td>
-                            <span class="payment-no-badge">{{ $payment->payment_number ?? 'N/A' }}</span>
+                    <tr class="pi-tr">
+                        <td class="tc-no">
+                            <span class="td-serial">{{ ($payments->currentPage() - 1) * $payments->perPage() + $i + 1 }}</span>
                         </td>
-                        <td class="date-cell">
-                            {{ $payment->payment_date->format('d M Y') }}
+                        <td class="tc-date">
+                            <div class="td-date-main">{{ $payment->payment_date->format('d M Y') }}</div>
+                            <div class="td-date-sub">{{ $payment->payment_date->format('D') }}</div>
                         </td>
-                        <td>
-                            <div class="party-name">{{ $payment->party->name ?? '—' }}</div>
+                        <td class="tc-pno">
+                            <span class="pi-pno-chip">{{ $payment->payment_number ?? 'N/A' }}</span>
+                        </td>
+                        <td class="tc-party">
+                            <div class="td-party-name" title="{{ $payment->party->name ?? '—' }}">
+                                {{ $payment->party->name ?? '—' }}
+                            </div>
                             @if($payment->party?->phone)
-                            <div class="party-phone">{{ $payment->party->phone }}</div>
+                            <div class="td-party-phone">{{ $payment->party->phone }}</div>
                             @endif
                         </td>
-                        <td>
-                            @if($payment->party?->party_type)
-                            <span class="type-badge type-{{ $payment->party->party_type }}">
-                                {{ ucfirst($payment->party->party_type) }}
-                            </span>
+                        <td class="tc-type">
+                            @php $pt = $payment->party?->party_type; @endphp
+                            @if($pt)
+                            <span class="pi-ptype pi-ptype--{{ $pt }}">{{ ucfirst($pt) }}</span>
                             @else
-                            <span class="text-muted">—</span>
+                            <span class="td-muted">—</span>
                             @endif
                         </td>
-                        <td class="text-right">
-                            <span class="amount-val">₹{{ number_format($amount, 2) }}</span>
+                        <td class="tc-wh">
+                            <span class="pi-wh-badge">{{ $warehouseNames ?: '—' }}</span>
                         </td>
-                        <td>
-                            <span class="method-badge method-{{ $payment->payment_method }}">
+                        <td class="tc-amount">
+                            <span class="td-amount">₹ {{ number_format($amount, 2) }}</span>
+                        </td>
+                        <td class="tc-method">
+                            <span class="pi-method-badge pi-method--{{ $payment->payment_method }}">
                                 {{ $payment->payment_method_text }}
                             </span>
                         </td>
-                        <td>
-                            <div class="alloc-wrap">
+                        <td class="tc-alloc">
+                            <div class="pi-alloc-wrap">
                                 @if($openingAlloc > 0)
-                                <span class="alloc-tag alloc-opening">Opening ₹{{ number_format($openingAlloc, 2) }}</span>
+                                <span class="pi-alloc-tag pi-alloc--opening">
+                                    Opening ₹{{ number_format($openingAlloc, 2) }}
+                                </span>
                                 @endif
                                 @if($invoiceAllocs > 0)
-                                <span class="alloc-tag alloc-invoice">{{ $invoiceAllocs }} Invoice{{ $invoiceAllocs > 1 ? 's' : '' }}</span>
+                                <span class="pi-alloc-tag pi-alloc--invoice">
+                                    {{ $invoiceAllocs }} Invoice{{ $invoiceAllocs > 1 ? 's' : '' }}
+                                </span>
                                 @endif
                                 @if($openingAlloc == 0 && $invoiceAllocs == 0)
-                                <span class="text-muted">—</span>
+                                <span class="td-muted">—</span>
                                 @endif
                             </div>
                         </td>
-                        <td class="text-center">
-                            <button type="button" class="btn-view-detail"
-                                    onclick="viewPayment('{{ $payment->_id }}')">
-                                View
-                            </button>
+                        <td class="tc-act">
+                            <div class="pi-act-grp">
+                                <button type="button" class="pi-act pi-act--view"
+                                        onclick="viewPayment('{{ $payment->_id }}')" title="View Payment">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8">
-                            <div class="empty-state">
-                                <div class="empty-icon">💰</div>
-                                <div class="empty-title">No Payment In transactions found</div>
-                                <div class="empty-sub">Try changing the filters or create a new payment</div>
-                                <a href="{{ route('admin.payments.create') }}" class="btn-action btn-primary" style="margin-top:12px;">
-                                    + New Payment In
+                        <td colspan="10" class="pi-empty-cell">
+                            <div class="pi-empty">
+                                <div class="pi-empty-icon">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <line x1="12" y1="1" x2="12" y2="23"/>
+                                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                    </svg>
+                                </div>
+                                <p class="pi-empty-title">No payments found</p>
+                                <p class="pi-empty-sub">
+                                    @if(request()->anyFilled(['search','party_id','payment_method','from_date','to_date','warehouse_id']))
+                                        Try adjusting your filters or <a href="{{ route('admin.payments.index') }}">clear all</a>
+                                    @else
+                                        Get started by recording your first payment
+                                    @endif
+                                </p>
+                                <a href="{{ route('admin.payments.create') }}" class="pi-btn-create" style="margin-top:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <line x1="12" y1="5" x2="12" y2="19"/>
+                                        <line x1="5" y1="12" x2="19" y2="12"/>
+                                    </svg>
+                                    New Payment In
                                 </a>
                             </div>
                         </td>
@@ -190,44 +311,91 @@
             </table>
         </div>
 
-        @if($payments->count() > 0)
-        <div class="table-foot">
-            <div class="foot-info">
-                Showing {{ $payments->firstItem() }}–{{ $payments->lastItem() }} of {{ $payments->total() }} payments
+        {{-- Pagination --}}
+        @if($payments->hasPages())
+        <div class="pi-pagination">
+            <div class="pi-page-info">
+                Page <strong>{{ $payments->currentPage() }}</strong> of <strong>{{ $payments->lastPage() }}</strong>
+                &nbsp;·&nbsp; {{ $payments->total() }} total records
             </div>
-            <div class="foot-pagination">
-                {{ $payments->appends(request()->query())->links() }}
+            <div class="pi-pages">
+                @if($payments->onFirstPage())
+                    <span class="pi-pg pi-pg--dis">«</span>
+                    <span class="pi-pg pi-pg--dis">‹</span>
+                @else
+                    <a href="{{ $payments->url(1) }}" class="pi-pg" title="First">«</a>
+                    <a href="{{ $payments->previousPageUrl() }}" class="pi-pg" title="Previous">‹</a>
+                @endif
+
+                @php
+                    $cur   = $payments->currentPage();
+                    $last  = $payments->lastPage();
+                    $start = max(1, $cur - 2);
+                    $end   = min($last, $cur + 2);
+                @endphp
+
+                @if($start > 1)
+                    <a href="{{ $payments->url(1) }}" class="pi-pg">1</a>
+                    @if($start > 2)<span class="pi-pg-dots">…</span>@endif
+                @endif
+
+                @for($p = $start; $p <= $end; $p++)
+                    @if($p == $cur)
+                        <span class="pi-pg pi-pg--active">{{ $p }}</span>
+                    @else
+                        <a href="{{ $payments->url($p) }}" class="pi-pg">{{ $p }}</a>
+                    @endif
+                @endfor
+
+                @if($end < $last)
+                    @if($end < $last - 1)<span class="pi-pg-dots">…</span>@endif
+                    <a href="{{ $payments->url($last) }}" class="pi-pg">{{ $last }}</a>
+                @endif
+
+                @if($payments->hasMorePages())
+                    <a href="{{ $payments->nextPageUrl() }}" class="pi-pg" title="Next">›</a>
+                    <a href="{{ $payments->url($last) }}" class="pi-pg" title="Last">»</a>
+                @else
+                    <span class="pi-pg pi-pg--dis">›</span>
+                    <span class="pi-pg pi-pg--dis">»</span>
+                @endif
             </div>
         </div>
         @endif
+
     </div>
 </div>
 
-{{-- ═══════════════════════════════════════════════════════
+{{-- ═══════════════════════════════════════════
      VIEW PAYMENT MODAL
-═══════════════════════════════════════════════════════════ --}}
-<div class="modal-backdrop" id="viewModal" style="display:none;">
-    <div class="modal-box modal-lg">
-        <div class="modal-head">
-            <div class="modal-head-icon">💰</div>
-            <div class="modal-head-info">
-                <div class="modal-head-title">Payment Details</div>
-                <div class="modal-head-sub" id="modalPaymentNo">—</div>
+════════════════════════════════════════════════ --}}
+<div class="pi-modal" id="viewModal" style="display:none;">
+    <div class="pi-modal-overlay" onclick="closeViewModal()"></div>
+    <div class="pi-modal-box">
+        <div class="pi-modal-head">
+            <div class="pi-modal-ico">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
             </div>
-            <button class="modal-close-btn" onclick="closeViewModal()">✕</button>
+            <div>
+                <div class="pi-modal-title">Payment Details</div>
+                <div class="pi-modal-sub" id="modalPaymentNo">—</div>
+            </div>
+            <button class="pi-modal-close" onclick="closeViewModal()">×</button>
         </div>
 
-        <div class="modal-body" id="modalBody">
-            {{-- Content injected by JS --}}
-            <div id="modalLoader" class="modal-loader">
-                <div class="spinner"></div>
+        <div class="pi-modal-body">
+            <div id="modalLoader" class="pi-modal-loader">
+                <div class="pi-spinner"></div>
                 <span>Loading…</span>
             </div>
             <div id="modalContent" style="display:none;"></div>
         </div>
 
-        <div class="modal-foot">
-            <button class="btn-modal-close" onclick="closeViewModal()">Close</button>
+        <div class="pi-modal-foot">
+            <button class="pi-btn-modal-close" onclick="closeViewModal()">Close</button>
         </div>
     </div>
 </div>
@@ -236,226 +404,411 @@
 
 @push('styles')
 <style>
-/* ── Root ───────────────────────────────────────────────── */
+/* ─── Variables ─────────────────────────────────────────── */
 :root {
-    --c-bg:      #f4f6f9;
-    --c-white:   #ffffff;
-    --c-border:  #e2e8f0;
-    --c-text:    #1e293b;
-    --c-muted:   #64748b;
-    --c-label:   #374151;
-    --c-primary: #3b82f6;
-    --c-green:   #10b981;
-    --c-warn:    #f59e0b;
-    --c-danger:  #ef4444;
-    --radius:    8px;
-    --shadow:    0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+    --pi-brand:   #10b981;
+    --pi-brand-d: #059669;
+    --pi-brand-l: #ecfdf5;
+    --pi-text:    #111827;
+    --pi-text2:   #374151;
+    --pi-muted:   #6b7280;
+    --pi-border:  #e5e7eb;
+    --pi-bg:      #f9fafb;
+    --pi-white:   #ffffff;
+    --pi-shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --pi-shadow2: 0 4px 12px rgba(0,0,0,.08);
+    --r:          7px;
+    --r-sm:       5px;
 }
 
-/* ── Wrapper ────────────────────────────────────────────── */
-.payments-container {
-    max-width: 1300px;
-    margin: 0 auto;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    font-size: 13px;
-    color: var(--c-text);
+/* ─── Wrap ──────────────────────────────────────────────── */
+.pi-wrap {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 12.5px;
+    color: var(--pi-text);
+    padding: 16px;
+    max-width: 100%;
 }
 
-/* ── Header ─────────────────────────────────────────────── */
-.page-header {
+/* ─── Header ────────────────────────────────────────────── */
+.pi-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 18px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--pi-border);
+    gap: 12px;
+    flex-wrap: wrap;
 }
-.page-title   { font-size: 20px; font-weight: 700; margin: 0 0 2px; }
-.page-subtitle { font-size: 12px; color: var(--c-muted); }
+.pi-header-left {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+.pi-header-icon {
+    width: 38px; height: 38px;
+    background: var(--pi-brand-l);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--pi-brand);
+    flex-shrink: 0;
+}
+.pi-title { font-size: 17px; font-weight: 700; margin: 0 0 2px; letter-spacing: -.3px; }
+.pi-sub   { font-size: 11px; color: var(--pi-muted); margin: 0; }
 
-.btn-action {
+.pi-btn-create {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 15px;
+    background: #fc7d2b;
+    color: #fff;
+    border: none;
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .15s, transform .1s, box-shadow .15s;
+    box-shadow: 0 2px 8px rgba(16,185,129,.3);
+    white-space: nowrap;
+}
+
+
+/* ─── Stats ─────────────────────────────────────────────── */
+.pi-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.pi-stat {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--pi-white);
+    border: 1px solid var(--pi-border);
+    border-radius: var(--r);
+    box-shadow: var(--pi-shadow);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow .2s, transform .15s;
+}
+.pi-stat:hover {
+    box-shadow: var(--pi-shadow2);
+    transform: translateY(-1px);
+}
+.pi-stat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--r) var(--r) 0 0;
+}
+.pi-stat--green::before { background: #22c55e; }
+.pi-stat--blue::before  { background: #3b82f6; }
+
+.pi-stat-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.pi-stat--green .pi-stat-icon { background: #dcfce7; color: #16a34a; }
+.pi-stat--blue  .pi-stat-icon { background: #dbeafe; color: #2563eb; }
+
+.pi-stat-label { font-size: 10.5px; color: var(--pi-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+.pi-stat-value { font-size: 17px; font-weight: 800; color: var(--pi-text); letter-spacing: -.4px; margin-bottom: 2px; }
+.pi-stat-hint  { font-size: 10px; color: var(--pi-muted); }
+
+/* ─── Filters ───────────────────────────────────────────── */
+.pi-filters {
+    background: var(--pi-white);
+    border: 1px solid var(--pi-border);
+    border-radius: var(--r);
+    padding: 11px 14px 13px;
+    margin-bottom: 12px;
+    box-shadow: var(--pi-shadow);
+}
+.pi-filters-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.pi-filters-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--pi-text2);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.pi-clear-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    color: #fc7d2b;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color .15s;
+}
+.pi-clear-filters:hover { color: var(--pi-brand-d); text-decoration: underline; }
+
+.pi-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: flex-end;
+}
+.pi-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 120px;
+}
+.pi-filter-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--pi-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.pi-input, .pi-select {
+    height: 31px;
+    padding: 0 9px;
+    border: 1px solid var(--pi-border);
+    border-radius: var(--r-sm);
+    font-size: 11.5px;
+    color: var(--pi-text);
+    background: var(--pi-bg);
+    transition: border-color .15s, background .15s, box-shadow .15s;
+    outline: none;
+}
+.pi-input:focus, .pi-select:focus {
+    border-color: var(--pi-brand);
+    background: var(--pi-white);
+    box-shadow: 0 0 0 3px rgba(16,185,129,.1);
+}
+.pi-input-icon-wrap { position: relative; }
+.pi-input-icon {
+    position: absolute;
+    left: 9px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--pi-muted);
+    pointer-events: none;
+}
+.pi-input-with-icon { padding-left: 28px; }
+
+.pi-filter-btns {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+.pi-btn-filter {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
+    height: 31px;
+    padding: 0 14px;
+    background: var(--pi-text);
+    color: #fff;
     border: none;
-    text-decoration: none;
-    transition: all .15s;
-}
-.btn-primary { background: #fb7f29; color: #fff; }
-.btn-primary:hover { background: #fb7f29; color: #fff; transform: translateY(-1px); }
-
-/* ── Filters ────────────────────────────────────────────── */
-.filters-card {
-    background: var(--c-white);
-    border: 1px solid var(--c-border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 16px;
-}
-.filters-header {
-    padding: 10px 16px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--c-label);
-    border-bottom: 1px solid var(--c-border);
-    background: #fafbfc;
-    border-radius: var(--radius) var(--radius) 0 0;
-}
-.filters-body { padding: 14px 16px; }
-.filters-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-    align-items: end;
-}
-.filter-field { display: flex; flex-direction: column; gap: 4px; }
-.filter-field label { font-size: 11px; font-weight: 500; color: var(--c-label); }
-.f-input {
-    padding: 7px 9px;
-    border: 1px solid var(--c-border);
-    border-radius: 5px;
-    font-size: 12px;
-    background: #f9fafb;
-    color: var(--c-text);
-    height: 32px;
-    width: 100%;
-    box-sizing: border-box;
-}
-.f-input:focus { outline: none; border-color: var(--c-primary); background: #fff; }
-.filter-btns { display: flex; gap: 8px; align-items: center; }
-.btn-filter-apply, .btn-filter-reset {
-    padding: 6px 16px;
-    border-radius: 5px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    text-decoration: none;
-    border: none;
-    transition: all .15s;
-}
-.btn-filter-apply { background: var(--c-primary); color: #fff; }
-.btn-filter-apply:hover { background: #2563eb; }
-.btn-filter-reset { background: #f3f4f6; color: var(--c-label); border: 1px solid var(--c-border); }
-.btn-filter-reset:hover { background: #e5e7eb; }
-
-/* ── Stats ──────────────────────────────────────────────── */
-.stats-row {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-}
-.stat-card {
-    background: var(--c-white);
-    border: 1px solid var(--c-border);
-    border-radius: var(--radius);
-    padding: 12px 18px;
-    box-shadow: var(--shadow);
-    flex: 1;
-    min-width: 140px;
-}
-.stat-card.stat-green { border-left: 3px solid var(--c-green); }
-.stat-card.stat-blue  { border-left: 3px solid var(--c-primary); }
-.stat-label { font-size: 11px; color: var(--c-muted); margin-bottom: 4px; }
-.stat-value { font-size: 18px; font-weight: 700; color: var(--c-text); }
-
-/* ── Table Card ─────────────────────────────────────────── */
-.table-card {
-    background: var(--c-white);
-    border: 1px solid var(--c-border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-}
-.table-wrapper { overflow-x: auto; }
-.pi-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12.5px;
-}
-.pi-table th {
-    background: #f8fafc;
-    padding: 11px 14px;
-    text-align: left;
+    border-radius: var(--r-sm);
     font-size: 11.5px;
     font-weight: 600;
-    color: var(--c-muted);
-    border-bottom: 1px solid var(--c-border);
-    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s;
 }
-.pi-table td {
-    padding: 11px 14px;
-    border-bottom: 1px solid #f1f5f9;
+.pi-btn-filter:hover { background: #1f2937; }
+.pi-btn-reset {
+    display: inline-flex;
+    align-items: center;
+    height: 31px;
+    padding: 0 12px;
+    background: var(--pi-bg);
+    color: var(--pi-muted);
+    border: 1px solid var(--pi-border);
+    border-radius: var(--r-sm);
+    font-size: 11.5px;
+    text-decoration: none;
+    transition: all .15s;
+    font-weight: 500;
+}
+.pi-btn-reset:hover { background: #f3f4f6; color: var(--pi-text); }
+
+/* ─── Table Card ────────────────────────────────────────── */
+.pi-table-card {
+    background: var(--pi-white);
+    border: 1px solid var(--pi-border);
+    border-radius: var(--r);
+    box-shadow: var(--pi-shadow);
+    overflow: hidden;
+}
+.pi-table-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--pi-border);
+    background: var(--pi-bg);
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.pi-table-count {
+    font-size: 11.5px;
+    color: var(--pi-muted);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pi-table-count strong { color: var(--pi-text); font-weight: 700; }
+.pi-filtered-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+.pi-page-info-top { font-size: 10.5px; color: var(--pi-muted); }
+.pi-table-topbar-right { display: flex; align-items: center; gap: 8px; }
+
+/* ─── Table ─────────────────────────────────────────────── */
+.pi-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pi-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 1050px;
+}
+.pi-tbl th {
+    padding: 9px 11px;
+    background: #f3f4f6;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--pi-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    border-bottom: 1px solid var(--pi-border);
+    white-space: nowrap;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.pi-tbl td {
+    padding: 9px 11px;
+    border-bottom: 1px solid #f3f4f6;
     vertical-align: middle;
+    color: var(--pi-text2);
 }
-.pi-table tbody tr:last-child td { border-bottom: none; }
-.pi-table tbody tr:hover { background: #fafbfc; }
-.text-right  { text-align: right; }
-.text-center { text-align: center; }
-.text-muted  { color: var(--c-muted); }
+.pi-tbl tr:last-child td { border-bottom: none; }
+.pi-tr { transition: background .12s; }
+.pi-tr:hover td { background: #fafafa; }
 
-/* ── Payment No Badge ────────────────────────────────────── */
-.payment-no-badge {
+/* Column widths */
+.tc-no     { width: 45px;  text-align: center; }
+.tc-date   { width: 90px;  }
+.tc-pno    { width: 165px; }
+.tc-party  { width: 170px; }
+.tc-type   { width: 90px;  }
+.tc-wh     { width: 120px; }
+.tc-amount { width: 110px; }
+.tc-method { width: 110px; }
+.tc-alloc  { width: 160px; }
+.tc-act    { width: 60px;  }
+
+/* Cell helpers */
+.td-serial {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px;
+    background: var(--pi-bg);
+    border-radius: 4px;
+    font-size: 10px; color: var(--pi-muted); font-weight: 600;
+}
+.td-muted      { color: var(--pi-muted); font-size: 10.5px; }
+.td-date-main  { font-size: 11.5px; color: var(--pi-text2); white-space: nowrap; font-weight: 500; }
+.td-date-sub   { font-size: 9.5px; color: var(--pi-muted); }
+.td-party-name {
+    font-weight: 500; color: var(--pi-text); font-size: 12px; margin-bottom: 2px;
+    max-width: 155px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.td-party-phone { font-size: 10.5px; color: var(--pi-muted); }
+.td-amount { font-weight: 700; font-size: 12.5px; color: #065f46; }
+
+/* Payment No chip */
+.pi-pno-chip {
     display: inline-block;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1d4ed8;
-    padding: 3px 9px;
-    border-radius: 5px;
-    font-size: 11px;
+    padding: 3px 8px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 4px;
+    font-size: 10.5px;
     font-weight: 600;
-    font-family: monospace;
+    color: #065f46;
+    white-space: nowrap;
+    font-family: 'Courier New', monospace;
+    letter-spacing: .2px;
+}
+
+/* Party type badges */
+.pi-ptype {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+.pi-ptype--customer    { background: #d1fae5; color: #065f46; }
+.pi-ptype--dealer      { background: #dbeafe; color: #1e40af; }
+.pi-ptype--distributor { background: #fef3c7; color: #92400e; }
+
+/* Warehouse badge */
+.pi-wh-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #166534;
     white-space: nowrap;
 }
 
-/* ── Party ──────────────────────────────────────────────── */
-.date-cell { white-space: nowrap; color: var(--c-muted); font-size: 12px; }
-.party-name  { font-weight: 500; font-size: 12.5px; }
-.party-phone { font-size: 11px; color: var(--c-muted); margin-top: 2px; }
-
-/* ── Type Badge ─────────────────────────────────────────── */
-.type-badge {
+/* Method badges */
+.pi-method-badge {
     display: inline-block;
-    padding: 3px 9px;
+    padding: 3px 8px;
     border-radius: 20px;
-    font-size: 10.5px;
-    font-weight: 600;
-    text-transform: capitalize;
-}
-.type-customer    { background: #dbeafe; color: #1e40af; }
-.type-dealer      { background: #fef3c7; color: #92400e; }
-.type-distributor { background: #d1fae5; color: #065f46; }
-
-/* ── Amount ─────────────────────────────────────────────── */
-.amount-val { font-weight: 700; font-size: 13px; color: #065f46; }
-
-/* ── Method Badge ───────────────────────────────────────── */
-.method-badge {
-    display: inline-block;
-    padding: 3px 9px;
-    border-radius: 20px;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
     white-space: nowrap;
 }
-.method-cash          { background: #d1fae5; color: #065f46; }
-.method-upi           { background: #dbeafe; color: #1e40af; }
-.method-bank_transfer { background: #fef3c7; color: #92400e; }
-.method-cheque        { background: #fed7aa; color: #9a3412; }
-.method-card          { background: #e0e7ff; color: #3730a3; }
+.pi-method--cash          { background: #d1fae5; color: #065f46; }
+.pi-method--upi           { background: #dbeafe; color: #1e40af; }
+.pi-method--bank_transfer { background: #fef3c7; color: #92400e; }
+.pi-method--cheque        { background: #fed7aa; color: #9a3412; }
+.pi-method--card          { background: #e0e7ff; color: #3730a3; }
 
-/* ── Reference ──────────────────────────────────────────── */
-.ref-no { font-size: 11px; color: var(--c-muted); font-family: monospace; }
-
-/* ── Allocation Tags ─────────────────────────────────────── */
-.alloc-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
-.alloc-tag  {
+/* Allocation tags */
+.pi-alloc-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+.pi-alloc-tag {
     display: inline-block;
     padding: 2px 7px;
     border-radius: 4px;
@@ -463,282 +816,245 @@
     font-weight: 500;
     white-space: nowrap;
 }
-.alloc-opening { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
-.alloc-invoice { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.pi-alloc--opening { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+.pi-alloc--invoice { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
 
-/* ── View Button ─────────────────────────────────────────── */
-.btn-view-detail {
-    padding: 5px 14px;
-    background: var(--c-primary);
-    color: #fff;
+/* Actions */
+.pi-act-grp { display: flex; gap: 4px; align-items: center; }
+.pi-act {
+    width: 28px; height: 28px;
     border: none;
-    border-radius: 5px;
-    font-size: 11.5px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background .15s;
+    border-radius: var(--r-sm);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .15s;
+    text-decoration: none; flex-shrink: 0;
 }
-.btn-view-detail:hover { background: #2563eb; }
+.pi-act--view       { background: #dbeafe; color: #2563eb; }
+.pi-act--view:hover { background: #bfdbfe; transform: scale(1.05); }
 
-/* ── Empty State ─────────────────────────────────────────── */
-.empty-state { text-align: center; padding: 50px 20px; }
-.empty-icon  { font-size: 48px; opacity: .45; margin-bottom: 12px; }
-.empty-title { font-size: 15px; font-weight: 600; color: var(--c-text); margin-bottom: 6px; }
-.empty-sub   { font-size: 12px; color: var(--c-muted); }
-
-/* ── Table Footer ────────────────────────────────────────── */
-.table-foot {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 11px 16px;
-    border-top: 1px solid var(--c-border);
-    background: #fafbfc;
-    font-size: 11.5px;
-    color: var(--c-muted);
+/* Empty state */
+.pi-empty-cell { padding: 52px 20px; text-align: center; }
+.pi-empty { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; }
+.pi-empty-icon {
+    width: 56px; height: 56px;
+    background: var(--pi-bg);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    color: #d1d5db; margin-bottom: 4px;
 }
+.pi-empty-title { font-size: 13px; font-weight: 600; color: var(--pi-text2); margin: 0; }
+.pi-empty-sub   { font-size: 11px; color: var(--pi-muted); margin: 0; }
+.pi-empty-sub a { color: #fc7d2b}
 
-/* ── Modal ───────────────────────────────────────────────── */
-.modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(15,23,42,.45);
+/* ─── Pagination ────────────────────────────────────────── */
+.pi-pagination {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    border-top: 1px solid var(--pi-border);
+    background: var(--pi-bg);
+    flex-wrap: wrap; gap: 8px;
+}
+.pi-page-info { font-size: 10.5px; color: var(--pi-muted); }
+.pi-page-info strong { color: var(--pi-text2); }
+.pi-pages { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+.pi-pg {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 28px; height: 28px; padding: 0 5px;
+    border: 1px solid var(--pi-border); border-radius: var(--r-sm);
+    font-size: 11px; color: var(--pi-text2);
+    text-decoration: none; background: var(--pi-white);
+    transition: all .12s; font-weight: 500;
+}
+.pi-pg:hover         { background: #f3f4f6; border-color: #d1d5db; }
+.pi-pg--active       { background: var(--pi-brand); color: #fff; border-color: var(--pi-brand); font-weight: 700; }
+.pi-pg--active:hover { background: var(--pi-brand); }
+.pi-pg--dis          { color: #d1d5db; background: var(--pi-bg); cursor: default; pointer-events: none; }
+.pi-pg-dots          { font-size: 11px; color: var(--pi-muted); padding: 0 2px; }
+
+/* ─── Modal ─────────────────────────────────────────────── */
+.pi-modal {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+}
+.pi-modal-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,.45);
     backdrop-filter: blur(2px);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
 }
-.modal-box {
-    background: var(--c-white);
-    border-radius: 12px;
-    width: 100%;
-    max-width: 560px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0,0,0,.18);
-    animation: modalIn .2s ease;
-    display: flex;
-    flex-direction: column;
-}
-.modal-lg { max-width: 780px; }
-@keyframes modalIn {
-    from { opacity:0; transform: translateY(20px) scale(.97); }
-    to   { opacity:1; transform: translateY(0)    scale(1);   }
-}
-
-/* Modal Head */
-.modal-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--c-border);
-    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-    border-radius: 12px 12px 0 0;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-.modal-head-icon {
-    width: 42px;
-    height: 42px;
-    background: var(--c-green);
+.pi-modal-box {
+    position: relative;
+    background: var(--pi-white);
     border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
+    width: 720px; max-width: 94%; max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 50px rgba(0,0,0,.15);
+    animation: piMIn .2s ease;
+    display: flex; flex-direction: column;
+}
+@keyframes piMIn {
+    from { opacity:0; transform: scale(.95) translateY(10px); }
+    to   { opacity:1; transform: scale(1) translateY(0); }
+}
+.pi-modal-head {
+    display: flex; align-items: center; gap: 11px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--pi-border);
+    background: var(--pi-bg);
+    border-radius: 10px 10px 0 0;
+    position: sticky; top: 0; z-index: 1;
+}
+.pi-modal-ico {
+    width: 34px; height: 34px;
+    background: var(--pi-brand);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 4px 8px rgba(16,185,129,.25);
 }
-.modal-head-title { font-size: 15px; font-weight: 700; color: var(--c-text); }
-.modal-head-sub   { font-size: 11.5px; color: var(--c-muted); margin-top: 2px; }
-.modal-close-btn {
+.pi-modal-title { font-size: 13.5px; font-weight: 700; margin-bottom: 1px; }
+.pi-modal-sub   { font-size: 10.5px; color: var(--pi-muted); }
+.pi-modal-close {
     margin-left: auto;
-    background: none;
-    border: none;
-    font-size: 16px;
-    color: var(--c-muted);
-    cursor: pointer;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all .15s;
+    background: none; border: none;
+    font-size: 20px; color: var(--pi-muted);
+    cursor: pointer; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 5px; line-height: 1; transition: all .15s;
 }
-.modal-close-btn:hover { background: #f3f4f6; color: var(--c-text); }
-
-/* Modal Body */
-.modal-body { padding: 22px; flex: 1; }
-
-/* Modal Loader */
-.modal-loader {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 40px;
-    color: var(--c-muted);
-    font-size: 13px;
+.pi-modal-close:hover { background: #e5e7eb; color: var(--pi-text); }
+.pi-modal-body { padding: 18px; flex: 1; }
+.pi-modal-foot {
+    display: flex; justify-content: flex-end;
+    padding: 12px 18px;
+    border-top: 1px solid var(--pi-border);
+    background: #fafafa;
+    border-radius: 0 0 10px 10px;
 }
-.spinner {
+.pi-btn-modal-close {
+    padding: 7px 20px;
+    border: 1px solid var(--pi-border); border-radius: var(--r-sm);
+    background: var(--pi-bg); color: var(--pi-text2);
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s;
+}
+.pi-btn-modal-close:hover { background: #e5e7eb; }
+
+.pi-modal-loader {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; padding: 40px; color: var(--pi-muted); font-size: 13px;
+}
+.pi-spinner {
     width: 22px; height: 22px;
     border: 3px solid #e5e7eb;
-    border-top-color: var(--c-primary);
+    border-top-color: var(--pi-brand);
     border-radius: 50%;
-    animation: spin .8s linear infinite;
+    animation: piSpin .8s linear infinite;
     flex-shrink: 0;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes piSpin { to { transform: rotate(360deg); } }
 
-/* Modal Foot */
-.modal-foot {
-    padding: 14px 22px;
-    border-top: 1px solid var(--c-border);
-    background: #fafbfc;
-    border-radius: 0 0 12px 12px;
-    display: flex;
-    justify-content: flex-end;
-}
-.btn-modal-close {
-    padding: 8px 22px;
-    background: #f3f4f6;
-    color: var(--c-label);
-    border: 1px solid var(--c-border);
-    border-radius: 6px;
-    font-size: 12.5px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background .15s;
-}
-.btn-modal-close:hover { background: #e5e7eb; }
-
-/* ── Modal Detail Styles ─────────────────────────────────── */
-.detail-grid {
+/* Modal detail content */
+.md-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin-bottom: 20px;
 }
-.detail-item { display: flex; flex-direction: column; gap: 3px; }
-.detail-label { font-size: 11px; color: var(--c-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .4px; }
-.detail-value { font-size: 13.5px; font-weight: 600; color: var(--c-text); }
-.detail-value.green { color: var(--c-green); }
-.detail-value.blue  { color: var(--c-primary); }
+.md-item { display: flex; flex-direction: column; gap: 3px; }
+.md-label {
+    font-size: 10.5px; color: var(--pi-muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .4px;
+}
+.md-value { font-size: 13px; font-weight: 600; color: var(--pi-text); }
+.md-value.green { color: #059669; }
+.md-value.blue  { color: #2563eb; }
 
-.section-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--c-muted);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    margin: 0 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--c-border);
+.md-section-title {
+    font-size: 11.5px; font-weight: 700; color: var(--pi-muted);
+    text-transform: uppercase; letter-spacing: .5px;
+    margin: 0 0 10px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--pi-border);
 }
+.md-alloc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.md-alloc-table th {
+    background: #f8fafc; padding: 8px 10px;
+    text-align: left; font-size: 11px; font-weight: 600;
+    color: var(--pi-muted); border-bottom: 1px solid var(--pi-border);
+}
+.md-alloc-table td {
+    padding: 9px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+}
+.md-alloc-table tbody tr:last-child td { border-bottom: none; }
+.md-type-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 10.5px; font-weight: 600;
+}
+.md-type-badge.opening { background: #f3e8ff; color: #6b21a8; }
+.md-type-badge.invoice { background: #dbeafe; color: #1e40af; }
+.md-bal-change { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.md-bal-from   { color: #dc2626; text-decoration: line-through; opacity: .7; }
+.md-bal-arrow  { color: var(--pi-muted); }
+.md-bal-to     { color: #059669; font-weight: 600; }
+.md-no-alloc   { text-align: center; padding: 20px; color: var(--pi-muted); font-size: 12.5px; }
 
-/* Allocation Table inside modal */
-.alloc-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12.5px;
+.md-summary {
+    display: flex; gap: 0;
+    border: 1px solid var(--pi-border); border-radius: var(--r);
+    overflow: hidden; margin-top: 16px;
 }
-.alloc-table th {
-    background: #f8fafc;
-    padding: 8px 10px;
-    text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--c-muted);
-    border-bottom: 1px solid var(--c-border);
+.md-summary-item {
+    flex: 1; padding: 12px 16px; text-align: center;
+    border-right: 1px solid var(--pi-border);
 }
-.alloc-table td {
-    padding: 9px 10px;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
-}
-.alloc-table tbody tr:last-child td { border-bottom: none; }
-.alloc-table .text-right { text-align: right; }
+.md-summary-item:last-child { border-right: none; }
+.md-summary-label { font-size: 10px; color: var(--pi-muted); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .3px; }
+.md-summary-val { font-size: 14px; font-weight: 700; }
+.md-summary-val.green  { color: #059669; }
+.md-summary-val.purple { color: #7c3aed; }
+.md-summary-val.blue   { color: #2563eb; }
 
-.alloc-type-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 10.5px;
-    font-weight: 600;
-}
-.alloc-type-badge.opening { background: #f3e8ff; color: #6b21a8; }
-.alloc-type-badge.invoice { background: #dbeafe; color: #1e40af; }
-
-.balance-change {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11.5px;
-}
-.balance-from { color: var(--c-danger); text-decoration: line-through; opacity: .7; }
-.balance-arrow { color: var(--c-muted); }
-.balance-to    { color: var(--c-green); font-weight: 600; }
-
-.no-alloc {
-    text-align: center;
-    padding: 20px;
-    color: var(--c-muted);
-    font-size: 12.5px;
-}
-
-/* Summary box inside modal */
-.summary-box {
-    display: flex;
-    gap: 0;
-    border: 1px solid var(--c-border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    margin-top: 16px;
-}
-.summary-box-item {
-    flex: 1;
-    padding: 12px 16px;
-    text-align: center;
-    border-right: 1px solid var(--c-border);
-}
-.summary-box-item:last-child { border-right: none; }
-.summary-box-label { font-size: 10.5px; color: var(--c-muted); font-weight: 500; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .3px; }
-.summary-box-val   { font-size: 14px; font-weight: 700; }
-.summary-box-val.green  { color: var(--c-green); }
-.summary-box-val.purple { color: #7c3aed; }
-.summary-box-val.blue   { color: var(--c-primary); }
-
-/* Alert */
-#alertContainer { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+/* ─── Alert ─────────────────────────────────────────────── */
+#alertBox { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 7px; }
 .pi-alert {
-    padding: 11px 16px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    margin-bottom: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.1);
-    animation: slideIn .25s ease;
+    padding: 10px 14px; border-radius: 6px;
+    font-size: 12px; font-weight: 500;
+    box-shadow: 0 4px 14px rgba(0,0,0,.12);
+    animation: piAIn .25s ease;
+    min-width: 220px; max-width: 320px;
 }
-@keyframes slideIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
-.pi-alert.success { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
-.pi-alert.error   { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+@keyframes piAIn {
+    from { transform: translateX(110%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+.pi-alert-success { background: #f0fdf4; color: #166534; border-left: 3px solid #22c55e; }
+.pi-alert-error   { background: #fef2f2; color: #991b1b; border-left: 3px solid #ef4444; }
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .pi-stats { grid-template-columns: 1fr 1fr; }
+    .pi-filter-group { min-width: calc(50% - 4px); flex: 1 1 calc(50% - 4px); }
+    .pi-filter-btns { width: 100%; }
+    .md-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+    .pi-wrap { padding: 10px; }
+    .pi-stats { grid-template-columns: 1fr; }
+    .pi-header { flex-direction: column; align-items: flex-start; }
+    .pi-filter-group { min-width: 100%; flex: 1 1 100%; }
+    .pi-pagination { flex-direction: column; align-items: flex-start; }
+    .pi-pages { justify-content: center; width: 100%; }
+}
 </style>
 @endpush
 
 @push('scripts')
 <script>
 function viewPayment(id) {
-    document.getElementById('viewModal').style.display = 'flex';
-    document.getElementById('modalPaymentNo').textContent = 'Loading…';
-    document.getElementById('modalLoader').style.display  = 'flex';
-    document.getElementById('modalContent').style.display = 'none';
+    const modal = document.getElementById('viewModal');
+    modal.style.display = 'flex';
+    document.getElementById('modalPaymentNo').textContent  = 'Loading…';
+    document.getElementById('modalLoader').style.display   = 'flex';
+    document.getElementById('modalContent').style.display  = 'none';
 
-    $.get('{{ route("admin.payments.show", "__PLACEHOLDER__") }}'.replace('__PLACEHOLDER__', id))
+    $.get('{{ route("admin.payments.show", "__ID__") }}'.replace('__ID__', id))
         .done(function(res) {
             document.getElementById('modalLoader').style.display = 'none';
             if (!res.success) { showAlert('Failed to load payment details', 'error'); closeViewModal(); return; }
@@ -746,91 +1062,81 @@ function viewPayment(id) {
             const p = res.payment;
             document.getElementById('modalPaymentNo').textContent = p.payment_number || '—';
 
-            /* ── Build modal content ── */
             let html = '';
 
-            /* Info grid */
-            html += `<div class="detail-grid">
-                <div class="detail-item">
-                    <span class="detail-label">Payment Number</span>
-                    <span class="detail-value blue">${esc(p.payment_number)}</span>
+            html += `<div class="md-grid">
+                <div class="md-item">
+                    <span class="md-label">Payment Number</span>
+                    <span class="md-value blue">${esc(p.payment_number)}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Date</span>
-                    <span class="detail-value">${esc(p.date)}</span>
+                <div class="md-item">
+                    <span class="md-label">Date</span>
+                    <span class="md-value">${esc(p.date)}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Party Name</span>
-                    <span class="detail-value">${esc(p.party_name)}</span>
+                <div class="md-item">
+                    <span class="md-label">Party Name</span>
+                    <span class="md-value">${esc(p.party_name)}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Party Type</span>
-                    <span class="detail-value">${esc(p.party_type)}</span>
+                <div class="md-item">
+                    <span class="md-label">Party Type</span>
+                    <span class="md-value">${esc(p.party_type)}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Amount Received</span>
-                    <span class="detail-value green">₹${fmt(p.amount)}</span>
+                <div class="md-item">
+                    <span class="md-label">Amount Received</span>
+                    <span class="md-value green">₹${fmt(p.amount)}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Payment Method</span>
-                    <span class="detail-value">${esc(p.payment_method)}</span>
+                <div class="md-item">
+                    <span class="md-label">Payment Method</span>
+                    <span class="md-value">${esc(p.payment_method)}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Reference No</span>
-                    <span class="detail-value">${esc(p.reference_no)}</span>
+                <div class="md-item">
+                    <span class="md-label">Reference No</span>
+                    <span class="md-value">${esc(p.reference_no)}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Notes</span>
-                    <span class="detail-value">${esc(p.notes)}</span>
+                <div class="md-item">
+                    <span class="md-label">Notes</span>
+                    <span class="md-value">${esc(p.notes)}</span>
                 </div>
             </div>`;
 
-            /* Allocation breakdown */
             const allocs = p.allocations || [];
-            let totalAllocated = 0;
-            let openingTotal   = 0;
-            let invoiceTotal   = 0;
+            let openingTotal = 0, invoiceTotal = 0;
 
-            html += `<p class="section-title">Allocation Breakdown</p>`;
+            html += `<p class="md-section-title">Allocation Breakdown</p>`;
 
             if (allocs.length === 0) {
-                html += `<div class="no-alloc">No allocation details available</div>`;
+                html += `<div class="md-no-alloc">No allocation details available</div>`;
             } else {
-                html += `<table class="alloc-table">
+                html += `<table class="md-alloc-table">
                     <thead>
                         <tr>
                             <th>Type</th>
                             <th>Details</th>
-                            <th class="text-right">Allocated</th>
+                            <th style="text-align:right">Allocated</th>
                             <th>Balance Change</th>
                         </tr>
-                    </thead>
-                    <tbody>`;
+                    </thead><tbody>`;
 
                 allocs.forEach(function(a) {
-                    totalAllocated += parseFloat(a.amount) || 0;
-
                     if (a.type === 'opening_balance') {
                         openingTotal += parseFloat(a.amount) || 0;
                         html += `<tr>
-                            <td><span class="alloc-type-badge opening">Opening Bal.</span></td>
+                            <td><span class="md-type-badge opening">Opening Bal.</span></td>
                             <td>${esc(a.description || 'Opening Balance Payment')}</td>
-                            <td class="text-right"><strong>₹${fmt(a.amount)}</strong></td>
-                            <td><span class="text-muted">—</span></td>
+                            <td style="text-align:right"><strong>₹${fmt(a.amount)}</strong></td>
+                            <td><span style="color:var(--pi-muted)">—</span></td>
                         </tr>`;
                     } else if (a.type === 'invoice') {
                         invoiceTotal += parseFloat(a.amount) || 0;
                         html += `<tr>
-                            <td><span class="alloc-type-badge invoice">Invoice</span></td>
+                            <td><span class="md-type-badge invoice">Invoice</span></td>
+                            <td><strong>${esc(a.invoice_number)}</strong></td>
+                            <td style="text-align:right"><strong>₹${fmt(a.amount)}</strong></td>
                             <td>
-                                <strong>${esc(a.invoice_number)}</strong>
-                            </td>
-                            <td class="text-right"><strong>₹${fmt(a.amount)}</strong></td>
-                            <td>
-                                <div class="balance-change">
-                                    <span class="balance-from">₹${fmt(a.previous_balance)}</span>
-                                    <span class="balance-arrow">→</span>
-                                    <span class="balance-to">₹${fmt(a.new_balance)}</span>
+                                <div class="md-bal-change">
+                                    <span class="md-bal-from">₹${fmt(a.previous_balance)}</span>
+                                    <span class="md-bal-arrow">→</span>
+                                    <span class="md-bal-to">₹${fmt(a.new_balance)}</span>
                                 </div>
                             </td>
                         </tr>`;
@@ -840,23 +1146,21 @@ function viewPayment(id) {
                 html += `</tbody></table>`;
             }
 
-            /* Summary boxes */
-            html += `<div class="summary-box">
-                <div class="summary-box-item">
-                    <div class="summary-box-label">Total Amount</div>
-                    <div class="summary-box-val green">₹${fmt(p.amount)}</div>
+            html += `<div class="md-summary">
+                <div class="md-summary-item">
+                    <div class="md-summary-label">Total Amount</div>
+                    <div class="md-summary-val green">₹${fmt(p.amount)}</div>
                 </div>`;
-
             if (openingTotal > 0) {
-                html += `<div class="summary-box-item">
-                    <div class="summary-box-label">Opening Balance</div>
-                    <div class="summary-box-val purple">₹${fmt(openingTotal)}</div>
+                html += `<div class="md-summary-item">
+                    <div class="md-summary-label">Opening Balance</div>
+                    <div class="md-summary-val purple">₹${fmt(openingTotal)}</div>
                 </div>`;
             }
             if (invoiceTotal > 0) {
-                html += `<div class="summary-box-item">
-                    <div class="summary-box-label">Invoice Payments</div>
-                    <div class="summary-box-val blue">₹${fmt(invoiceTotal)}</div>
+                html += `<div class="md-summary-item">
+                    <div class="md-summary-label">Invoice Payments</div>
+                    <div class="md-summary-val blue">₹${fmt(invoiceTotal)}</div>
                 </div>`;
             }
             html += `</div>`;
@@ -872,13 +1176,12 @@ function viewPayment(id) {
 }
 
 function closeViewModal() {
-    document.getElementById('viewModal').style.display = 'none';
-    document.getElementById('modalContent').innerHTML  = '';
+    document.getElementById('viewModal').style.display    = 'none';
+    document.getElementById('modalContent').innerHTML     = '';
     document.getElementById('modalContent').style.display = 'none';
     document.getElementById('modalLoader').style.display  = 'flex';
 }
 
-/* Close on backdrop click */
 document.getElementById('viewModal').addEventListener('click', function(e) {
     if (e.target === this) closeViewModal();
 });
@@ -886,20 +1189,18 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeViewModal();
 });
 
-/* Helpers */
-function fmt(n)  { return (parseFloat(n) || 0).toFixed(2); }
-function esc(s)  {
+function fmt(n) { return (parseFloat(n) || 0).toFixed(2); }
+function esc(s) {
     return String(s ?? '—')
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-
-function showAlert(msg, type) {
-    const c = document.getElementById('alertContainer');
-    const a = document.createElement('div');
-    a.className = 'pi-alert ' + type;
-    a.textContent = msg;
-    c.appendChild(a);
-    setTimeout(() => a.remove(), 4000);
+function showAlert(msg, type = 'success') {
+    const box = document.getElementById('alertBox');
+    const el  = document.createElement('div');
+    el.className   = 'pi-alert pi-alert-' + type;
+    el.textContent = msg;
+    box.appendChild(el);
+    setTimeout(() => el.remove(), 4500);
 }
 </script>
 @endpush

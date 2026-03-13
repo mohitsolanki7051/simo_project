@@ -64,7 +64,7 @@
                         <div class="pi-amount-wrap">
                             <span class="pi-currency">₹</span>
                             <input type="number" step="0.01" min="0.01" id="amountReceived"
-                                   name="amount" class="pi-input pi-amount-input" placeholder="0.00">
+                                   name="amount" class="pi-input pi-amount-input" placeholder="0.00" onkeydown="limitDecimals(event, this)">
                         </div>
                         <div id="amountValidation" class="pi-val-msg" style="display:none;"></div>
                     </div>
@@ -142,6 +142,7 @@
                             <th>Date</th>
                             <th>Due Date</th>
                             <th>Invoice No.</th>
+                            <th>Warehouse</th>
                             <th>Invoice Amount</th>
                             <th>Amount Received</th>
                         </tr>
@@ -153,7 +154,7 @@
                     </tbody>
                     <tfoot id="invoicesTfoot" style="display:none;">
                         <tr class="pi-tfoot-row">
-                            <td colspan="4"><strong>Total</strong></td>
+                            <td colspan="5"><strong>Total</strong></td>
                             <td id="tfootInvoiceTotal">₹0.00</td>
                             <td id="tfootAmountReceived">₹0.00</td>
                         </tr>
@@ -763,7 +764,7 @@ function renderInvoices(empty = false) {
 
     if (empty || !invoices.length) {
         $tb.append(`<tr id="noInvoicesRow">
-            <td colspan="6" class="pi-empty">
+            <td colspan="7" class="pi-empty">
                 ${empty ? 'Select a party to view invoices' : 'No unpaid or partial invoices found'}
             </td></tr>`);
         return;
@@ -792,35 +793,36 @@ function renderInvoices(empty = false) {
             ? `<span class="pi-status-badge partial">Partial</span>`
             : '';
 
-        $tb.append(`
-            <tr data-idx="${i}" class="${rowCls}" id="inv-row-${i}">
-                <td>
-                    <input type="checkbox" class="pi-cb inv-cb" data-idx="${i}"
-                           ${checked} onchange="onCbChange(${i}, this.checked)">
-                </td>
-                <td>${esc(inv.invoice_date)}</td>
-                <td>${esc(inv.due_date)}</td>
-                <td>${esc(inv.invoice_number)} ${statusBadge}</td>
-                <td>
-                    ₹${fmt(inv.grand_total)}
-                    ${pendingLabel}
-                </td>
-                <td>
-                    <input type="number" step="0.01" min="0" max="${pendingBalance}"
-                           class="pi-recv-input" id="recv-${i}"
-                           value="${alloc > 0 ? fmt(alloc) : ''}"
-                           placeholder="₹0.00"
-                           ${alloc === 0 ? 'disabled' : ''}
-                           oninput="onRecvInput(${i}, this.value)">
-                </td>
-            </tr>
-        `);
+       $tb.append(`
+        <tr data-idx="${i}" class="${rowCls}" id="inv-row-${i}">
+            <td><input type="checkbox" class="pi-cb inv-cb" data-idx="${i}"
+                ${checked} onchange="onCbChange(${i}, this.checked)"></td>
+            <td>${esc(inv.invoice_date)}</td>
+            <td>${esc(inv.due_date)}</td>
+            <td>${esc(inv.invoice_number)} ${statusBadge}</td>
+            <td>${esc(inv.warehouse_name || '—')}</td>
+            <td>₹${fmt(inv.grand_total)}${pendingLabel}</td>
+            <td id="recv-${i}" style="font-weight:600; color: var(--pi-text);">
+                ${alloc > 0 ? '₹' + fmt(alloc) : '—'}
+            </td>
+        </tr>
+    `);
     });
 
     updateTableFooter();
     $('#invoicesTfoot').show();
 }
-
+function limitDecimals(e, input) {
+    const val = input.value;
+    const dotPos = val.indexOf('.');
+    if (dotPos !== -1 && val.length - dotPos > 2) {
+        // Already 2 decimal digits typed, block more digits (not backspace/delete/arrows)
+        const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab'];
+        if (!allowed.includes(e.key) && !isNaN(e.key)) {
+            e.preventDefault();
+        }
+    }
+}
 function onCbChange(idx, checked) {
     const inv = invoices[idx];
     const pendingBalance = parseFloat(inv.balance);   // ← always the server-sent pending amount
@@ -829,11 +831,11 @@ function onCbChange(idx, checked) {
         const remaining = getRemainingBudget();
         const toAlloc   = Math.min(pendingBalance, remaining);
         allocationMap[inv.id] = toAlloc;
-        $(`#recv-${idx}`).prop('disabled', false).val(toAlloc > 0 ? fmt(toAlloc) : '');
+       $(`#recv-${idx}`).text(toAlloc > 0 ? '₹' + fmt(toAlloc) : '—');
         $(`#inv-row-${idx}`).addClass('pi-row-selected');
     } else {
         delete allocationMap[inv.id];
-        $(`#recv-${idx}`).prop('disabled', true).val('').removeClass('pi-over');
+        $(`#recv-${idx}`).text('—');
         $(`#inv-row-${idx}`).removeClass('pi-row-selected');
     }
     updateSelectAll();
@@ -874,13 +876,13 @@ $('#selectAllCb').on('change', function () {
         if (checked && remaining > 0) {
             const toAlloc = Math.min(inv.balance, remaining);
             allocationMap[inv.id] = toAlloc;
-            $(`#recv-${i}`).prop('disabled', false).val(fmt(toAlloc));
+            $(`#recv-${i}`).text(toAlloc > 0 ? '₹' + fmt(toAlloc) : '—');
             $(`#inv-row-${i}`).addClass('pi-row-selected');
             $(`.inv-cb[data-idx="${i}"]`).prop('checked', true);
             remaining -= toAlloc;
         } else {
             delete allocationMap[inv.id];
-            $(`#recv-${i}`).prop('disabled', true).val('').removeClass('pi-over');
+            $(`#recv-${i}`).text('—');
             $(`#inv-row-${i}`).removeClass('pi-row-selected');
             $(`.inv-cb[data-idx="${i}"]`).prop('checked', false);
         }
@@ -959,7 +961,7 @@ function autoAllocate(amount) {
         allocationMap[inv.id] = toAlloc;
         remaining -= toAlloc;
 
-        $(`#recv-${i}`).prop('disabled', false).val(fmt(toAlloc)).removeClass('pi-over');
+        $(`#recv-${i}`).text('₹' + fmt(toAlloc));
         $(`.inv-cb[data-idx="${i}"]`).prop('checked', true);
         $(`#inv-row-${i}`).addClass('pi-row-selected');
     });
@@ -969,7 +971,7 @@ function autoAllocate(amount) {
         if (!allocationMap[inv.id]) {
             $(`.inv-cb[data-idx="${i}"]`).prop('checked', false);
             $(`#inv-row-${i}`).removeClass('pi-row-selected');
-            $(`#recv-${i}`).prop('disabled', true).val('');
+            $(`#recv-${i}`).text('—');
         }
     });
 
@@ -982,7 +984,7 @@ function clearAllocations() {
     invoices.forEach((inv, i) => {
         $(`.inv-cb[data-idx="${i}"]`).prop('checked', false);
         $(`#inv-row-${i}`).removeClass('pi-row-selected');
-        $(`#recv-${i}`).prop('disabled', true).val('');
+        $(`#recv-${i}`).text('—');
     });
     updateSelectAll();
     updateTableFooter();

@@ -221,7 +221,7 @@ public function index(Request $request)
         return view('admin.sales.create', compact('invoiceNumber', 'parties', 'salesmen', 'warehouses', 'mainWarehouse', 'invoiceSetting'));
     }
 
-    /**
+/**
  * Cancel invoice (revert stock and mark as cancelled)
  */
 public function cancel($id)
@@ -245,7 +245,21 @@ public function cancel($id)
             ], 400);
         }
 
+        // ✅ NEW: Check if invoice is fully paid
+        if ($invoice->payment_status === 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Paid invoices cannot be cancelled. Please process a refund or sales return instead.'
+            ], 400);
+        }
 
+        // ✅ NEW: Check if any payment has been made (partial payment)
+        if ($invoice->total_paid > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This invoice has received partial payment. Please process a refund or sales return instead.'
+            ], 400);
+        }
 
         // REVERT STOCK - Add back to warehouse
         foreach ($invoice->items as $item) {
@@ -269,16 +283,13 @@ public function cancel($id)
                     'product_id' => $item->product_id,
                     'product_type' => $item->variant_id ? 'variant' : 'simple',
                     'variant_id' => $item->variant_id ?? null,
-                    'type' => 'cancellation', // You may need to add this type
-                    'quantity' => +$item->quantity, // Positive quantity
+                    'type' => 'cancellation',
+                    'quantity' => +$item->quantity,
                     'reference_id' => $invoice->_id,
                     'remarks' => "Invoice Cancelled: {$invoice->invoice_number} - Stock returned",
                 ]);
             }
         }
-
-        // If there were payments, maybe handle them?
-        // Optionally mark payments as refunded or keep as is based on your business logic
 
         // Update invoice status to cancelled
         $invoice->update([
@@ -287,15 +298,12 @@ public function cancel($id)
                       "[Cancelled on " . now()->format('d/m/Y H:i') . "]"
         ]);
 
-
-
         return response()->json([
             'success' => true,
             'message' => 'Invoice cancelled successfully. Stock has been returned.'
         ]);
 
     } catch (\Exception $e) {
-
         return response()->json([
             'success' => false,
             'message' => 'Failed to cancel invoice: ' . $e->getMessage()

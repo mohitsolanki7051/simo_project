@@ -607,11 +607,14 @@
                 <a href="{{ route('admin.sales.edit', $invoice->_id) }}" class="iv-btn iv-btn-outline">Edit</a>
                 <button onclick="deleteInvoice()" class="iv-btn iv-btn-danger">Delete</button>
             @endif
-             @if($invoice->status === 'confirmed' || $invoice->status === 'completed')
+
+            {{-- ✅ FIX: Cancel button ONLY for unpaid invoices --}}
+            @if(($invoice->status === 'confirmed' || $invoice->status === 'completed') && $invoice->payment_status === 'unpaid')
                 <button onclick="cancelInvoice()" class="iv-btn" style="background: #dc2626; color: white;">
                     🚫 Cancel
                 </button>
             @endif
+
             <button onclick="printInvoice()" class="iv-btn iv-btn-outline">Print</button>
             <button onclick="downloadPDF()" class="iv-btn iv-btn-primary">PDF</button>
             <button onclick="sendWhatsApp()" class="iv-btn" style="background: #25D366; color: white;">
