@@ -1092,7 +1092,7 @@ function displayProducts(items) {
         let remainingQty  = item.can_claim?.remaining_qty ?? 0;
         let purchasedQty  = item.can_claim?.purchased_qty ?? item.quantity;
         let claimedSoFar  = item.can_claim?.claimed_qty   ?? 0;
-        let variantName   = item.variant_name ? ` (${item.variant_name})` : '';
+        let variantName = '';
 
         // Qty summary bar shown on every card
         let qtySummary = `

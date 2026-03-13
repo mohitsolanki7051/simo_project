@@ -1267,7 +1267,7 @@ public function cancel($id)
                     $variantProducts->push([
                         'id' => (string) $product->_id,
                         'variant_id' => (string) $variantId,
-                        'name' => $product->name . ' - ' . ($variant['name'] ?? ''),
+                        'name' => $variant['name'] ?? $product->name,
                         'type' => 'variant',
                         'sku' => $variant['sku_code'] ?? '',
                         'mrp_price' => (float) ($variant['mrp_price'] ?? 0),

@@ -275,7 +275,7 @@ public function getInvoiceDetails($id)
                 'id' => $itemId,
                 'product_id' => (string)$item->product_id,
                 'variant_id' => $item->variant_id ? (string)$item->variant_id : null,
-                'product_name' => $item->product_name . ($item->variant_name ? ' - ' . $item->variant_name : ''),
+                'product_name' => $item->variant_name ? $item->variant_name : $item->product_name,
                 'quantity' => (float)$item->quantity,
                 'already_returned' => $alreadyReturned,
                 'max_return_qty' => max(0, $maxReturnable),

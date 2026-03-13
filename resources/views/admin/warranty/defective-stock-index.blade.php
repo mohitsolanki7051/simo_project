@@ -710,16 +710,12 @@ function populateModal(c) {
         : '—';
 
     // Product item data - SIMPLE + VARIANT DONO YAHI SE AA RAHE HAIN
-    const item = c.sales_invoice_item || {};
+   const item = c.sales_invoice_item || {};
 
-    // Product name with variant handling
-    let displayName = esc(item.product_name);
-    if (item.variant_name) {
-        displayName = esc(item.product_name) + ' (' + esc(item.variant_name) + ')';
-    }
+    document.getElementById('md-prod-name').textContent = esc(item.product_name);
+    document.getElementById('md-variant').textContent =
+        item.variant_name ? esc(item.variant_name) : '—';
 
-    document.getElementById('md-prod-name').textContent = displayName;
-    document.getElementById('md-variant').textContent = item.variant_name ? esc(item.variant_name) : '—';
     document.getElementById('md-sku').textContent = esc(item.sku);
     document.getElementById('md-warehouse').textContent = esc(c.warehouse?.name);
 

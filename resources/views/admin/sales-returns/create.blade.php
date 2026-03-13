@@ -876,7 +876,6 @@ function renderItemsTable() {
                 </td>
                 <td>
                     <div class="item-name">${item.product_name}</div>
-                    ${item.variant_id ? '<div class="item-variant">Variant</div>' : ''}
                 </td>
                 <td class="text-c">${soldQty}</td>
                 <td class="text-c ${alreadyReturned > 0 ? 'returned-highlight' : ''}">

@@ -1274,7 +1274,7 @@ class QuotationController extends Controller
                     $variantProducts->push([
                         'id' => (string) $product->_id,
                         'variant_id' => (string) $variantId,
-                        'name' => $product->name . ' - ' . ($variant['name'] ?? ''),
+                        'name' => $variant['name'] ?? $product->name,
                         'type' => 'variant',
                         'sku' => $variant['sku_code'] ?? '',
                         'mrp_price' => (float) ($variant['mrp_price'] ?? 0),
@@ -1291,9 +1291,14 @@ class QuotationController extends Controller
                 }
             }
 
-            return response()->json([
-                'products' => $simpleProducts->merge($variantProducts)->values()
-            ]);
+             $products = collect()
+                    ->merge($simpleProducts)
+                    ->merge($variantProducts)
+                    ->values();
+
+                return response()->json([
+                    'products' => $products
+                ]);
 
         } catch (\Exception $e) {
             return response()->json([

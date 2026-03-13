@@ -1800,10 +1800,9 @@
     }
 
     function generateVariantName(productName, combination) {
-        // Create attribute strings with type and value: "Color: Red", "Size: Large"
-        const attributeStrings = combination.map(attr => `${attr.displayName}: ${attr.value}`);
-        return `${productName} - ${attributeStrings.join(' - ')}`;
-    }
+    const attributeValues = combination.map(attr => attr.value);
+    return `${productName} - ${attributeValues.join(' - ')}`;
+}
 
     function generateSkuSuffix(combination) {
         const parts = combination.map(attr => {
@@ -2677,7 +2676,7 @@
                         for (let i = 0; i < valueInputs.length; i++) {
                             const value = valueInputs[i].value;
                             const displayName = displayNameInputs[i]?.value || typeInputs[i]?.value || 'Attribute';
-                            attributeStrings.push(`${displayName}: ${value}`);
+                            attributeStrings.push(value);
                         }
 
                         if (attributeStrings.length > 0) {
@@ -2700,7 +2699,7 @@
                     for (let i = 0; i < valueInputs.length; i++) {
                         const value = valueInputs[i].value;
                         const displayName = displayNameInputs[i]?.value || 'Attribute';
-                        attributeStrings.push(`${displayName}: ${value}`);
+                        attributeStrings.push(value);
                     }
 
                     if (attributeStrings.length > 0) {
