@@ -365,7 +365,7 @@
         margin-bottom: 15px;
         border-bottom: 2px solid #e5e7eb;
     }
-    
+
     .page-title {
         font-size: 18px;
         font-weight: 600;
@@ -404,18 +404,20 @@
 
 
     /* Layout Grid */
-    .details-layout {
-        display: grid;
-        grid-template-columns: 340px 1fr;
-        gap: 16px;
-    }
-
+.details-layout {
+    display: grid;
+    grid-template-columns: 340px minmax(0,1fr);
+    gap: 16px;
+}
     .left-column, .right-column {
         display: flex;
         flex-direction: column;
         gap: 16px;
     }
-
+.right-column {
+    min-width: 0;
+    overflow: hidden;
+}
     /* Section Card */
     .section-card {
         background: white;
@@ -556,13 +558,13 @@
     /* Pricing Grid */
     .pricing-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 12px;
         padding: 12px 14px;
     }
 
     .pricing-grid.variant-pricing {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
 
     .price-item {
@@ -606,19 +608,17 @@
     }
 
     /* Variant Tabs */
-    .variant-tabs {
-        display: flex;
-        flex-direction: column;
-    }
+.variant-tabs {
+    width: 100%;
+    overflow: hidden;
+}
 
-    .variant-tabs-header {
-        display: flex;
-        gap: 4px;
-        padding: 10px 14px;
-        background: #f9fafb;
-        border-bottom: 1px solid #e5e7eb;
-        overflow-x: auto;
-    }
+  .variant-tabs-header {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
 
     .variant-tab-btn {
         padding: 6px 12px;

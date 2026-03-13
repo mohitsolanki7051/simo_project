@@ -1283,10 +1283,14 @@ public function cancel($id)
                     ]);
                 }
             }
+            $products = collect()
+    ->merge($simpleProducts)
+    ->merge($variantProducts)
+    ->values();
 
-            return response()->json([
-                'products' => $simpleProducts->merge($variantProducts)->values()
-            ]);
+return response()->json([
+    'products' => $products
+]);
 
         } catch (\Exception $e) {
             return response()->json([
