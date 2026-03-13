@@ -13,7 +13,7 @@ class SalesmanPayment extends Model
 
     protected $fillable = [
         'salesman_id',
-        'payment_type',       // 'fixed' | 'commission'
+        'payment_type',       // 'fixed' | 'commissions'
         'amount',             // actual amount paid
         'full_amount',        // total that was owed (for partial tracking)
         'is_partial',         // boolean: true if partial payment
