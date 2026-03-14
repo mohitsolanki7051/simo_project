@@ -1,6 +1,5 @@
 class VoiceAssistant {
     constructor(appName = 'Simko') {
-        console.log('⚡ ZERO-DELAY Voice Assistant initializing...');
         this.appName = appName;
         this.isListening = false;
         this.recognition = null;
@@ -172,7 +171,6 @@ class VoiceAssistant {
         this.backAction = () => window.history.back();
         this.refreshAction = () => window.location.reload();
 
-        console.log(`✅ ${this.commandMap.size} commands loaded`);
     }
 
     init() {
@@ -315,7 +313,6 @@ class VoiceAssistant {
 
     // INSTANT processing - no loops, no delays
     processCommand(transcript) {
-        console.log('⚡ Processing:', transcript);
 
         // Check for navigation commands first
         if (transcript.includes('go back') || transcript.includes('back') || transcript.includes('previous')) {
