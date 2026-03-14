@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Admin Panel - E-Commerce')</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="app-name" content="{{ config('app.name') }}">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+      <link rel="stylesheet" href="{{ asset('css/voice-commands.css') }}">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -533,7 +535,7 @@
                     <a href="{{ url('/admin/sales-returns') }}" class="submenu-item {{ request()->is('admin/sales-returns*') ? 'active' : '' }}"><span class="submenu-dot"></span> Sales Returns</a>
 
                     <a href="{{ url('/admin/credit-notes') }}" class="submenu-item {{ request()->is('admin/credit-notes*') ? 'active' : '' }}"><span class="submenu-dot"></span> Credit Notes</a>
-                    
+
                     <a href="{{ url('/admin/quotations') }}" class="submenu-item {{ request()->is('admin/quotations*') ? 'active' : '' }}"><span class="submenu-dot"></span> Quotations </a>
                     <a href="{{ url('/admin/payments') }}" class="submenu-item {{ request()->is('admin/payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a>
                 </div>
@@ -619,6 +621,15 @@
             <h1 class="header-title">@yield('header-title', 'Dashboard')</h1>
         </div>
         <div class="header-right">
+            <button class="header-btn voice-assistant-btn" id="voiceAssistantBtn" title="Voice Assistant">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                    <line x1="9" y1="23" x2="15" y2="23"/>
+                </svg>
+                <span class="voice-indicator"></span>
+            </button>
             <button class="header-btn" title="Notifications">
                 <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 <span class="notif-dot"></span>
@@ -821,6 +832,7 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && searchOverlay.classList.contains('show')) closeSearch();
 });
 </script>
+ <script src="{{ asset('js/voice-commands.js') }}"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @stack('scripts')
