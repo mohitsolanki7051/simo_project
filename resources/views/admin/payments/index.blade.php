@@ -559,7 +559,7 @@
     transition: color .15s;
 }
 .pi-clear-filters:hover { color: var(--pi-brand-d); text-decoration: underline; }
-
+.md-type-badge.credit { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; }
 .pi-filter-row {
     display: flex;
     flex-wrap: wrap;
@@ -1100,8 +1100,7 @@ function viewPayment(id) {
             </div>`;
 
             const allocs = p.allocations || [];
-            let openingTotal = 0, invoiceTotal = 0;
-
+            let openingTotal = 0, invoiceTotal = 0,creditTotal = 0;
             html += `<p class="md-section-title">Allocation Breakdown</p>`;
 
             if (allocs.length === 0) {
@@ -1140,26 +1139,41 @@ function viewPayment(id) {
                                 </div>
                             </td>
                         </tr>`;
+                    } else if (a.type === 'credit_note') {
+                        creditTotal += parseFloat(a.amount) || 0;
+                        html += `<tr>
+                            <td><span class="md-type-badge credit">Credit Note</span></td>
+                            <td><strong>${esc(a.credit_note_number)}</strong><br>
+                                <small style="color:var(--pi-muted);font-size:10px;">${esc(a.description || '')}</small>
+                            </td>
+                            <td style="text-align:right"><strong style="color:#059669;">₹${fmt(a.amount)}</strong></td>
+                            <td><span style="color:#059669;font-size:11px;">Adjusted</span></td>
+                        </tr>`;
                     }
                 });
-
                 html += `</tbody></table>`;
             }
 
             html += `<div class="md-summary">
                 <div class="md-summary-item">
-                    <div class="md-summary-label">Total Amount</div>
+                    <div class="md-summary-label">Cash Received</div>
                     <div class="md-summary-val green">₹${fmt(p.amount)}</div>
                 </div>`;
+            if (creditTotal > 0) {
+                html += `<div class="md-summary-item">
+                    <div class="md-summary-label">Credit Adjusted</div>
+                    <div class="md-summary-val" style="color:#059669;">₹${fmt(creditTotal)}</div>
+                </div>`;
+            }
             if (openingTotal > 0) {
                 html += `<div class="md-summary-item">
-                    <div class="md-summary-label">Opening Balance</div>
+                    <div class="md-summary-label">Opening Settled</div>
                     <div class="md-summary-val purple">₹${fmt(openingTotal)}</div>
                 </div>`;
             }
             if (invoiceTotal > 0) {
                 html += `<div class="md-summary-item">
-                    <div class="md-summary-label">Invoice Payments</div>
+                    <div class="md-summary-label">Invoice Settled</div>
                     <div class="md-summary-val blue">₹${fmt(invoiceTotal)}</div>
                 </div>`;
             }

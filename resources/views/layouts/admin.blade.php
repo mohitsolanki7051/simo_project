@@ -515,6 +515,37 @@
             </div>
             <span class="nav-tooltip">Sales Executive</span>
         </div>
+        <!-- NEW: Purchase Executive Section -->
+        @php $purchaseExecutivesActive = request()->is('admin/purchase-executives*'); @endphp
+        <div class="nav-item">
+            <div class="nav-link {{ $purchaseExecutivesActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
+                <span class="nav-icon">🧑‍🔧</span>
+                <span class="nav-text">Purchase Executive</span>
+                <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+            <div class="submenu">
+                <div class="submenu-inner">
+                    <a href="{{ url('/admin/purchase-executives') }}" class="submenu-item {{ request()->is('admin/purchase-executives') ? 'active' : '' }}"><span class="submenu-dot"></span> View Purchase Executive</a>
+                </div>
+            </div>
+            <span class="nav-tooltip">Purchase Executive</span>
+        </div>
+
+        <!-- NEW: Vendors Section -->
+        @php $vendorsActive = request()->is('admin/vendors*'); @endphp
+        <div class="nav-item">
+            <div class="nav-link {{ $vendorsActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
+                <span class="nav-icon">🚚</span>
+                <span class="nav-text">Vendors</span>
+                <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+            <div class="submenu">
+                <div class="submenu-inner">
+                    <a href="{{ url('/admin/vendors') }}" class="submenu-item {{ request()->is('admin/vendors') ? 'active' : '' }}"><span class="submenu-dot"></span> All Vendors</a>
+                </div>
+            </div>
+            <span class="nav-tooltip">Vendors</span>
+        </div>
 
         <div class="nav-section-label">Finance</div>
 
@@ -564,17 +595,17 @@
         <div class="nav-item">
             <div class="nav-link {{ $purchaseActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
                 <span class="nav-icon">📋</span>
-                <span class="nav-text">Purchase Orders</span>
+                <span class="nav-text">Purchases</span>
                 <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
             </div>
             <div class="submenu">
                 <div class="submenu-inner">
-                    <a href="{{ url('/admin/purchases') }}" class="submenu-item {{ request()->is('admin/purchases') ? 'active' : '' }}"><span class="submenu-dot"></span> All Purchases</a>
+                    <a href="{{ url('/admin/purchases') }}" class="submenu-item {{ request()->is('admin/purchases') ? 'active' : '' }}"><span class="submenu-dot"></span>Purchases Invoices</a>
                     <a href="{{ url('/admin/suppliers') }}" class="submenu-item {{ request()->is('admin/suppliers') ? 'active' : '' }}"><span class="submenu-dot"></span> All Suppliers</a>
                     <a href="{{ url('/admin/supplier-payments') }}" class="submenu-item {{ request()->is('admin/supplier-payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Supplier Payments</a>
                 </div>
             </div>
-            <span class="nav-tooltip">Purchase Orders</span>
+            <span class="nav-tooltip">Purchases</span>
         </div>
 
         <div class="nav-section-label">More</div>
@@ -732,6 +763,8 @@ const searchPages = [
     { name: 'Dealers',           path: '/admin/parties/dealer',     icon: '🏪',  group: 'Parties' },
     { name: 'Distributors',      path: '/admin/parties/distributor',icon: '🏭',  group: 'Parties' },
     { name: 'View Salesmen',     path: '/admin/salesmen',           icon: '🧑‍💼',group: 'People' },
+    { name: 'Purchase Executives', path: '/admin/purchase-executives', icon: '🧑‍🔧', group: 'People' },
+    { name: 'Vendors',            path: '/admin/vendors',              icon: '🚚',  group: 'People' },
     { name: 'Sales Invoices',    path: '/admin/sales',              icon: '🛍️', group: 'Sales' },
     { name: 'Payment In',        path: '/admin/payments',           icon: '💳',  group: 'Sales' },
     { name: 'All Claims',        path: '/admin/warranty',           icon: '🛡️', group: 'Warranty' },

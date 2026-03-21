@@ -166,6 +166,8 @@
                         <option value="">All</option>
                         <option value="draft"     {{ request('status') == 'draft'     ? 'selected' : '' }}>Draft</option>
                         <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
+                        <option value="partially_returned" {{ request('status') == 'partially_returned' ? 'selected' : '' }}>Partial Return</option>
+                        <option value="returned" {{ request('status') == 'returned' ? 'selected' : '' }}>Returned</option>
                         <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
 
                     </select>
@@ -304,24 +306,54 @@
                         </td>
                         {{-- Combined Amount Column with Payment Status --}}
                         <td class="tc-amount">
+                            @php
+                                $grandTotal   = (float) $invoice->grand_total;
+                                $totalPaid    = (float) ($invoice->total_paid ?? 0);
+                                $balanceAmt   = (float) ($invoice->balance_amount ?? 0);
+                                $partyIdStr   = (string) $invoice->party_id;
+                                $creditRemain = $creditNoteMap[$partyIdStr] ?? 0;
+                                $advanceBal   = $advanceMap[$partyIdStr] ?? 0;
+                                $actualDue    = max(0, $balanceAmt - $creditRemain);
+                            @endphp
                             <div class="amount-display">
-                                <span class="amount-main">₹ {{ number_format($invoice->grand_total, 2) }}</span>
+                                <span class="amount-main">₹ {{ number_format($grandTotal, 2) }}</span>
 
-                                @if($invoice->payment_status == 'partial')
-                                    <span class="amount-partial">
-                                        (₹ {{ number_format($invoice->total_paid ?? 0, 2) }} paid)
+                                @if($invoice->payment_status === 'paid')
+                                    <span class="amt-paid-tag">✓ Fully Paid</span>
+                                    @if($advanceBal > 0)
+                                    <span class="amt-advance-tag">Advance ₹{{ number_format($advanceBal, 2) }}</span>
+                                    @endif
+
+                                @elseif($invoice->payment_status === 'partial')
+                                    <span class="amt-row">
+                                        <span class="amt-label">Paid</span>
+                                        <span class="amt-val amt-green">₹ {{ number_format($totalPaid, 2) }}</span>
                                     </span>
-                                    <span class="amount-balance">
-                                        Bal: ₹ {{ number_format($invoice->balance_amount ?? 0, 2) }}
+                                    @if($creditRemain > 0)
+                                    <span class="amt-row">
+                                        <span class="amt-label">Credit</span>
+                                        <span class="amt-val amt-yellow">−₹ {{ number_format($creditRemain, 2) }}</span>
                                     </span>
-                                @elseif($invoice->payment_status == 'unpaid')
-                                    <span class="amount-unpaid">(Full amount due)</span>
-                                @elseif($invoice->payment_status == 'paid')
-                                    <span class="amount-paid">(Fully paid)</span>
+                                    @endif
+                                    <span class="amt-row amt-due-row">
+                                        <span class="amt-label">Due</span>
+                                        <span class="amt-val amt-red">₹ {{ number_format($actualDue, 2) }}</span>
+                                    </span>
+
+                                @elseif($invoice->payment_status === 'unpaid')
+                                    @if($creditRemain > 0)
+                                    <span class="amt-row">
+                                        <span class="amt-label">Credit</span>
+                                        <span class="amt-val amt-yellow">−₹ {{ number_format($creditRemain, 2) }}</span>
+                                    </span>
+                                    @endif
+                                    <span class="amt-row amt-due-row">
+                                        <span class="amt-label">Due</span>
+                                        <span class="amt-val amt-red">₹ {{ number_format($actualDue, 2) }}</span>
+                                    </span>
                                 @endif
                             </div>
                         </td>
-
                         {{-- Payment Status Column --}}
                         <td class="tc-payment-status">
                             <span class="si-badge si-badge--{{ $invoice->payment_status }}">
@@ -333,10 +365,35 @@
                         <td class="tc-inv-status">
                             @php
                                 $statusMap = [
-                                    'draft'     => ['cls' => 'inv-draft',     'label' => 'Draft'],
-                                    'confirmed' => ['cls' => 'inv-confirmed', 'label' => 'Confirmed'],
-                                    'completed' => ['cls' => 'inv-completed', 'label' => 'Completed'],
-                                    'cancelled' => ['cls' => 'inv-cancelled', 'label' => 'Cancelled'],
+                                    'draft' => [
+                                        'cls' => 'inv-draft',
+                                        'label' => 'Draft'
+                                    ],
+
+                                    'confirmed' => [
+                                        'cls' => 'inv-confirmed',
+                                        'label' => 'Confirmed'
+                                    ],
+
+                                    'completed' => [
+                                        'cls' => 'inv-completed',
+                                        'label' => 'Completed'
+                                    ],
+
+                                    'cancelled' => [
+                                        'cls' => 'inv-cancelled',
+                                        'label' => 'Cancelled'
+                                    ],
+
+                                    'partially_returned' => [
+                                        'cls' => 'inv-partial-return',
+                                        'label' => 'Partial Return'
+                                    ],
+
+                                    'returned' => [
+                                        'cls' => 'inv-returned',
+                                        'label' => 'Returned'
+                                    ]
                                 ];
                                 $sm = $statusMap[$invoice->status] ?? $statusMap['draft'];
                             @endphp
@@ -540,7 +597,17 @@
 }
 .si-title { font-size: 17px; font-weight: 700; margin: 0 0 2px; letter-spacing: -.3px; }
 .si-sub   { font-size: 11px; color: var(--c-muted); margin: 0; }
+.inv-partial-return {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
 
+.inv-returned {
+    background: #e5e7eb;
+    color: #111827;
+    border: 1px solid #d1d5db;
+}
 .si-btn-create {
     display: inline-flex;
     align-items: center;
@@ -667,18 +734,17 @@
     color: #166534;
     white-space: nowrap;
 }
-.amount-display {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.5;
-    font-size: 11px;
-}
-
-.amount-main {
-    font-weight: 700;
-    color: var(--c-text);
-    font-size: 12px;
-}
+.amount-display   { display:flex; flex-direction:column; gap:2px; font-size:11px; line-height:1.4; }
+.amount-main      { font-weight:700; color:var(--c-text); font-size:12.5px; }
+.amt-paid-tag     { font-size:10px; font-weight:600; color:#047857; background:#d1fae5; border-radius:3px; padding:1px 5px; width:fit-content; }
+.amt-advance-tag  { font-size:9px; font-weight:600; color:#065f46; background:#d1fae5; border-radius:3px; padding:1px 5px; width:fit-content; border:1px solid #a7f3d0; }
+.amt-row          { display:flex; justify-content:space-between; align-items:center; gap:6px; }
+.amt-due-row      { border-top:1px dashed #e5e7eb; padding-top:2px; margin-top:1px; }
+.amt-label        { color:var(--c-muted); font-size:10px; font-weight:500; min-width:38px; }
+.amt-val          { font-weight:600; font-size:10.5px; text-align:right; }
+.amt-green        { color:#047857; }
+.amt-red          { color:#dc2626; }
+.amt-yellow       { color:#b45309; }
 
 .amount-partial {
     color: #b45309;

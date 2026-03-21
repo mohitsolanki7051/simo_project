@@ -191,8 +191,11 @@ public function searchInvoices(Request $request)
     $partyId = $request->get('party_id');
 
     $query = SalesInvoice::with(['party', 'warehouse'])
-        ->whereIn('status', ['confirmed', 'completed']);
-        // ✅ 'payment_status' filter HATAA diya - ab sab invoices dikhenge
+          ->whereIn('status', [
+        'confirmed',
+        'completed',
+        'partially_returned'
+    ]);
 
     if ($partyId) {
         $query->where('party_id', $partyId);
@@ -312,9 +315,9 @@ public function store(Request $request)
         $invoice = SalesInvoice::findOrFail($request->sales_invoice_id);
 
         // Check if invoice is eligible for return
-        if (!in_array($invoice->status, ['confirmed', 'completed'])) {
-            throw new \Exception('Only confirmed or completed invoices can be returned.');
-        }
+        if (!in_array($invoice->status, ['confirmed', 'completed', 'partially_returned'])) {
+    throw new \Exception('This invoice cannot be returned.');
+}
 
         // Calculate already returned quantities from COMPLETED returns
         $completedReturns = SalesReturn::where('sales_invoice_id', $invoice->_id)
@@ -467,16 +470,17 @@ public function store(Request $request)
 public function complete($id)
 {
     try {
-
-
         $return = SalesReturn::with(['items', 'invoice', 'party'])->findOrFail($id);
 
         if ($return->status !== 'draft') {
             throw new \Exception('Return can only be completed from draft status.');
         }
 
-        // RETURN STOCK TO WAREHOUSE
-        foreach ($return->items as $item) {
+        $invoice = $return->invoice;
+        $party = Customer::find($return->party_id);
+
+        /* ================= STOCK RETURN (same rahega) ================= */
+           foreach ($return->items as $item) {
             $stock = WarehouseStock::where('warehouse_id', $return->warehouse_id)
                 ->where('product_id', $item->product_id)
                 ->where('product_type', $item->variant_id ? 'variant' : 'simple')
@@ -486,94 +490,228 @@ public function complete($id)
                 ->first();
 
             if ($stock) {
-                $stock->update([
-                    'quantity' => $stock->quantity + $item->quantity
-                ]);
+                $stock->quantity += $item->quantity;
+                $stock->save();
             } else {
                 WarehouseStock::create([
-                    'warehouse_id' => $return->warehouse_id,
-                    'product_id' => $item->product_id,
-                    'product_type' => $item->variant_id ? 'variant' : 'simple',
-                    'variant_id' => $item->variant_id ?? null,
-                    'quantity' => $item->quantity,
+                    'warehouse_id'    => $return->warehouse_id,
+                    'product_id'      => $item->product_id,
+                    'product_type'    => $item->variant_id ? 'variant' : 'simple',
+                    'variant_id'      => $item->variant_id ?? null,
+                    'quantity'        => $item->quantity,
                     'min_stock_alert' => 0,
                 ]);
             }
 
             WarehouseMovement::create([
                 'warehouse_id' => $return->warehouse_id,
-                'product_id' => $item->product_id,
+                'product_id'   => $item->product_id,
                 'product_type' => $item->variant_id ? 'variant' : 'simple',
-                'variant_id' => $item->variant_id ?? null,
-                'type' => WarehouseMovement::TYPE_RETURN,
-                'quantity' => +$item->quantity,
+                'variant_id'   => $item->variant_id ?? null,
+                'type'         => WarehouseMovement::TYPE_RETURN,
+                'quantity'     => $item->quantity,
                 'reference_id' => $return->_id,
-                'remarks' => "Sales Return: {$return->return_number} - Stock returned",
+                'remarks'      => "Sales Return: {$return->return_number}",
             ]);
         }
 
-        // ✅ CREATE CREDIT NOTE WITH ITEMS
-        $creditNote = CreditNote::create([
-            'credit_note_number' => $this->generateCreditNoteNumber(),
-            'party_id' => $return->party_id,
-            'sales_invoice_id' => $return->sales_invoice_id,
-            'sales_return_id' => $return->_id,
-            'credit_date' => $return->return_date,
-            'subtotal' => $return->subtotal,                 // From sales_return
-            'tax_amount' => $return->total_tax,              // From sales_return
-            'discount_amount' => $return->discount_amount,   // From sales_return
-            'amount' => $return->total_return_amount,
-            'used_amount' => 0,
-            'remaining_amount' => $return->total_return_amount,
-            'reason' => $return->reason ?? 'Sales Return',
-            'status' => 'active',
-            'created_by' => Auth::guard('admin')->id(),
-        ]);
+        /* ================= ACCOUNTING LOGIC - YAHAN CHANGE HAI ================= */
+        $returnAmount = (float) $return->total_return_amount;
+        $invoiceBalance = (float) $invoice->balance_amount;
+        $grandTotal = (float) $invoice->grand_total;
 
-        // ✅ CREATE CREDIT NOTE ITEMS FROM RETURN ITEMS
-        foreach ($return->items as $item) {
-            // Calculate discount per item (proportional)
-            $itemDiscount = 0;
-            if ($return->subtotal > 0 && $return->discount_amount > 0) {
-                $itemDiscount = ($item->subtotal / $return->subtotal) * $return->discount_amount;
+        // IMPORTANT: Check for EXISTING ACTIVE CREDIT NOTES from SAME INVOICE
+        $existingCreditNotes = CreditNote::where('sales_invoice_id', $invoice->_id)
+            ->where('party_id', $party->_id)
+            ->where('status', 'active')
+            ->where('remaining_amount', '>', 0)
+            ->get();
+
+        $totalExistingCredit = 0;
+        foreach ($existingCreditNotes as $cn) {
+            $totalExistingCredit += (float) $cn->remaining_amount;
+        }
+
+        // Ab total return amount = current return + existing credit notes
+        $totalReturnAmount = $returnAmount + $totalExistingCredit;
+
+        /* ---------- CASE 1: Invoice completely unpaid ---------- */
+        if ($invoiceBalance == $grandTotal) {
+
+            if ($totalReturnAmount >= $invoiceBalance) {
+                // Poora invoice adjust ho jayega
+                $extra = $totalReturnAmount - $invoiceBalance;
+
+                $invoice->total_paid = $grandTotal;
+                $invoice->balance_amount = 0;
+                $invoice->payment_status = 'paid';
+                $invoice->save();
+
+                // Extra amount advance mein jayega
+                if ($extra > 0) {
+                    $party->advance_balance = (float)($party->advance_balance ?? 0) + $extra;
+                    $party->save();
+                }
+
+                // PURANE credit notes ko used mark karo
+                foreach ($existingCreditNotes as $cn) {
+                    $cn->status = 'used';
+                    $cn->used_amount = $cn->amount;
+                    $cn->remaining_amount = 0;
+                    $cn->save();
+                }
+
+                // NAYA credit note banao (advance_transferred agar extra hai)
+                $creditNote = $this->createCreditNote($return, $returnAmount,
+                    $invoiceBalance - $totalExistingCredit,
+                    $extra > 0 ? 'advance_transferred' : 'used');
+
+            } else {
+                // Partial return - existing credit notes + current return
+                $creditAmount = $totalReturnAmount; // ye credit note mein jayega
+            }
+        }
+        /* ---------- CASE 2: Invoice partial paid ---------- */
+        elseif ($invoiceBalance > 0) {
+
+            if ($totalReturnAmount >= $invoiceBalance) {
+                // Invoice clear ho jayega
+                $extra = $totalReturnAmount - $invoiceBalance;
+
+                $invoice->total_paid = $grandTotal;
+                $invoice->balance_amount = 0;
+                $invoice->payment_status = 'paid';
+                $invoice->save();
+
+                if ($extra > 0) {
+                    $party->advance_balance = (float)($party->advance_balance ?? 0) + $extra;
+                    $party->save();
+                }
+
+                // PURANE credit notes ko used mark karo
+                foreach ($existingCreditNotes as $cn) {
+                    $cn->status = 'used';
+                    $cn->used_amount = $cn->amount;
+                    $cn->remaining_amount = 0;
+                    $cn->save();
+                }
+
+                // NAYA credit note
+                $creditNote = $this->createCreditNote($return, $returnAmount,
+                    $invoiceBalance - $totalExistingCredit,
+                    $extra > 0 ? 'advance_transferred' : 'used');
+
+            } else {
+                $creditAmount = $totalReturnAmount;
+            }
+        }
+        /* ---------- CASE 3: Invoice already paid ---------- */
+        else {
+            // Poora amount advance mein jayega
+            $party->advance_balance = (float)($party->advance_balance ?? 0) + $totalReturnAmount;
+            $party->save();
+
+            // PURANE credit notes ko used mark karo
+            foreach ($existingCreditNotes as $cn) {
+                $cn->status = 'used';
+                $cn->used_amount = $cn->amount;
+                $cn->remaining_amount = 0;
+                $cn->save();
             }
 
-            CreditNoteItem::create([
-                'credit_note_id' => $creditNote->_id,
-                'sales_return_item_id' => $item->_id,
-                'product_id' => $item->product_id,
-                'variant_id' => $item->variant_id,
-                'product_name' => $item->product_name,
-                'variant_name' => $item->variant_name,
-                'quantity' => $item->quantity,
-                'price' => $item->price,
-                'tax_percent' => $item->tax_percent,
-                'tax_amount' => $item->tax_amount,
-                'discount_amount' => $itemDiscount,
-                'total' => $item->total, // subtotal + tax
-            ]);
+            // NAYA credit note advance_transferred
+            $creditNote = $this->createCreditNote($return, $returnAmount, $returnAmount, 'advance_transferred');
         }
 
-        $return->update([
-            'status' => 'completed'
-        ]);
+        /* ---------- Create Credit Note if creditAmount > 0 ---------- */
+        if (isset($creditAmount) && $creditAmount > 0) {
+            $creditNote = $this->createCreditNote($return, $creditAmount, 0, 'active');
+        }
 
+        /* ================= MARK RETURN COMPLETED ================= */
+        $return->status = 'completed';
+        $return->save();
 
+           $invoice->refresh();
+        $invoice->load('items');
+        $totalSoldQty = $invoice->items->sum('quantity');
+
+        $completedReturns = SalesReturn::where('sales_invoice_id', $invoice->_id)
+            ->where('status', 'completed')
+            ->with('items')
+            ->get();
+
+        $totalReturnedQty = 0;
+        foreach ($completedReturns as $completedReturn) {
+            foreach ($completedReturn->items as $rItem) {
+                $totalReturnedQty += $rItem->quantity;
+            }
+        }
+
+        if ($totalReturnedQty == 0) {
+            $invoice->status = 'confirmed';
+        } elseif ($totalReturnedQty < $totalSoldQty) {
+            $invoice->status = 'partially_returned';
+        } else {
+            $invoice->status = 'returned';
+        }
+        $invoice->save();
 
         return response()->json([
             'success' => true,
             'return_id' => $return->_id,
-            'credit_note_id' => $creditNote->_id,
-            'message' => 'Sales return completed successfully. Stock returned and credit note generated.'
+            'credit_note_id' => $creditNote ? (string)$creditNote->_id : null,
+            'message' => 'Sales return completed successfully.'
         ]);
 
     } catch (\Exception $e) {
-
         return response()->json([
             'success' => false,
             'message' => $e->getMessage()
         ], 500);
     }
+}
+
+/**
+ * Helper function to create credit note
+ */
+private function createCreditNote($return, $amount, $usedAmount, $status)
+{
+    $creditNote = CreditNote::create([
+        'credit_note_number' => $this->generateCreditNoteNumber(),
+        'party_id'           => $return->party_id,
+        'sales_invoice_id'   => $return->sales_invoice_id,
+        'sales_return_id'    => $return->_id,
+        'credit_date'        => $return->return_date,
+        'subtotal'           => $return->subtotal,
+        'tax_amount'         => $return->total_tax,
+        'discount_amount'    => $return->discount_amount,
+        'amount'             => $amount,
+        'used_amount'        => $usedAmount,
+        'remaining_amount'   => $amount - $usedAmount,
+        'reason'             => $return->reason ?? 'Sales Return',
+        'status'             => $status,
+        'created_by'         => Auth::guard('admin')->id(),
+    ]);
+
+    foreach ($return->items as $item) {
+        CreditNoteItem::create([
+            'credit_note_id'       => $creditNote->_id,
+            'sales_return_item_id' => $item->_id,
+            'product_id'           => $item->product_id,
+            'variant_id'           => $item->variant_id,
+            'product_name'         => $item->product_name,
+            'variant_name'         => $item->variant_name,
+            'quantity'             => $item->quantity,
+            'price'                => $item->price,
+            'tax_percent'          => $item->tax_percent,
+            'tax_amount'           => $item->tax_amount,
+            'discount_amount'      => 0,
+            'total'                => $item->total,
+        ]);
+    }
+
+    return $creditNote;
 }
 
     /**

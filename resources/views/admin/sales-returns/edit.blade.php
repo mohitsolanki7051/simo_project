@@ -671,8 +671,8 @@ function renderItemsTable() {
                 <td>
                     <div class="qty-control">
                         <input type="number" class="return-qty-input"
-                               value="${returnQty.toFixed(2)}"
-                               min="1"
+                               value="${returnQty}"
+                             
                                max="${remaining}"
                                step="0"
                                onchange="updateItemQty(${index}, this.value)">
@@ -701,7 +701,7 @@ function renderItemsTable() {
     const finalTotal = itemsSubtotal + totalTax - discountAmount;
 
     // Update totals in footer
-    $('#totalReturnQty').text(totalQty.toFixed(2));
+    $('#totalReturnQty').text(totalQty);
     $('#totalReturnAmount').text('₹ ' + finalTotal.toFixed(2));
 
     // Add calculation summary
@@ -793,7 +793,7 @@ function updateItemSelection(index, checkbox) {
     const finalTotal = itemsSubtotal + totalTax - discountAmount;
 
     // Update footer totals
-    $('#totalReturnQty').text(totalQty.toFixed(2));
+    $('#totalReturnQty').text(totalQty);
     $('#totalReturnAmount').text('₹ ' + finalTotal.toFixed(2));
 
     // Update summary
@@ -809,7 +809,7 @@ function updateItemQty(index, qty) {
     if (qty > maxQty) qty = maxQty;
 
     // Update input value
-    $(`tr[data-index="${index}"] .return-qty-input`).val(qty.toFixed(2));
+    $(`tr[data-index="${index}"] .return-qty-input`).val(qty);
 
     // Update this row's amount
     const price = item.price;
@@ -857,7 +857,7 @@ function updateItemQty(index, qty) {
     const finalTotal = itemsSubtotal + totalTax - discountAmount;
 
     // Update footer totals
-    $('#totalReturnQty').text(totalQty.toFixed(2));
+    $('#totalReturnQty').text(totalQty);
     $('#totalReturnAmount').text('₹ ' + finalTotal.toFixed(2));
 
     // Update summary
@@ -910,7 +910,7 @@ function toggleSelectAll() {
     const finalTotal = itemsSubtotal + totalTax - discountAmount;
 
     // Update footer totals
-    $('#totalReturnQty').text(totalQty.toFixed(2));
+    $('#totalReturnQty').text(totalQty);
     $('#totalReturnAmount').text('₹ ' + finalTotal.toFixed(2));
 
     // Update summary

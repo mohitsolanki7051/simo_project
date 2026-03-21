@@ -53,8 +53,23 @@
                         <input type="hidden" name="party_id" id="partyId">
 
                         <div class="pi-balance-row" id="balanceRow">
-                            <span class="pi-balance-label">Current Balance:</span>
+                            <span class="pi-balance-label">Total Due:</span>
                             <span class="pi-balance-val" id="currentBalanceDisplay">₹0.00</span>
+                        </div>
+
+                        <!-- NEW: Credit note adjustment block -->
+                        <div id="creditNoteBlock" style="display:none; margin-top:10px; padding:10px 12px;
+                            background:#fefce8; border:1px solid #fde68a; border-radius:7px; font-size:13px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <span style="font-weight:600; color:#92400e;">Credit Notes Available</span>
+                                <span id="creditTotalDisplay" style="font-weight:700; color:#065f46;">-₹0.00</span>
+                            </div>
+                            <div id="creditNotesList" style="font-size:12px; color:#92400e; margin-bottom:8px;"></div>
+                            <div style="display:flex; justify-content:space-between; padding-top:8px;
+                                border-top:1px solid #fde68a; font-weight:600;">
+                                <span style="color:#374151;">Net Payable</span>
+                                <span id="netPayableDisplay" style="color:#991b1b; font-size:14px;">₹0.00</span>
+                            </div>
                         </div>
                     </div>
 
@@ -175,9 +190,16 @@
                     <span>Invoice Dues</span>
                     <strong id="sumInvoice">₹0.00</strong>
                 </div>
+                <!-- NEW -->
+                <div class="pi-summary-sep">−</div>
+                <div class="pi-summary-item">
+                    <span>Credit Notes</span>
+                    <strong id="sumCredit" style="color:var(--pi-success);">₹0.00</strong>
+                </div>
+                <!-- END NEW -->
                 <div class="pi-summary-sep">=</div>
                 <div class="pi-summary-item pi-summary-total">
-                    <span>Total Due</span>
+                    <span>Net Payable</span>
                     <strong id="sumTotal">₹0.00</strong>
                 </div>
                 <div class="pi-summary-spacer"></div>
@@ -316,6 +338,7 @@
     transition: border .15s, box-shadow .15s;
     box-sizing: border-box;
 }
+#creditNoteBlock { line-height:1.6; }
 .pi-input:focus {
     outline: none;
     border-color: var(--pi-border-focus);
@@ -725,20 +748,48 @@ function selectParty(partyId) {
             $('#selPartyPhone').text('📞 ' + party.phone);
             $('#partyId').val(party.id);
             $('#currentBalanceDisplay').text('₹' + fmt(party.total_due));
-            $('#partySelected').show();
 
-            // Show amount + invoices + submit
+            // NEW: Show credit note block if credit available
+            const creditBalance = party.credit_balance || 0;
+            const creditNotes   = party.credit_notes || [];
+
+            if (creditBalance > 0 && creditNotes.length > 0) {
+                let listHtml = '';
+                creditNotes.forEach(cn => {
+                    listHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+                        <span>${esc(cn.credit_note_number)} &nbsp;<span style="opacity:.7">${esc(cn.credit_date)}</span></span>
+                        <span style="font-weight:600;">₹${fmt(cn.remaining_amount)}</span>
+                    </div>`;
+                });
+                $('#creditNotesList').html(listHtml);
+                $('#creditTotalDisplay').text('-₹' + fmt(creditBalance));
+                $('#netPayableDisplay').text('₹' + fmt(party.net_payable));
+                $('#creditNoteBlock').show();
+            } else {
+                $('#creditNoteBlock').hide();
+            }
+
+            $('#partySelected').show();
             $('#amountSection').show();
             $('#invoicesSection').show();
             $('#submitSection').show();
 
+            // Pre-fill amount with net payable (instead of total due)
+            const prefill = party.net_payable > 0 ? party.net_payable : 0;
+            $('#amountReceived').val(fmt(prefill));
+
             renderInvoices();
             updateSummary();
+
+            // Auto-allocate with the pre-filled amount
+            if (prefill > 0) {
+                autoAllocate(prefill);
+            }
+
             $('#amountReceived').focus();
         })
         .fail(() => showAlert('Failed to load party details', 'error'));
 }
-
 function resetParty() {
     party = null; invoices = []; allocationMap = {};
     $('#partySelected').hide();
@@ -909,26 +960,21 @@ function updateTableFooter() {
     $('#tfootAmountReceived').text('₹' + fmt(totalRecv));
 }
 
-/* ═══════════════════════════════════════════════════════════
-   AMOUNT + SUMMARY
-═══════════════════════════════════════════════════════════ */
 $('#amountReceived').on('input', function () {
-    const amount = parseFloat($(this).val()) || 0;
-    const totalDue = party ? party.total_due : 0;
+    const amount     = parseFloat($(this).val()) || 0;
+    const netPayable = party ? (party.net_payable || 0) : 0; // CHANGED
 
-    // Validate
     const $msg = $('#amountValidation');
     if (amount <= 0) {
         $msg.hide();
-    } else if (amount > totalDue + 0.005) {
-        $msg.text('Amount exceeds total due of ₹' + fmt(totalDue)).attr('class','pi-val-msg err').show();
-        $(this).val(fmt(totalDue));
+    } else if (amount > netPayable + 0.005) {
+        $msg.text('Amount exceeds net payable of ₹' + fmt(netPayable)).attr('class','pi-val-msg err').show();
+        $(this).val(fmt(netPayable));
         return;
     } else {
         $msg.hide();
     }
 
-    // Re-allocate automatically
     if (amount > 0) {
         autoAllocate(amount);
     } else {
@@ -937,10 +983,10 @@ $('#amountReceived').on('input', function () {
 
     updateSummary();
 });
-
 function autoAllocate(amount) {
     allocationMap = {};
-    let remaining = amount;
+     const creditBalance = parseFloat(party.credit_balance) || 0;
+    let remaining = amount + creditBalance;
 
     // Opening balance consumed first (allocation handled server-side on save)
     const openingAlloc = Math.min(parseFloat(party.opening_balance) || 0, remaining);
@@ -951,7 +997,7 @@ function autoAllocate(amount) {
         const pendingBalance = parseFloat(inv.balance);  // ← correct pending amount
 
         if (remaining <= 0.001 || pendingBalance <= 0) {
-            $(`#recv-${i}`).prop('disabled', true).val('').removeClass('pi-over');
+            $(`#recv-${i}`).text('—');
             $(`.inv-cb[data-idx="${i}"]`).prop('checked', false);
             $(`#inv-row-${i}`).removeClass('pi-row-selected');
             return;
@@ -1000,24 +1046,25 @@ function getRemainingBudget() {
 function updateSummary() {
     if (!party) {
         $('#sumOpening, #sumInvoice, #sumTotal, #sumPaying').text('₹0.00');
+        $('#sumCredit').text('₹0.00');  // NEW
         $('#submitBtn').prop('disabled', true);
         return;
     }
-    const amount       = parseFloat($('#amountReceived').val()) || 0;
-    const opening      = party.opening_balance || 0;
-    const invDue       = party.invoice_due || 0;
-    const totalDue     = party.total_due || 0;
+    const amount     = parseFloat($('#amountReceived').val()) || 0;
+    const opening    = party.opening_balance || 0;
+    const invDue     = party.invoice_due || 0;
+    const totalDue   = party.total_due || 0;
+    const netPayable = party.net_payable || 0;
 
     $('#sumOpening').text('₹' + fmt(opening));
-    $('#sumInvoice').text('₹'  + fmt(invDue));
-    $('#sumTotal').text('₹'    + fmt(totalDue));
-    $('#sumPaying').text('₹'   + fmt(amount));
+    $('#sumInvoice').text('₹' + fmt(invDue));
+    $('#sumCredit').text('₹'  + fmt(party.credit_balance || 0));  // NEW
+    $('#sumTotal').text('₹'   + fmt(netPayable));                 // CHANGED: was totalDue
+    $('#sumPaying').text('₹'  + fmt(amount));
 
-    // Enable submit only when amount > 0 and doesn't exceed due
-    const valid = amount > 0 && amount <= (totalDue + 0.005);
+    const valid = amount >= 0 && amount <= (netPayable + 0.005);
     $('#submitBtn').prop('disabled', !valid);
 }
-
 /* ═══════════════════════════════════════════════════════════
    INVOICE SEARCH FILTER
 ═══════════════════════════════════════════════════════════ */
@@ -1039,9 +1086,14 @@ $('#paymentForm').on('submit', function (e) {
     const method  = $('#paymentMethod').val();
     const date    = $('#paymentDate').val();
     const partyId = $('#partyId').val();
+    const netPayable = party ? (party.net_payable || 0) : 0;
+    const creditBalance = party ? (party.credit_balance || 0) : 0;
 
     if (!partyId)  { showAlert('Please select a party', 'error'); return; }
-    if (amount <= 0) { showAlert('Please enter a valid amount', 'error'); return; }
+    if (amount <= 0 && creditBalance <= 0) {
+        showAlert('Please enter a valid amount', 'error');
+        return;
+    }
     if (!method)   { showAlert('Please select a payment mode', 'error'); return; }
     if (!date)     { showAlert('Please select a payment date', 'error'); return; }
 

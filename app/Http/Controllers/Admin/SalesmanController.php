@@ -17,7 +17,7 @@ class SalesmanController extends Controller
     // ── INDEX ─────────────────────────────────────────────────────
     public function index()
     {
-        $salesmen = Salesman::all();
+         $salesmen = Salesman::whereNull('type')->get();
 
         $totalCustomers           = Customer::where('party_type', 'customer')->whereNotNull('salesman_id')->count();
         $totalDealers             = Customer::where('party_type', 'dealer')->whereNotNull('salesman_id')->count();
@@ -80,7 +80,7 @@ class SalesmanController extends Controller
     // ── SHOW ──────────────────────────────────────────────────────
 public function show($id, Request $request)
 {
-    $salesman = Salesman::find($id);
+    $salesman = Salesman::whereNull('type')->find($id);
     if (!$salesman) {
         return redirect()->route('admin.salesmen.index')->with('error', 'Salesman not found');
     }
@@ -284,7 +284,7 @@ public function show($id, Request $request)
     // ── PAY COMMISSION ────────────────────────────────────────────
     public function payCommission(Request $request, $id)
     {
-        $salesman = Salesman::find($id);
+        $salesman = Salesman::whereNull('type')->find($id);
         if (!$salesman) return response()->json(['error' => 'Salesman not found'], 404);
 
         $validator = Validator::make($request->all(), [
@@ -362,7 +362,7 @@ public function show($id, Request $request)
     // ── PAY FIXED ─────────────────────────────────────────────────
     public function payFixed(Request $request, $id)
     {
-        $salesman = Salesman::find($id);
+        $salesman = Salesman::whereNull('type')->find($id);
         if (!$salesman) return response()->json(['error' => 'Salesman not found'], 404);
 
         $validator = Validator::make($request->all(), [
@@ -592,14 +592,14 @@ public function show($id, Request $request)
     // ── EDIT / UPDATE ─────────────────────────────────────────────
     public function edit($id)
     {
-        $salesman = Salesman::find($id);
+        $salesman = Salesman::whereNull('type')->find($id);
         if (!$salesman) return redirect()->route('admin.salesmen.index')->with('error', 'Not found');
         return view('admin.salesmen.edit', compact('salesman'));
     }
 
     public function update(Request $request, $id)
     {
-        $salesman = Salesman::find($id);
+        $salesman = Salesman::whereNull('type')->find($id);
         if (!$salesman) return redirect()->route('admin.salesmen.index')->with('error', 'Not found');
 
         $validator = Validator::make($request->all(), [

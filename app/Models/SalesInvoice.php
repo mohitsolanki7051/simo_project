@@ -27,6 +27,7 @@ class SalesInvoice extends Model
         'due_date',
         'po_number',
         'notes',
+        'advance_used',
         // totals
         'total_mrp',
         'subtotal',
@@ -115,7 +116,9 @@ class SalesInvoice extends Model
             'draft' => 'badge-secondary',
             'confirmed' => 'badge-primary',
             'completed' => 'badge-success',
-            'cancelled' => 'badge-danger'
+            'cancelled' => 'badge-danger',
+            'partially_returned' => 'badge-warning',
+            'returned' => 'badge-dark'
         ];
 
         return $badges[$this->status] ?? 'badge-secondary';

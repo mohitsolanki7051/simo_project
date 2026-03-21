@@ -23,11 +23,42 @@
     $ps = $paymentStatusColors[$invoice->payment_status] ?? $paymentStatusColors['unpaid'];
 
     $invoiceStatusColors = [
-        'draft'     => ['bg' => '#f3f4f6', 'color' => '#374151', 'text' => 'Draft'],
-        'confirmed' => ['bg' => '#dbeafe', 'color' => '#1e40af', 'text' => 'Confirmed'],
-        'completed' => ['bg' => '#d1fae5', 'color' => '#065f46', 'text' => 'Completed'],
-        'cancelled' => ['bg' => '#fee2e2', 'color' => '#991b1b', 'text' => 'Cancelled'],
-    ];
+            'draft' => [
+                'bg' => '#f3f4f6',
+                'color' => '#374151',
+                'text' => 'Draft'
+            ],
+
+            'confirmed' => [
+                'bg' => '#dbeafe',
+                'color' => '#1e40af',
+                'text' => 'Confirmed'
+            ],
+
+            'completed' => [
+                'bg' => '#d1fae5',
+                'color' => '#065f46',
+                'text' => 'Completed'
+            ],
+
+            'cancelled' => [
+                'bg' => '#fee2e2',
+                'color' => '#991b1b',
+                'text' => 'Cancelled'
+            ],
+
+            'partially_returned' => [
+                'bg' => '#fef3c7',
+                'color' => '#92400e',
+                'text' => 'Partial Return'
+            ],
+
+            'returned' => [
+                'bg' => '#e5e7eb',
+                'color' => '#111827',
+                'text' => 'Returned'
+            ]
+        ];
     $is = $invoiceStatusColors[$invoice->status] ?? $invoiceStatusColors['draft'];
 
     $showGST = $invoice->invoice_type !== 'cash';

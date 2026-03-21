@@ -169,6 +169,7 @@
                         <option value="">All Status</option>
                         <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
                         <option value="used" {{ request('status') == 'used' ? 'selected' : '' }}>Used</option>
+                        <option value="advance_transferred" {{ request('status') == 'advance_transferred' ? 'selected' : '' }}>Advance Transferred</option>
                         <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                     </select>
                 </div>
@@ -275,7 +276,37 @@
                             <span class="amount-main">₹ {{ number_format($note->amount_float, 2) }}</span>
                         </td>
                         <td class="tc-used">
-                            <span class="amount-used">₹ {{ number_format($note->used_amount_float, 2) }}</span>
+                            @php
+                                $totalAmount   = (float) $note->amount_float;
+                                $usedAmount    = (float) $note->used_amount_float;
+                                $invoiceUsed   = $totalAmount - $usedAmount; // jo invoice balance clear karne mein gaya
+                                $advanceUsed   = $usedAmount;                // jo advance mein gaya
+                                $isAdvance     = $note->status === 'advance_transferred';
+                            @endphp
+
+                            @if($isAdvance && $invoiceUsed > 0.001 && $advanceUsed > 0.001)
+                                {{-- Case 3: Kuch invoice mein, kuch advance mein --}}
+                                <div style="display:flex;flex-direction:column;gap:2px;">
+                                    <span style="font-size:10.5px;font-weight:600;color:#3b82f6;">
+                                        ₹ {{ number_format($invoiceUsed, 2) }}
+                                        <span style="font-size:9px;color:#6b7280;font-weight:400;">invoice</span>
+                                    </span>
+                                    <span style="font-size:10.5px;font-weight:600;color:#f97316;">
+                                        ₹ {{ number_format($advanceUsed, 2) }}
+                                        <span style="font-size:9px;color:#6b7280;font-weight:400;">advance</span>
+                                    </span>
+                                </div>
+                            @elseif($isAdvance && $advanceUsed > 0.001)
+                                {{-- Poora advance mein gaya --}}
+                                <div style="display:flex;flex-direction:column;gap:2px;">
+                                    <span style="font-size:10.5px;font-weight:600;color:#f97316;">
+                                        ₹ {{ number_format($advanceUsed, 2) }}
+                                        <span style="font-size:9px;color:#6b7280;font-weight:400;">advance</span>
+                                    </span>
+                                </div>
+                            @else
+                                <span class="amount-used">₹ {{ number_format($usedAmount, 2) }}</span>
+                            @endif
                         </td>
                         <td class="tc-remaining">
                             <span class="amount-remaining">₹ {{ number_format($note->remaining_amount_float, 2) }}</span>
@@ -283,9 +314,10 @@
                         <td class="tc-status">
                             @php
                                 $statusMap = [
-                                    'active'    => ['cls' => 'cn-status--active', 'label' => 'Active'],
-                                    'used'      => ['cls' => 'cn-status--used', 'label' => 'Used'],
-                                    'cancelled' => ['cls' => 'cn-status--cancelled', 'label' => 'Cancelled'],
+                                    'active'               => ['cls' => 'cn-status--active',    'label' => 'Active'],
+                                    'used'                 => ['cls' => 'cn-status--used',      'label' => 'Used'],
+                                    'cancelled'            => ['cls' => 'cn-status--cancelled', 'label' => 'Cancelled'],
+                                    'advance_transferred'  => ['cls' => 'cn-status--advance',   'label' => 'Advance'],
                                 ];
                                 $sm = $statusMap[$note->status] ?? $statusMap['active'];
                             @endphp
@@ -836,6 +868,7 @@
 .cn-status--active    { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
 .cn-status--used      { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
 .cn-status--cancelled { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.cn-status--advance   { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
 
 /* Actions */
 .cn-act-grp { display: flex; gap: 4px; align-items: center; }

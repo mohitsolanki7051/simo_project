@@ -13,6 +13,7 @@ class Salesman extends Model
     protected $collection = 'salesmen';
 
     protected $fillable = [
+        'type',
         'name',
         'phone',
         'email',
@@ -53,6 +54,21 @@ class Salesman extends Model
     public function payments()
     {
         return $this->hasMany(SalesmanPayment::class, 'salesman_id');
+    }
+    public function purchaseInvoices()
+    {
+        return $this->hasMany(PurchaseInvoice::class, 'purchase_executive_id');
+    }
+
+    public function vendors()
+    {
+        return $this->hasMany(Vendor::class, 'purchase_executive_id');
+    }
+
+    // 👇 NEW: Scope for purchase executives
+    public function scopePurchaseExecutives($query)
+    {
+        return $query->where('type', 'purchase_executive');
     }
 
     // ── Helpers ───────────────────────────────────────────────────

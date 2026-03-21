@@ -59,6 +59,7 @@ public function create(Request $request)
 
     // NEW: Get active salesmen for dropdown
     $salesmen = \App\Models\Salesman::where('status', 'active')
+        ->whereNull('type')
         ->orderBy('name')
         ->get(['_id', 'name']);
 
@@ -211,6 +212,7 @@ public function edit($id)
 
     // NEW: Get active salesmen for dropdown
     $salesmen = \App\Models\Salesman::where('status', 'active')
+        ->whereNull('type')
         ->orderBy('name')
         ->get(['_id', 'name']);
 

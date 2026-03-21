@@ -54,6 +54,12 @@
                     <circle cx="12" cy="12" r="10"/>
                     <path d="M12 6v6l4 2"/>
                 </svg>
+            @elseif($creditNote->status === 'advance_transferred')
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 8v4l3 3"/>
+                    <path d="M8 12h4"/>
+                </svg>
             @else
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <circle cx="12" cy="12" r="10"/>
@@ -61,7 +67,13 @@
                 </svg>
             @endif
         </div>
-        <span class="status-text">{{ ucfirst($creditNote->status) }} Credit Note</span>
+        <span class="status-text">
+            @if($creditNote->status === 'advance_transferred')
+                Transferred to Customer Advance
+            @else
+                {{ ucfirst($creditNote->status) }} Credit Note
+            @endif
+        </span>
     </div>
 
     {{-- ── Main Content ── --}}
@@ -107,13 +119,45 @@
                             <span class="cn-show-info-label">Total Amount</span>
                             <span class="cn-show-info-value cn-show-amount-total">₹ {{ number_format($creditNote->amount_float, 2) }}</span>
                         </div>
+                        @php
+                            $totalAmt    = (float) $creditNote->amount_float;
+                            $usedAmt     = (float) $creditNote->used_amount_float;
+                            $remainingAmt= (float) $creditNote->remaining_amount_float;
+                            $invoiceUsed = $totalAmt - $usedAmt;
+                            $advanceUsed = $usedAmt;
+                            $isAdvance   = $creditNote->status === 'advance_transferred';
+                        @endphp
+
                         <div class="cn-show-info-item">
                             <span class="cn-show-info-label">Used Amount</span>
-                            <span class="cn-show-info-value cn-show-amount-used">₹ {{ number_format($creditNote->used_amount_float, 2) }}</span>
+                            <span class="cn-show-info-value">
+                                @if($isAdvance && $invoiceUsed > 0.001 && $advanceUsed > 0.001)
+                                    {{-- Kuch invoice mein, kuch advance mein --}}
+                                    <div style="display:flex;flex-direction:column;gap:4px;margin-top:2px;">
+                                        <span style="display:flex;align-items:center;gap:6px;">
+                                            <span style="font-weight:600;color:#3b82f6;font-size:13px;">₹ {{ number_format($invoiceUsed, 2) }}</span>
+                                            <span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:3px;font-weight:600;">Invoice</span>
+                                        </span>
+                                        <span style="display:flex;align-items:center;gap:6px;">
+                                            <span style="font-weight:600;color:#f97316;font-size:13px;">₹ {{ number_format($advanceUsed, 2) }}</span>
+                                            <span style="font-size:10px;background:#fff7ed;color:#c2410c;padding:1px 6px;border-radius:3px;font-weight:600;">Advance</span>
+                                        </span>
+                                    </div>
+                                @elseif($isAdvance && $advanceUsed > 0.001)
+                                    {{-- Poora advance mein --}}
+                                    <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+                                        <span style="font-weight:600;color:#f97316;font-size:13px;">₹ {{ number_format($advanceUsed, 2) }}</span>
+                                        <span style="font-size:10px;background:#fff7ed;color:#c2410c;padding:1px 6px;border-radius:3px;font-weight:600;">Advance</span>
+                                    </div>
+                                @else
+                                    <span class="cn-show-amount-used">₹ {{ number_format($usedAmt, 2) }}</span>
+                                @endif
+                            </span>
                         </div>
+
                         <div class="cn-show-info-item">
                             <span class="cn-show-info-label">Remaining</span>
-                            <span class="cn-show-info-value cn-show-amount-remaining">₹ {{ number_format($creditNote->remaining_amount_float, 2) }}</span>
+                            <span class="cn-show-info-value cn-show-amount-remaining">₹ {{ number_format($remainingAmt, 2) }}</span>
                         </div>
                         <div class="cn-show-info-item">
                             <span class="cn-show-info-label">Status</span>
@@ -366,8 +410,8 @@
             </div>
 
             {{-- Usage History Card (for used notes) --}}
-            @if($creditNote->status === 'used')
-            <div class="cn-show-info-card cn-show-usage-card">
+            @if($creditNote->status === 'used' || $creditNote->status === 'advance_transferred')
+            <div class="cn-show-info-card cn-show-usage-card" style="{{ $creditNote->status === 'advance_transferred' ? 'border-left: 3px solid #f97316;' : '' }}">
                 <div class="cn-show-card-header">
                     <div class="cn-show-card-icon">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -375,14 +419,36 @@
                             <polyline points="12 6 12 12 16 14"/>
                         </svg>
                     </div>
-                    <h3>Usage History</h3>
+                    <h3>{{ $creditNote->status === 'advance_transferred' ? 'Advance Transfer Info' : 'Usage History' }}</h3>
                 </div>
                 <div class="cn-show-card-body">
-                    <p class="cn-show-usage-text">
-                        This credit note has been fully utilized for invoice adjustments.
-                        <br>
-                        <span class="cn-show-usage-note">Total used: ₹ {{ number_format($creditNote->used_amount_float, 2) }}</span>
-                    </p>
+                    @if($creditNote->status === 'advance_transferred')
+                        @php
+                            $totalAmt2   = (float) $creditNote->amount_float;
+                            $advAmt      = (float) $creditNote->used_amount_float;
+                            $invAmt      = $totalAmt2 - $advAmt;
+                        @endphp
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            @if($invAmt > 0.001)
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#dbeafe;border-radius:6px;">
+                                <span style="font-size:12px;color:#1e40af;font-weight:500;">Applied to Invoice Balance</span>
+                                <span style="font-size:13px;font-weight:700;color:#1e40af;">₹ {{ number_format($invAmt, 2) }}</span>
+                            </div>
+                            @endif
+                            @if($advAmt > 0.001)
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff7ed;border-radius:6px;">
+                                <span style="font-size:12px;color:#c2410c;font-weight:500;">Transferred to Customer Advance</span>
+                                <span style="font-size:13px;font-weight:700;color:#c2410c;">₹ {{ number_format($advAmt, 2) }}</span>
+                            </div>
+                            @endif
+                        </div>
+                    @else
+                        <p class="cn-show-usage-text">
+                            This credit note has been fully utilized for invoice adjustments.
+                            <br>
+                            <span class="cn-show-usage-note">Total used: ₹ {{ number_format($creditNote->used_amount_float, 2) }}</span>
+                        </p>
+                    @endif
                 </div>
             </div>
             @endif
@@ -694,7 +760,16 @@
     background: #fee2e2;
     color: #991b1b;
 }
-
+.cn-show-status-badge.status-advance_transferred {
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+}
+.cn-show-status-banner.status-advance_transferred {
+    background: #fff7ed;
+    color: #c2410c;
+    border-left: 4px solid #f97316;
+}
 /* Payment badge */
 .cn-show-payment-badge {
     display: inline-block;

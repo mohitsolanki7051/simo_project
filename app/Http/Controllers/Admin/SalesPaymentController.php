@@ -200,9 +200,6 @@ class SalesPaymentController extends Controller
         }
     }
 
-    /**
-     * Get party details with unpaid/partial invoices
-     */
     public function getPartyDetails($partyId)
     {
         try {
@@ -212,15 +209,18 @@ class SalesPaymentController extends Controller
             return response()->json([
                 'success' => true,
                 'party' => [
-                    'id' => (string) $party->_id,
-                    'name' => $party->name,
-                    'phone' => $party->phone ?? '-',
-                    'party_type' => $party->party_type,
+                    'id'              => (string) $party->_id,
+                    'name'            => $party->name,
+                    'phone'           => $party->phone ?? '-',
+                    'party_type'      => $party->party_type,
                     'party_type_text' => ucfirst($party->party_type ?? ''),
                     'opening_balance' => $dueDetails['opening_balance'],
-                    'invoice_due' => $dueDetails['invoice_due'],
-                    'total_due' => $dueDetails['total_due'],
-                    'invoices' => $dueDetails['invoices']
+                    'invoice_due'     => $dueDetails['invoice_due'],
+                    'total_due'       => $dueDetails['total_due'],
+                    'credit_balance'  => $dueDetails['credit_balance'],   // NEW
+                    'net_payable'     => $dueDetails['net_payable'],       // NEW
+                    'invoices'        => $dueDetails['invoices'],
+                    'credit_notes'    => $dueDetails['credit_notes'],      // NEW
                 ]
             ]);
 
@@ -233,17 +233,10 @@ class SalesPaymentController extends Controller
         }
     }
 
-    /**
-     * Calculate party due details — only unpaid/partial invoices shown.
-     * Balance is always recalculated as grand_total - total_paid so that
-     * partial invoices show the correct PENDING amount, not the full total.
-     */
     private function getPartyDueDetails($party)
     {
         $openingBalance = (float) ($party->opening_balance ?? 0);
 
-        // MongoDB stores party_id as ObjectId in some docs and string in others.
-        // Query both forms to ensure all invoices are found.
         $partyIdStr = (string) $party->_id;
         $partyIdObj = new \MongoDB\BSON\ObjectId($partyIdStr);
 
@@ -251,7 +244,7 @@ class SalesPaymentController extends Controller
             ->whereIn('payment_status', ['unpaid', 'partial'])
             ->where(function($q) use ($partyIdStr, $partyIdObj) {
                 $q->where('party_id', $partyIdStr)
-                  ->orWhere('party_id', $partyIdObj);
+                ->orWhere('party_id', $partyIdObj);
             })
             ->orderBy('invoice_date', 'asc')
             ->orderBy('created_at', 'asc')
@@ -259,10 +252,7 @@ class SalesPaymentController extends Controller
             ->map(function($invoice) {
                 $grandTotal = $this->decimalToFloat($invoice->grand_total);
                 $totalPaid  = $this->decimalToFloat($invoice->total_paid);
-
-                // Always recalculate — never trust the stored balance_amount
-                // because it may be stale after previous partial payments.
-                $balance = max(0, round($grandTotal - $totalPaid, 2));
+                $balance    = max(0, round($grandTotal - $totalPaid, 2));
                 $invoice->load('warehouse');
                 return [
                     'id'             => (string) $invoice->_id,
@@ -278,59 +268,121 @@ class SalesPaymentController extends Controller
                     'warehouse_name' => $invoice->warehouse->name ?? '—',
                     'grand_total'    => $grandTotal,
                     'paid'           => $totalPaid,
-                    'balance'        => $balance,   // ← pending amount only
+                    'balance'        => $balance,
                     'payment_status' => $invoice->payment_status,
                 ];
             })
-            // Drop any invoice that somehow has zero pending (safety net)
             ->filter(fn($inv) => $inv['balance'] > 0)
             ->values();
 
-        // invoice_due = sum of PENDING balances across all unpaid+partial invoices
         $invoiceDue = round($invoices->sum('balance'), 2);
 
+        // ── NEW: fetch active credit notes for this party ──────────────
+        $creditNotes = \App\Models\CreditNote::where('party_id', $partyIdStr)
+            ->where('status', 'active')
+            ->where('remaining_amount', '>', 0)
+            ->orderBy('credit_date', 'asc')
+            ->get()
+            ->map(function($cn) {
+                return [
+                    'id'                 => (string) $cn->_id,
+                    'credit_note_number' => $cn->credit_note_number,
+                    'credit_date'        => $cn->credit_date instanceof \Carbon\Carbon
+                        ? $cn->credit_date->format('d-m-Y')
+                        : date('d-m-Y', strtotime($cn->credit_date)),
+                    'amount'             => $this->decimalToFloat($cn->amount),
+                    'used_amount'        => $this->decimalToFloat($cn->used_amount),
+                    'remaining_amount'   => $this->decimalToFloat($cn->remaining_amount),
+                    'reason'             => $cn->reason ?? '',
+                ];
+            });
+
+        $totalCreditBalance = round($creditNotes->sum('remaining_amount'), 2);
+
+        // Net payable = opening + invoice dues − credit notes
+        $netPayable = round($openingBalance + $invoiceDue - $totalCreditBalance, 2);
+        $netPayable = max(0, $netPayable);
+        // ── END NEW ────────────────────────────────────────────────────
+
         return [
-            'opening_balance' => $openingBalance,
-            'invoice_due'     => $invoiceDue,
-            'total_due'       => round($openingBalance + $invoiceDue, 2),
-            'invoices'        => $invoices,
+            'opening_balance'     => $openingBalance,
+            'invoice_due'         => $invoiceDue,
+            'total_due'           => round($openingBalance + $invoiceDue, 2), // raw total (for display)
+            'credit_balance'      => $totalCreditBalance,                     // NEW
+            'net_payable'         => $netPayable,                             // NEW
+            'invoices'            => $invoices,
+            'credit_notes'        => $creditNotes,                            // NEW
         ];
     }
-
-    /**
-     * Store Payment In transaction
-     */
     public function store(Request $request)
     {
         $request->validate([
             'party_id'       => 'required',
-            'amount'         => 'required|numeric|min:0.01',
+            'amount'         => 'required|numeric|min:0',   // 0 allowed if fully covered by credit
             'payment_date'   => 'required|date',
             'payment_method' => 'required|in:cash,upi,bank_transfer,cheque,card'
         ]);
 
         try {
             $party = Customer::findOrFail($request->party_id);
-            $amount = (float) $request->amount;
+            $cashAmount = (float) $request->amount;
 
-            // Refresh due details at the time of saving
             $dueDetails = $this->getPartyDueDetails($party);
 
-            if ($amount > ($dueDetails['total_due'] + 0.01)) {
+            // Validate: cash cannot exceed net payable
+            if ($cashAmount > ($dueDetails['net_payable'] + 0.01)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Payment amount (₹ ' . number_format($amount, 2) .
-                                 ') cannot exceed total due (₹ ' . number_format($dueDetails['total_due'], 2) . ')'
+                    'message' => 'Payment amount (₹ ' . number_format($cashAmount, 2) .
+                                ') cannot exceed net payable (₹ ' . number_format($dueDetails['net_payable'], 2) . ')'
                 ], 422);
             }
 
             $paymentNumber = $this->generatePaymentNumber();
-            $remainingAmount = $amount;
-            $allocations = [];
+            $allocations   = [];
 
-            // 1. Handle opening balance first
-            if ($dueDetails['opening_balance'] > 0 && $remainingAmount > 0) {
-                $payToOpening = min($dueDetails['opening_balance'], $remainingAmount);
+            // ── PASS 1: Credit note allocation (applied first, oldest first) ──
+            $creditAllocations = [];
+            $creditUsedTotal   = 0;
+
+            foreach ($dueDetails['credit_notes'] as $cnData) {
+                if ($cnData['remaining_amount'] <= 0) continue;
+
+                $creditModel = \App\Models\CreditNote::find($cnData['id']);
+                if (!$creditModel) continue;
+
+                $toUse = $cnData['remaining_amount']; // use full remaining credit
+
+                $creditModel->used_amount      = $this->decimalToFloat($creditModel->used_amount) + $toUse;
+                $creditModel->remaining_amount = max(0, $this->decimalToFloat($creditModel->remaining_amount) - $toUse);
+                if ($creditModel->remaining_amount <= 0.01) {
+                    $creditModel->remaining_amount = 0;
+                    $creditModel->status           = 'used';
+                }
+                $creditModel->save();
+
+                $creditAllocations[] = [
+                    'type'                => 'credit_note',
+                    'credit_note_id'      => $cnData['id'],
+                    'credit_note_number'  => $cnData['credit_note_number'],
+                    'amount'              => $toUse,
+                    'description'         => 'Credit Note Adjustment: ' . $cnData['credit_note_number'],
+                ];
+
+                $creditUsedTotal += $toUse;
+            }
+
+            // Merge credit allocations at the start
+            $allocations = array_merge($allocations, $creditAllocations);
+
+            // ── Build a "virtual payment pool" = credit + cash ────────────────
+            // This pool is used to settle opening balance then invoices.
+            $pool = $creditUsedTotal + $cashAmount;
+            $remainingPool = $pool;
+
+            // ── PASS 2: Opening balance ───────────────────────────────────────
+            if ($dueDetails['opening_balance'] > 0 && $remainingPool > 0) {
+                $payToOpening = min($dueDetails['opening_balance'], $remainingPool);
 
                 if ($payToOpening > 0) {
                     $party->opening_balance = max(0, $dueDetails['opening_balance'] - $payToOpening);
@@ -339,67 +391,70 @@ class SalesPaymentController extends Controller
                     $allocations[] = [
                         'type'        => 'opening_balance',
                         'amount'      => $payToOpening,
-                        'description' => 'Opening Balance Payment'
+                        'description' => 'Opening Balance Payment',
                     ];
 
-                    $remainingAmount -= $payToOpening;
+                    $remainingPool -= $payToOpening;
                 }
             }
 
-            // 2. Handle invoices (oldest first)
-            if ($remainingAmount > 0.001) {
-                foreach ($dueDetails['invoices'] as $invoiceData) {
-                    if ($remainingAmount <= 0.001) break;
+            // ── PASS 3: Invoices (oldest first) ───────────────────────────────
+            foreach ($dueDetails['invoices'] as $invoiceData) {
+                if ($remainingPool <= 0.001) break;
 
-                    $invoice = SalesInvoice::find($invoiceData['id']);
-                    if (!$invoice || $invoiceData['balance'] <= 0) continue;
+                $invoice = SalesInvoice::find($invoiceData['id']);
+                if (!$invoice || $invoiceData['balance'] <= 0) continue;
 
-                    $payToInvoice = min($invoiceData['balance'], $remainingAmount);
+                $payToInvoice = min($invoiceData['balance'], $remainingPool);
 
-                    if ($payToInvoice > 0.001) {
-                        $newPaid    = $invoiceData['paid'] + $payToInvoice;
-                        $newBalance = $invoiceData['balance'] - $payToInvoice;
+                if ($payToInvoice > 0.001) {
+                    $newPaid    = $invoiceData['paid'] + $payToInvoice;
+                    $newBalance = $invoiceData['balance'] - $payToInvoice;
 
-                        $paymentStatus = ($newBalance <= 0.01) ? 'paid' : 'partial';
-                        if ($paymentStatus === 'paid') $newBalance = 0;
+                    $paymentStatus = ($newBalance <= 0.01) ? 'paid' : 'partial';
+                    if ($paymentStatus === 'paid') $newBalance = 0;
 
-                        $invoice->update([
-                            'total_paid'     => round($newPaid, 2),
-                            'balance_amount' => round($newBalance, 2),
-                            'payment_status' => $paymentStatus
-                        ]);
+                    $invoice->update([
+                        'total_paid'     => round($newPaid, 2),
+                        'balance_amount' => round($newBalance, 2),
+                        'payment_status' => $paymentStatus,
+                    ]);
 
-                        $allocations[] = [
-                            'type'             => 'invoice',
-                            'invoice_id'       => (string) $invoice->_id,
-                            'invoice_number'   => $invoice->invoice_number,
-                            'amount'           => round($payToInvoice, 2),
-                            'previous_balance' => round($invoiceData['balance'], 2),
-                            'new_balance'      => round($newBalance, 2)
-                        ];
+                    $allocations[] = [
+                        'type'             => 'invoice',
+                        'invoice_id'       => (string) $invoice->_id,
+                        'invoice_number'   => $invoice->invoice_number,
+                        'amount'           => round($payToInvoice, 2),
+                        'previous_balance' => round($invoiceData['balance'], 2),
+                        'new_balance'      => round($newBalance, 2),
+                    ];
 
-                        $remainingAmount -= $payToInvoice;
-                    }
+                    $remainingPool -= $payToInvoice;
                 }
             }
 
-            // 3. Create payment record
-            SalesPayment::create([
-                'payment_number' => $paymentNumber,
-                'party_id'       => $request->party_id,
-                'amount'         => round($amount, 2),
-                'payment_method' => $request->payment_method,
-                'payment_date'   => $request->payment_date,
-                'status'         => 'completed',
-                'reference_no'   => $request->reference_no,
-                'notes'          => $request->notes,
-                'payment_type'   => 'payment_in',
-                'allocations'    => $allocations
-            ]);
+            // ── PASS 4: Save the cash payment record ─────────────────────────
+            // Only create a payment record if the customer actually paid cash.
+            if ($cashAmount > 0.001) {
+                SalesPayment::create([
+                    'payment_number' => $paymentNumber,
+                    'party_id'       => $request->party_id,
+                    'amount'         => round($cashAmount, 2),
+                    'payment_method' => $request->payment_method,
+                    'payment_date'   => $request->payment_date,
+                    'status'         => 'completed',
+                    'reference_no'   => $request->reference_no,
+                    'notes'          => $request->notes,
+                    'payment_type'   => 'payment_in',
+                    'allocations'    => $allocations,
+                ]);
+            }
 
             return response()->json([
                 'success'        => true,
                 'payment_number' => $paymentNumber,
+                'credit_used'    => round($creditUsedTotal, 2),
+                'cash_paid'      => round($cashAmount, 2),
                 'message'        => 'Payment recorded successfully'
             ]);
 
@@ -411,10 +466,6 @@ class SalesPaymentController extends Controller
             ], 500);
         }
     }
-
-    /**
-     * Show payment details
-     */
      public function show($id)
     {
         try {
@@ -475,6 +526,7 @@ class SalesPaymentController extends Controller
         try {
             $payment = SalesPayment::findOrFail($id);
 
+            // SAHI — credit_note case add karo
             foreach ($payment->allocations as $allocation) {
                 if ($allocation['type'] === 'opening_balance') {
                     $party = Customer::find($payment->party_id);
@@ -491,18 +543,22 @@ class SalesPaymentController extends Controller
                         $newBalance  = $grandTotal - $newPaid;
 
                         $paymentStatus = 'unpaid';
-                        if ($newPaid > 0 && $newBalance > 0.01) {
-                            $paymentStatus = 'partial';
-                        } elseif ($newBalance <= 0.01) {
-                            $paymentStatus = 'paid';
-                            $newBalance = 0;
-                        }
+                        if ($newPaid > 0 && $newBalance > 0.01) $paymentStatus = 'partial';
+                        elseif ($newBalance <= 0.01) { $paymentStatus = 'paid'; $newBalance = 0; }
 
                         $invoice->update([
                             'total_paid'     => round($newPaid, 2),
                             'balance_amount' => round($newBalance, 2),
                             'payment_status' => $paymentStatus
                         ]);
+                    }
+                } elseif ($allocation['type'] === 'credit_note') {  // ← NEW
+                    $creditNote = \App\Models\CreditNote::find($allocation['credit_note_id']);
+                    if ($creditNote) {
+                        $creditNote->used_amount      = max(0, $this->decimalToFloat($creditNote->used_amount) - $allocation['amount']);
+                        $creditNote->remaining_amount = $this->decimalToFloat($creditNote->amount) - $this->decimalToFloat($creditNote->used_amount);
+                        $creditNote->status           = $creditNote->remaining_amount > 0 ? 'active' : 'used';
+                        $creditNote->save();
                     }
                 }
             }

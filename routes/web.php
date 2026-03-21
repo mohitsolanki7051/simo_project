@@ -9,10 +9,6 @@ use App\Http\Controllers\Admin\BarcodeController;
 use App\Http\Controllers\Admin\WarehouseController;
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\CategoryController;
-use App\Http\Controllers\Admin\OrderController;
-use App\Http\Controllers\Admin\SupplierController;
-use App\Http\Controllers\Admin\PurchaseController;
-use App\Http\Controllers\Admin\SupplierPaymentController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\SalesInvoiceController;
 use App\Http\Controllers\Admin\InvoiceSettingController;
@@ -24,7 +20,9 @@ use App\Http\Controllers\Admin\QuotationController;
 use App\Http\Controllers\Admin\DefectiveStockController;
 use App\Http\Controllers\Admin\SalesReturnController;
 use App\Http\Controllers\Admin\CreditNoteController;
-
+use App\Http\Controllers\Admin\PurchaseExecutiveController;
+use App\Http\Controllers\Admin\VendorController;
+use App\Http\Controllers\Admin\PurchaseInvoiceController;
 // Redirect root URL based on authentication status
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -254,6 +252,51 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/{id}/search-parties',     [SalesmanController::class, 'searchParties'])->name('search-parties');
             Route::get('/{id}/download-report',    [SalesmanController::class, 'downloadReport'])->name('download-report');
         });
+
+        // web.php - Add after salesmen routes
+
+        Route::prefix('purchase-executives')->name('purchase-executives.')->group(function () {
+            // ── Static routes FIRST ──────────────────────────────────────
+            Route::get('/',                        [PurchaseExecutiveController::class, 'index'])->name('index');
+            Route::get('/create',                  [PurchaseExecutiveController::class, 'create'])->name('create');
+            Route::post('/',                       [PurchaseExecutiveController::class, 'store'])->name('store');
+            Route::post('/bulk-update-status',     [PurchaseExecutiveController::class, 'bulkUpdateStatus'])->name('bulk-update-status');
+            Route::get('/check-phone',             [PurchaseExecutiveController::class, 'checkPhone'])->name('check-phone');
+            Route::get('/check-email',             [PurchaseExecutiveController::class, 'checkEmail'])->name('check-email');
+            Route::get('/vendor-counts',            [PurchaseExecutiveController::class, 'getVendorCounts'])->name('vendor-counts');
+
+            // ── {id} routes AFTER static ─────────────────────────────────
+            Route::get('/{id}',                    [PurchaseExecutiveController::class, 'show'])->name('show');
+            Route::get('/{id}/edit',               [PurchaseExecutiveController::class, 'edit'])->name('edit');
+            Route::put('/{id}',                    [PurchaseExecutiveController::class, 'update'])->name('update');
+            Route::get('/{id}/vendors',            [PurchaseExecutiveController::class, 'getAssignedVendors'])->name('assigned-vendors');
+            Route::get('/{id}/search-vendors',     [PurchaseExecutiveController::class, 'searchVendors'])->name('search-vendors');
+        });
+
+        Route::prefix('vendors')->name('vendors.')->group(function () {
+        // ── Static routes FIRST ──────────────────────────────────────
+        Route::get('/',                        [VendorController::class, 'index'])->name('index');
+        Route::get('/create',                  [VendorController::class, 'create'])->name('create');
+        Route::post('/',                       [VendorController::class, 'store'])->name('store');
+        Route::post('/bulk-update-status',     [VendorController::class, 'bulkUpdateStatus'])->name('bulk-update-status');
+
+        // AJAX search
+        Route::get('/search',                   [VendorController::class, 'searchVendors'])->name('search');
+        Route::get('/{id}/details',             [VendorController::class, 'getVendorDetails'])->name('details');
+
+        // ── {id} routes AFTER static ─────────────────────────────────
+        Route::get('/{id}',                     [VendorController::class, 'show'])->name('show');
+        Route::get('/{id}/edit',                [VendorController::class, 'edit'])->name('edit');
+        Route::put('/{id}',                     [VendorController::class, 'update'])->name('update');
+        Route::get('/{id}/ledger',               [VendorController::class, 'ledger'])->name('ledger');
+
+        // Address management
+        Route::get('/{id}/addresses/{type}',     [VendorController::class, 'getAddresses'])->name('addresses.list');
+        Route::post('/{id}/addresses',           [VendorController::class, 'storeAddress'])->name('addresses.store');
+        Route::put('/addresses/{addressId}',     [VendorController::class, 'updateAddress'])->name('addresses.update');
+        Route::delete('/addresses/{addressId}',  [VendorController::class, 'destroyAddress'])->name('addresses.destroy');
+        Route::post('/addresses/{addressId}/default', [VendorController::class, 'setDefaultAddress'])->name('addresses.default');
+    });
         // Warranty Routes
         Route::prefix('warranty')->name('warranty.')->group(function () {
             Route::get('/', [WarrantyController::class, 'index'])->name('index');
@@ -335,6 +378,30 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/{id}', [CreditNoteController::class, 'show'])->name('show');
             Route::post('/{id}/cancel', [CreditNoteController::class, 'cancel'])->name('cancel');
         });
+
+       // Purchase Invoice Routes
+Route::prefix('purchases')->name('purchases.')->group(function () {
+    Route::get('/', [PurchaseInvoiceController::class, 'index'])->name('index');
+    Route::get('/create', [PurchaseInvoiceController::class, 'create'])->name('create');
+    Route::post('/', [PurchaseInvoiceController::class, 'store'])->name('store');
+
+    // AJAX routes
+    Route::get('/parties-list', [PurchaseInvoiceController::class, 'getPartiesList'])->name('parties.list');
+    Route::get('/party-details/{id}', [PurchaseInvoiceController::class, 'getPartyDetails'])->name('party-details');
+    Route::post('/create-party', [PurchaseInvoiceController::class, 'storePartyAjax'])->name('create-party');
+    Route::get('/get-warehouse-products', [PurchaseInvoiceController::class, 'getWarehouseProducts'])->name('get-warehouse-products');
+
+    // *** NEW: Quick Add Product from inside Purchase Invoice modal ***
+    Route::post('/quick-add-product', [PurchaseInvoiceController::class, 'quickAddSimpleProduct'])->name('quick-add-product');
+
+    // Invoice actions
+    Route::get('/{id}', [PurchaseInvoiceController::class, 'show'])->name('show');
+    Route::get('/{id}/edit', [PurchaseInvoiceController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])->name('update');
+    Route::post('/{id}/generate', [PurchaseInvoiceController::class, 'generate'])->name('generate');
+    Route::post('/{id}/cancel', [PurchaseInvoiceController::class, 'cancel'])->name('cancel');
+    Route::delete('/{id}', [PurchaseInvoiceController::class, 'destroy'])->name('destroy');
+});
 
 
     });

@@ -3311,7 +3311,20 @@ function selectParty(partyId) {
 
         closeSelectPartyModal();
         showAlert('Party changed to ' + p.name + ' successfully', 'success');
-
+        // ── Advance Balance show karo ──
+        $('#advanceBalanceRow').remove();
+        const advBal = parseFloat(p.advance_balance || 0);
+        if (advBal > 0) {
+            $('.info-column').first().append(`
+                <div class="info-row" id="advanceBalanceRow">
+                    <span class="info-label">Advance:</span>
+                    <span class="info-value" style="color:#047857;font-weight:600;">
+                        ₹ ${advBal.toFixed(2)}
+                        <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">AUTO-ADJUST</small>
+                    </span>
+                </div>
+            `);
+        }
         // ✅ NEW: Check credit limit status after party selection
         checkCreditLimitStatus(p.id);
     });
@@ -3692,10 +3705,29 @@ function calculateTotals() {
 }
 
 function calculateBalance() {
-    const grandTotal = parseFloat($('#grandTotal').text().replace(/,/g, '')) || 0;
-    const amountPaid = parseFloat($('#amountPaid').val()) || 0;
-    const balance = grandTotal - amountPaid;
-    $('#balanceAmount').text(balance.toFixed(2));
+    const grandTotal  = parseFloat($('#grandTotal').text().replace(/,/g, '')) || 0;
+    const amountPaid  = parseFloat($('#amountPaid').val()) || 0;
+    const advanceBal  = window.selectedParty ? parseFloat(window.selectedParty.advance_balance || 0) : 0;
+
+    const advanceWillUse  = Math.min(advanceBal, grandTotal);
+    const cashRequired    = Math.max(0, grandTotal - advanceWillUse);
+    const totalWillBePaid = amountPaid + advanceWillUse;
+    const finalBalance    = Math.max(0, grandTotal - totalWillBePaid);
+
+    $('#balanceAmount').text(finalBalance.toFixed(2));
+
+    $('#advanceUsedInfo').remove();
+    if (advanceWillUse > 0) {
+        $('#amountPaid').closest('.payment-section-container').append(`
+            <div id="advanceUsedInfo" style="margin-top:8px;padding:8px 10px;background:#d1fae5;border-radius:5px;font-size:11px;color:#065f46;border:1px solid #6ee7b7;">
+                ✓ Advance Balance ₹${advanceWillUse.toFixed(2)} will be auto-adjusted on generate
+                <br>
+                <span style="font-size:10px;color:#047857;">
+                    Customer needs to pay only ₹${cashRequired.toFixed(2)} in cash
+                </span>
+            </div>
+        `);
+    }
 }
 
 function validateForm() {
@@ -3771,6 +3803,30 @@ $(document).ready(function() {
     }
     function fetchStockForExistingItems() {
         const warehouseId = $('input[name="warehouse_id"]').val();
+
+        // Advance balance fetch karo aur show karo
+        const partyIdForAdv = $('#partyIdInput').val();
+        if (partyIdForAdv) {
+            $.get('{{ route('admin.sales.get-party-details', ':id') }}'.replace(':id', partyIdForAdv), function(res) {
+                if (res.success) {
+                    window.selectedParty = res.party; 
+                    const advBal = parseFloat(res.party.advance_balance || 0);
+                    $('#advanceBalanceRow').remove();
+                    if (advBal > 0) {
+                        $('.info-column').first().append(`
+                            <div class="info-row" id="advanceBalanceRow">
+                                <span class="info-label">Advance:</span>
+                                <span class="info-value" style="color:#047857;font-weight:600;">
+                                    ₹ ${advBal.toFixed(2)}
+                                    <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">AUTO-ADJUST</small>
+                                </span>
+                            </div>
+                        `);
+                    }
+                }
+            });
+        }
+
         if (!warehouseId || items.length === 0) {
             renderItemsTable();
             return;

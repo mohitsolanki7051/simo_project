@@ -67,131 +67,95 @@ class SalesInvoiceController extends Controller
         }
     }
 
-public function index(Request $request)
-{
-    $query = SalesInvoice::with(['party', 'warehouse', 'salesman'])
-        ->orderBy('created_at', 'desc');
+    public function index(Request $request)
+    {
+        $query = SalesInvoice::with(['party', 'warehouse', 'salesman'])
+            ->orderBy('created_at', 'desc');
 
-    // ── Period filter
-    if ($request->filled('period')) {
-        $period = $request->period;
-        if ($period === 'today') {
-            $query->whereDate('invoice_date', today());
-        } elseif ($period === 'custom') {
-            if ($request->filled('date_from'))
-                $query->whereDate('invoice_date', '>=', $request->date_from);
-            if ($request->filled('date_to'))
-                $query->whereDate('invoice_date', '<=', $request->date_to);
-        } elseif (is_numeric($period)) {
-            $query->whereDate('invoice_date', '>=', now()->subDays((int)$period)->toDateString());
+        if ($request->filled('period')) {
+            $period = $request->period;
+            if ($period === 'today') {
+                $query->whereDate('invoice_date', today());
+            } elseif ($period === 'custom') {
+                if ($request->filled('date_from')) $query->whereDate('invoice_date', '>=', $request->date_from);
+                if ($request->filled('date_to'))   $query->whereDate('invoice_date', '<=', $request->date_to);
+            } elseif (is_numeric($period)) {
+                $query->whereDate('invoice_date', '>=', now()->subDays((int)$period)->toDateString());
+            }
         }
-    }
+        if ($request->filled('date'))         $query->whereDate('invoice_date', $request->date);
+        if ($request->filled('invoice_number')) $query->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
+        if ($request->filled('invoice_type') && $request->invoice_type != '') $query->where('invoice_type', $request->invoice_type);
+        if ($request->filled('party_id') && $request->party_id != '')         $query->where('party_id', $request->party_id);
+        if ($request->filled('payment_status') && $request->payment_status != '') $query->where('payment_status', $request->payment_status);
+        if ($request->filled('status') && $request->status != '')             $query->where('status', $request->status);
+        if ($request->filled('warehouse_id') && $request->warehouse_id != '') $query->where('warehouse_id', $request->warehouse_id);
 
-    // ── Single date filter
-    if ($request->filled('date')) {
-        $query->whereDate('invoice_date', $request->date);
-    }
+        $invoices = $query->paginate(20)->withQueryString();
 
-    // ── Invoice Number search (partial match)
-    if ($request->filled('invoice_number')) {
-        $query->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
-    }
+        /* ── Credit Note Map + Advance Map ── */
+        $partyIds = $invoices->pluck('party_id')
+            ->map(fn($id) => (string)$id)
+            ->unique()->values()->toArray();
 
-    // ── Invoice Type filter
-    if ($request->filled('invoice_type') && $request->invoice_type != '') {
-        $query->where('invoice_type', $request->invoice_type);
-    }
+        $creditNoteMap = [];
+        $advanceMap    = [];
 
-    // ── Party filter
-    if ($request->filled('party_id') && $request->party_id != '') {
-        $query->where('party_id', $request->party_id);
-    }
+        if (!empty($partyIds)) {
+            \App\Models\CreditNote::whereIn('party_id', $partyIds)
+                ->where('status', 'active')
+                ->where('remaining_amount', '>', 0)
+                ->get()
+                ->each(function ($cn) use (&$creditNoteMap) {
+                    $pid = (string) $cn->party_id;
+                    $creditNoteMap[$pid] = ($creditNoteMap[$pid] ?? 0) + $this->decimalToFloat($cn->remaining_amount);
+                });
 
-    // ── Payment Status filter
-    if ($request->filled('payment_status') && $request->payment_status != '') {
-        $query->where('payment_status', $request->payment_status);
-    }
-
-    // ── Invoice Status filter
-    if ($request->filled('status') && $request->status != '') {
-        $query->where('status', $request->status);
-    }
-
-    // ── Warehouse filter
-    if ($request->filled('warehouse_id') && $request->warehouse_id != '') {
-        $query->where('warehouse_id', $request->warehouse_id);
-    }
-
-    $invoices = $query->paginate(20)->withQueryString();
-
-    /* ================= STATS QUERY - ALL FILTERS APPLY ================= */
-    $statsQuery = SalesInvoice::where('status', '!=', 'draft');
-
-    // Period filter on stats
-    if ($request->filled('period')) {
-        $period = $request->period;
-        if ($period === 'today') {
-            $statsQuery->whereDate('invoice_date', today());
-        } elseif ($period === 'custom') {
-            if ($request->filled('date_from'))
-                $statsQuery->whereDate('invoice_date', '>=', $request->date_from);
-            if ($request->filled('date_to'))
-                $statsQuery->whereDate('invoice_date', '<=', $request->date_to);
-        } elseif (is_numeric($period)) {
-            $statsQuery->whereDate('invoice_date', '>=', now()->subDays((int)$period)->toDateString());
+            \App\Models\Customer::whereIn('_id', $partyIds)
+                ->get()
+                ->each(function ($c) use (&$advanceMap) {
+                    $adv = (float) ($c->advance_balance ?? 0);
+                    if ($adv > 0) $advanceMap[(string)$c->_id] = $adv;
+                });
         }
+
+        /* ── Stats Query ── */
+        $statsQuery = SalesInvoice::where('status', '!=', 'draft');
+
+        if ($request->filled('period')) {
+            $period = $request->period;
+            if ($period === 'today') {
+                $statsQuery->whereDate('invoice_date', today());
+            } elseif ($period === 'custom') {
+                if ($request->filled('date_from')) $statsQuery->whereDate('invoice_date', '>=', $request->date_from);
+                if ($request->filled('date_to'))   $statsQuery->whereDate('invoice_date', '<=', $request->date_to);
+            } elseif (is_numeric($period)) {
+                $statsQuery->whereDate('invoice_date', '>=', now()->subDays((int)$period)->toDateString());
+            }
+        }
+        if ($request->filled('date'))           $statsQuery->whereDate('invoice_date', $request->date);
+        if ($request->filled('invoice_number')) $statsQuery->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
+        if ($request->filled('invoice_type') && $request->invoice_type != '')  $statsQuery->where('invoice_type', $request->invoice_type);
+        if ($request->filled('party_id') && $request->party_id != '')          $statsQuery->where('party_id', $request->party_id);
+        if ($request->filled('payment_status') && $request->payment_status != '') $statsQuery->where('payment_status', $request->payment_status);
+        if ($request->filled('status') && $request->status != '')              $statsQuery->where('status', $request->status);
+        if ($request->filled('warehouse_id') && $request->warehouse_id != '')  $statsQuery->where('warehouse_id', $request->warehouse_id);
+
+        $totalSalesRaw  = (clone $statsQuery)->sum('grand_total');
+        $totalPaidRaw   = (clone $statsQuery)->whereIn('payment_status', ['paid', 'partial'])->sum('total_paid');
+        $totalUnpaidRaw = (clone $statsQuery)->whereIn('payment_status', ['unpaid', 'partial'])->sum('balance_amount');
+
+        $totalSales  = $this->decimalToFloat($totalSalesRaw);
+        $totalPaid   = $this->decimalToFloat($totalPaidRaw);
+        $totalUnpaid = $this->decimalToFloat($totalUnpaidRaw);
+
+        $customers = Customer::where('status', 'active')->orderBy('name')->get();
+
+        return view('admin.sales.index', compact(
+            'invoices', 'totalSales', 'totalPaid', 'totalUnpaid',
+            'customers', 'creditNoteMap', 'advanceMap'
+        ));
     }
-
-    // Single date filter on stats
-    if ($request->filled('date')) {
-        $statsQuery->whereDate('invoice_date', $request->date);
-    }
-
-    // Invoice number filter on stats
-    if ($request->filled('invoice_number')) {
-        $statsQuery->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
-    }
-
-    // Invoice Type filter on stats
-    if ($request->filled('invoice_type') && $request->invoice_type != '') {
-        $statsQuery->where('invoice_type', $request->invoice_type);
-    }
-
-    // Party filter on stats
-    if ($request->filled('party_id') && $request->party_id != '') {
-        $statsQuery->where('party_id', $request->party_id);
-    }
-
-    // Payment Status filter on stats
-    if ($request->filled('payment_status') && $request->payment_status != '') {
-        $statsQuery->where('payment_status', $request->payment_status);
-    }
-
-    // Invoice Status filter on stats
-    if ($request->filled('status') && $request->status != '') {
-        $statsQuery->where('status', $request->status);
-    }
-
-    // Warehouse filter on stats
-    if ($request->filled('warehouse_id') && $request->warehouse_id != '') {
-        $statsQuery->where('warehouse_id', $request->warehouse_id);
-    }
-
-    // Calculate stats
-    $totalSalesRaw  = (clone $statsQuery)->sum('grand_total');
-    $totalPaidRaw   = (clone $statsQuery)->whereIn('payment_status', ['paid', 'partial'])->sum('total_paid');
-    $totalUnpaidRaw = (clone $statsQuery)->whereIn('payment_status', ['unpaid', 'partial'])->sum('balance_amount');
-
-    $totalSales  = $this->decimalToFloat($totalSalesRaw);
-    $totalPaid   = $this->decimalToFloat($totalPaidRaw);
-    $totalUnpaid = $this->decimalToFloat($totalUnpaidRaw);
-
-    $customers = Customer::where('status', 'active')->orderBy('name')->get();
-
-    return view('admin.sales.index', compact(
-        'invoices', 'totalSales', 'totalPaid', 'totalUnpaid', 'customers'
-    ));
-}
 
     /**
      * Show the form for creating a new sales invoice.
@@ -312,357 +276,278 @@ public function cancel($id)
 }
     public function store(Request $request)
     {
-        // Decode items JSON if needed
         if ($request->has('items') && is_string($request->items)) {
-            $request->merge([
-                'items' => json_decode($request->items, true)
-            ]);
+            $request->merge(['items' => json_decode($request->items, true)]);
         }
 
-        // Validation
         $request->validate([
-            'party_id' => 'required|exists:customers,_id',
-            'party_type' => 'required|in:customer,dealer,distributor',
-            'warehouse_id' => 'required|exists:warehouses,_id',
-            'invoice_date' => 'required|date',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required',
-            'items.*.product_type' => 'required|in:simple,variant',
-            'items.*.variant_id' => 'nullable',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.price' => 'required|numeric|min:0',
-            'items.*.mrp_price' => 'required|numeric|min:0',
-            'items.*.discount' => 'nullable|numeric|min:0|max:100',
-            'items.*.tax_percent' => 'nullable|numeric|min:0|max:100',
-            'extra_discount' => 'nullable|numeric|min:0',
-            'extra_discount_type' => 'nullable|in:amount,percent',
-            'extra_charge' => 'nullable|numeric|min:0',
-            'amount_paid' => 'nullable|numeric|min:0',
+            'party_id'              => 'required|exists:customers,_id',
+            'party_type'            => 'required|in:customer,dealer,distributor',
+            'warehouse_id'          => 'required|exists:warehouses,_id',
+            'invoice_date'          => 'required|date',
+            'items'                 => 'required|array|min:1',
+            'items.*.product_id'    => 'required',
+            'items.*.product_type'  => 'required|in:simple,variant',
+            'items.*.variant_id'    => 'nullable',
+            'items.*.quantity'      => 'required|numeric|min:0.01',
+            'items.*.price'         => 'required|numeric|min:0',
+            'items.*.mrp_price'     => 'required|numeric|min:0',
+            'items.*.discount'      => 'nullable|numeric|min:0|max:100',
+            'items.*.tax_percent'   => 'nullable|numeric|min:0|max:100',
+            'extra_discount'        => 'nullable|numeric|min:0',
+            'extra_discount_type'   => 'nullable|in:amount,percent',
+            'extra_charge'          => 'nullable|numeric|min:0',
+            'amount_paid'           => 'nullable|numeric|min:0',
         ]);
 
         try {
-            /* ================= GET PARTY ADDRESSES ================= */
-            $party = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
-             $openingBalance = (float) ($party->opening_balance ?? 0);
+            $party          = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
+            $openingBalance = (float) ($party->opening_balance ?? 0);
 
-            // Existing unpaid invoices ka total balance
             $unpaidInvoicesBalance = SalesInvoice::where('party_id', $request->party_id)
                 ->where('status', '!=', 'draft')
                 ->where('payment_status', '!=', 'paid')
                 ->sum('balance_amount');
-
             $unpaidInvoicesBalance = $this->decimalToFloat($unpaidInvoicesBalance);
 
-            // TOTAL CURRENT DUE = Opening Balance + Unpaid Invoices Balance
-            $currentDue = $openingBalance + $unpaidInvoicesBalance;
-
-            $grandTotal = (float) $request->grand_total;
-            $amountPaid = (float) ($request->amount_paid ?? 0);
-            $newInvoiceBalance = $grandTotal - $amountPaid;
-
-            // Total due after this invoice
-            $totalDueAfterInvoice = $currentDue + $newInvoiceBalance;
-
-            // Credit limit check
-            $creditLimit = (float) ($party->credit_limit ?? 0);
+            $currentDue          = $openingBalance + $unpaidInvoicesBalance;
+            $grandTotalFromReq   = (float) $request->grand_total;
+            $amountPaidFromReq   = (float) ($request->amount_paid ?? 0);
+            $newInvoiceBalance   = $grandTotalFromReq - $amountPaidFromReq;
+            $totalDueAfterInvoice= $currentDue + $newInvoiceBalance;
+            $creditLimit         = (float) ($party->credit_limit ?? 0);
 
             if ($creditLimit > 0 && $totalDueAfterInvoice > $creditLimit) {
-                        $availableCredit = max(0, $creditLimit - $currentDue);
+                $availableCredit         = max(0, $creditLimit - $currentDue);
+                $formattedOpeningBalance = number_format($openingBalance, 2);
+                $formattedUnpaidInvoices = number_format($unpaidInvoicesBalance, 2);
+                $formattedCurrentDue     = number_format($currentDue, 2);
+                $formattedNewBalance     = number_format($newInvoiceBalance, 2);
+                $formattedTotalDue       = number_format($totalDueAfterInvoice, 2);
+                $formattedCreditLimit    = number_format($creditLimit, 2);
+                $formattedAvailable      = number_format($availableCredit, 2);
 
-                        $formattedOpeningBalance = number_format($openingBalance, 2);
-                        $formattedUnpaidInvoices = number_format($unpaidInvoicesBalance, 2);
-                        $formattedCurrentDue = number_format($currentDue, 2);
-                        $formattedNewBalance = number_format($newInvoiceBalance, 2);
-                        $formattedTotalDue = number_format($totalDueAfterInvoice, 2);
-                        $formattedCreditLimit = number_format($creditLimit, 2);
-                        $formattedAvailable = number_format($availableCredit, 2);
-
-                        throw new \Exception(
-                            "❌ Credit Limit Exceeded!\n\n" .
-                            "Credit Limit: ₹{$formattedCreditLimit}\n" .
-                            "─────────────────────\n" .
-                            "Opening Balance: ₹{$formattedOpeningBalance}\n" .
-                            "Unpaid Invoices: ₹{$formattedUnpaidInvoices}\n" .
-                            "Current Due: ₹{$formattedCurrentDue}\n" .
-                            "─────────────────────\n" .
-                            "New Invoice Balance: ₹{$formattedNewBalance}\n" .
-                            "Total After Invoice: ₹{$formattedTotalDue}\n" .
-                            "─────────────────────\n" .
-                            "Available Credit: ₹{$formattedAvailable}\n\n" .
-                            "💡 Customer can only take items worth ₹{$formattedAvailable} on credit.\n" .
-                            "Please collect payment or increase credit limit."
-                        );
-                    }
-
-            $billingAddress = $party->addresses
-                ->where('type', 'billing')
-                ->where('is_default', true)
-                ->first();
-
-            $shippingAddress = $party->addresses
-                ->where('type', 'shipping')
-                ->where('is_default', true)
-                ->first();
-
-            /* ================= GET WAREHOUSE STATE ================= */
-            $warehouse = Warehouse::find($request->warehouse_id);
-            $warehouseState = $warehouse->state ?? '';
-
-            /* ================= GET PARTY STATE ================= */
-            $partyState = '';
-            if ($billingAddress) {
-                $partyState = $billingAddress->state ?? '';
+                throw new \Exception(
+                    "❌ Credit Limit Exceeded!\n\n" .
+                    "Credit Limit: ₹{$formattedCreditLimit}\n" .
+                    "─────────────────────\n" .
+                    "Opening Balance: ₹{$formattedOpeningBalance}\n" .
+                    "Unpaid Invoices: ₹{$formattedUnpaidInvoices}\n" .
+                    "Current Due: ₹{$formattedCurrentDue}\n" .
+                    "─────────────────────\n" .
+                    "New Invoice Balance: ₹{$formattedNewBalance}\n" .
+                    "Total After Invoice: ₹{$formattedTotalDue}\n" .
+                    "─────────────────────\n" .
+                    "Available Credit: ₹{$formattedAvailable}\n\n" .
+                    "💡 Customer can only take items worth ₹{$formattedAvailable} on credit.\n" .
+                    "Please collect payment or increase credit limit."
+                );
             }
 
-            /* ================= DETERMINE TAX TYPE ================= */
-            $isIntraState = (!empty($warehouseState) && !empty($partyState) && $warehouseState === $partyState);
-            $taxType = $isIntraState ? 'intra' : 'inter';
+            $billingAddress  = $party->addresses->where('type', 'billing')->where('is_default', true)->first();
+            $shippingAddress = $party->addresses->where('type', 'shipping')->where('is_default', true)->first();
 
-            /* ================= TOTAL CALCULATION WITH GST SPLIT ================= */
-            $totalMRP = 0;
+            $warehouse      = Warehouse::find($request->warehouse_id);
+            $warehouseState = $warehouse->state ?? '';
+            $partyState     = $billingAddress ? ($billingAddress->state ?? '') : '';
+            $isIntraState   = (!empty($warehouseState) && !empty($partyState) && $warehouseState === $partyState);
+            $taxType        = $isIntraState ? 'intra' : 'inter';
+
+            $totalMRP            = 0;
             $totalDiscountAmount = 0;
-            $subtotal = 0; // This is WITHOUT tax
-            $taxTotal = 0;
-            $cgstTotal = 0;
-            $sgstTotal = 0;
-            $igstTotal = 0;
-            $itemsData = [];
+            $subtotal            = 0;
+            $taxTotal            = 0;
+            $cgstTotal           = 0;
+            $sgstTotal           = 0;
+            $igstTotal           = 0;
+            $itemsData           = [];
 
             foreach ($request->items as $item) {
-                $qty = (float) $item['quantity'];
-                $mrpPrice = (float) $item['mrp_price'];
-                $salePrice = (float) $item['price'];
-                $discountPercent = (float) ($item['discount'] ?? 0);
-                $taxPercent = (float) ($item['tax_percent'] ?? 0);
-
-                // MRP Total
-                $itemMRPTotal = $qty * $mrpPrice;
-                $totalMRP += $itemMRPTotal;
-
-                // Discount amount - difference between MRP and Sale Price
-                $itemDiscountAmount = ($mrpPrice - $salePrice) * $qty;
-                $totalDiscountAmount += $itemDiscountAmount;
-
-                // Sale price total (WITHOUT TAX) - This is subtotal
-                $itemSaleTotal = $qty * $salePrice;
-                $subtotal += $itemSaleTotal;
-
-                // Tax calculation based on tax type
-                $itemTax = ($itemSaleTotal * $taxPercent) / 100;
-                $taxTotal += $itemTax;
+                $qty             = (float) $item['quantity'];
+                $mrpPrice        = (float) $item['mrp_price'];
+                $salePrice       = (float) $item['price'];
+                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
+                $itemMRPTotal    = $qty * $mrpPrice;
+                $totalMRP       += $itemMRPTotal;
+                $itemDiscountAmt = ($mrpPrice - $salePrice) * $qty;
+                $totalDiscountAmount += $itemDiscountAmt;
+                $itemSaleTotal   = $qty * $salePrice;
+                $subtotal       += $itemSaleTotal;
+                $itemTax         = ($itemSaleTotal * $taxPercent) / 100;
+                $taxTotal       += $itemTax;
 
                 if ($isIntraState) {
-                    // Split tax equally into CGST and SGST
-                    $halfTax = $itemTax / 2;
-                    $cgstTotal += $halfTax;
-                    $sgstTotal += $halfTax;
+                    $halfTax            = $itemTax / 2;
+                    $cgstTotal         += $halfTax;
+                    $sgstTotal         += $halfTax;
                     $item['cgst_amount'] = $halfTax;
                     $item['sgst_amount'] = $halfTax;
                     $item['igst_amount'] = 0;
                 } else {
-                    // Full tax as IGST
-                    $igstTotal += $itemTax;
-                    $item['igst_amount'] = $itemTax;
-                    $item['cgst_amount'] = 0;
-                    $item['sgst_amount'] = 0;
+                    $igstTotal          += $itemTax;
+                    $item['igst_amount']  = $itemTax;
+                    $item['cgst_amount']  = 0;
+                    $item['sgst_amount']  = 0;
                 }
-
                 $itemsData[] = $item;
             }
 
-            /* ================= EXTRA DISCOUNT HANDLING - APPLIED ON SUBTOTAL ONLY ================= */
-            $extraDiscountValue = 0;
+            $extraDiscountValue  = 0;
             $extraDiscountAmount = 0;
-            $extraDiscountType = $request->extra_discount_type ?? 'amount';
+            $extraDiscountType   = $request->extra_discount_type ?? 'amount';
 
             if ($request->filled('extra_discount') && (float)$request->extra_discount > 0) {
                 $extraDiscountValue = (float)$request->extra_discount;
-
-                if ($extraDiscountType === 'percent') {
-                    // Calculate discount on SUBTOTAL only, NOT on tax
-                    $extraDiscountAmount = ($subtotal * $extraDiscountValue) / 100;
-                } else {
-                    // Fixed amount discount
-                    $extraDiscountAmount = $extraDiscountValue;
-                }
+                $extraDiscountAmount = $extraDiscountType === 'percent'
+                    ? ($subtotal * $extraDiscountValue) / 100
+                    : $extraDiscountValue;
             }
 
-            /* ================= EXTRA CHARGE ================= */
-            $extraCharge = (float) ($request->extra_charge ?? 0);
-
-            /* ================= GRAND TOTAL CALCULATION ================= */
-            // Formula: (Subtotal - Extra Discount) + Tax + Extra Charge
+            $extraCharge           = (float) ($request->extra_charge ?? 0);
             $afterDiscountSubtotal = $subtotal - $extraDiscountAmount;
-            $grandTotal = $afterDiscountSubtotal + $taxTotal + $extraCharge;
+            $grandTotal            = $afterDiscountSubtotal + $taxTotal + $extraCharge;
 
-            // Round off
             $roundOff = 0;
             if ($request->auto_round_off) {
-                $rounded = round($grandTotal);
+                $rounded  = round($grandTotal);
                 $roundOff = $rounded - $grandTotal;
                 $grandTotal = $rounded;
             }
 
-            /* ================= PAYMENT CALCULATION ================= */
-            $amountPaid = (float) ($request->amount_paid ?? 0);
+            /* ================= PAYMENT + ADVANCE BALANCE ================= */
+            $amountPaid     = (float) ($request->amount_paid ?? 0);
+            $advanceUsed    = 0;
+
             $balance = $grandTotal - $amountPaid;
 
             if ($amountPaid <= 0) {
                 $paymentStatus = 'unpaid';
             } elseif ($balance <= 0.01) {
                 $paymentStatus = 'paid';
-                $balance = 0;
+                $balance       = 0;
             } else {
                 $paymentStatus = 'partial';
             }
 
-            // Generate invoice number if not provided
             $invoiceNumber = $request->invoice_number ?? $this->generateInvoiceNumber();
 
-            /* ================= CREATE INVOICE AS DRAFT ================= */
             $invoice = SalesInvoice::create([
-                'invoice_number' => $invoiceNumber,
-                'public_token'   => \Illuminate\Support\Str::random(40),
-                'invoice_type' => $request->invoice_type,
-                'invoice_date' => $request->invoice_date,
-                'party_id' => $request->party_id,
-                'salesman_id' => $party->salesman_id,
-                'warehouse_id' => $request->warehouse_id,
-
-                // Addresses
-                'billing_address' => $billingAddress ? $billingAddress->full_address : $request->billing_address,
-                'shipping_address' => $shippingAddress ? $shippingAddress->full_address : $request->shipping_address,
-
-                // Invoice details
-                'payment_terms' => $request->payment_terms,
-                'due_date' => $request->due_date,
-                'po_number' => $request->po_number,
-
-                // Financial totals
-                'total_mrp' => round($totalMRP, 2),
-                'subtotal' => round($subtotal, 2),
-                'discount_total' => round($totalDiscountAmount, 2),
-                'tax_total' => round($taxTotal, 2),
-                'cgst_total' => round($cgstTotal, 2),
-                'sgst_total' => round($sgstTotal, 2),
-                'igst_total' => round($igstTotal, 2),
-                'tax_type' => $taxType,
-
-                // Extra fields
-                'extra_discount' => round($extraDiscountValue, 2),
+                'invoice_number'      => $invoiceNumber,
+                'public_token'        => \Illuminate\Support\Str::random(40),
+                'invoice_type'        => $request->invoice_type,
+                'invoice_date'        => $request->invoice_date,
+                'party_id'            => $request->party_id,
+                'salesman_id'         => $party->salesman_id,
+                'warehouse_id'        => $request->warehouse_id,
+                'billing_address'     => $billingAddress ? $billingAddress->full_address : $request->billing_address,
+                'shipping_address'    => $shippingAddress ? $shippingAddress->full_address : $request->shipping_address,
+                'payment_terms'       => $request->payment_terms,
+                'due_date'            => $request->due_date,
+                'po_number'           => $request->po_number,
+                'total_mrp'           => round($totalMRP, 2),
+                'subtotal'            => round($subtotal, 2),
+                'discount_total'      => round($totalDiscountAmount, 2),
+                'tax_total'           => round($taxTotal, 2),
+                'cgst_total'          => round($cgstTotal, 2),
+                'sgst_total'          => round($sgstTotal, 2),
+                'igst_total'          => round($igstTotal, 2),
+                'tax_type'            => $taxType,
+                'extra_discount'      => round($extraDiscountValue, 2),
                 'extra_discount_type' => $extraDiscountType,
-                'extra_charge' => round($extraCharge, 2),
-                'charge_name' => $request->charge_name,
-                'round_off' => round($roundOff, 2),
-                'grand_total' => round($grandTotal, 2),
-
-                // Payment info
-                'total_paid' => round($amountPaid, 2),
-                'balance_amount' => round($balance, 2),
-                'payment_status' => $paymentStatus,
-
-                'status' => 'draft', // Always create as draft
-                'notes' => $request->notes,
-                'created_by' => Auth::guard('admin')->id(),
+                'extra_charge'        => round($extraCharge, 2),
+                'charge_name'         => $request->charge_name,
+                'round_off'           => round($roundOff, 2),
+                'grand_total'         => round($grandTotal, 2),
+                'total_paid'          => round($amountPaid, 2),
+                'balance_amount'      => round($balance, 2),
+                'payment_status'      => $paymentStatus,
+                'advance_used'        => round($advanceUsed, 2),
+                'status'              => 'draft',
+                'notes'               => $request->notes,
+                'created_by'          => Auth::guard('admin')->id(),
             ]);
 
-            /* ================= CREATE INVOICE ITEMS (NO STOCK DEDUCTION YET) ================= */
             foreach ($request->items as $index => $item) {
-                $qty = (float) $item['quantity'];
-                $mrpPrice = (float) $item['mrp_price'];
-                $salePrice = (float) $item['price'];
+                $qty             = (float) $item['quantity'];
+                $mrpPrice        = (float) $item['mrp_price'];
+                $salePrice       = (float) $item['price'];
                 $discountPercent = (float) ($item['discount'] ?? 0);
-                $taxPercent = (float) ($item['tax_percent'] ?? 0);
+                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
+                $cgstAmount      = $itemsData[$index]['cgst_amount'] ?? 0;
+                $sgstAmount      = $itemsData[$index]['sgst_amount'] ?? 0;
+                $igstAmount      = $itemsData[$index]['igst_amount'] ?? 0;
 
-                // Get tax split amounts (calculated earlier)
-                $cgstAmount = $itemsData[$index]['cgst_amount'] ?? 0;
-                $sgstAmount = $itemsData[$index]['sgst_amount'] ?? 0;
-                $igstAmount = $itemsData[$index]['igst_amount'] ?? 0;
-
-                // Get product details
                 if ($item['product_type'] === 'simple') {
-                    $product = SimpleProduct::find($item['product_id']);
+                    $product     = SimpleProduct::find($item['product_id']);
                     $productName = $product->name ?? 'Unknown Product';
-                    $sku = $product->sku_code ?? '';
-                    $barcode = $product->barcode ?? '';
-                    $unit = $product->unit ?? 'PCS';
-                    $hsnSac = $product->hsn_code ?? '';
+                    $sku         = $product->sku_code ?? '';
+                    $barcode     = $product->barcode ?? '';
+                    $unit        = $product->unit ?? 'PCS';
+                    $hsnSac      = $product->hsn_code ?? '';
                     $variantName = null;
                 } else {
-                    $product = VariantProduct::find($item['product_id']);
+                    $product     = VariantProduct::find($item['product_id']);
                     $productName = $product->name ?? 'Unknown Product';
-                    $hsnSac = $product->hsn_code ?? '';
-
-                    // Get variant details
-                    $variants = $product->variants ?? [];
-                    $variant = collect($variants)->first(function($v) use ($item) {
-                        $vId = isset($v['_id']) ? (string)$v['_id'] : null;
-                        return $vId === $item['variant_id'];
+                    $hsnSac      = $product->hsn_code ?? '';
+                    $variants    = $product->variants ?? [];
+                    $variant     = collect($variants)->first(function($v) use ($item) {
+                        return (string)(isset($v['_id']) ? $v['_id'] : null) === $item['variant_id'];
                     });
-
                     $variantName = $variant['name'] ?? null;
-                    $sku = $variant['sku_code'] ?? '';
-                    $barcode = $variant['barcode'] ?? '';
-                    $unit = $variant['unit'] ?? 'PCS';
+                    $sku         = $variant['sku_code'] ?? '';
+                    $barcode     = $variant['barcode'] ?? '';
+                    $unit        = $variant['unit'] ?? 'PCS';
                 }
 
-                // Calculate item totals
-                $itemMRPTotal = $qty * $mrpPrice;
-                $itemDiscountAmount = ($mrpPrice - $salePrice) * $qty;
                 $itemSaleTotal = $qty * $salePrice;
-                $itemTax = ($itemSaleTotal * $taxPercent) / 100;
-                $itemFinal = $itemSaleTotal + $itemTax;
+                $itemTax       = ($itemSaleTotal * $taxPercent) / 100;
+                $itemFinal     = $itemSaleTotal + $itemTax;
 
-                // Warranty calculation
-                $warrantyType = $item['warranty_type'] ?? 'none';
+                $warrantyType   = $item['warranty_type'] ?? 'none';
                 $warrantyPeriod = (int) ($item['warranty_period'] ?? 0);
-                $warrantyStart = null;
-                $warrantyEnd = null;
+                $warrantyStart  = null;
+                $warrantyEnd    = null;
 
                 if ($warrantyType !== 'none' && $warrantyPeriod > 0) {
                     $warrantyStart = $request->invoice_date;
-                    $warrantyEnd = $this->calculateWarrantyEnd($warrantyStart, $warrantyType, $warrantyPeriod);
+                    $warrantyEnd   = $this->calculateWarrantyEnd($warrantyStart, $warrantyType, $warrantyPeriod);
                 }
 
-                // Create item
                 SalesInvoiceItem::create([
                     'sales_invoice_id' => $invoice->_id,
-                    'product_id' => $item['product_id'],
-                    'variant_id' => $item['variant_id'] ?? null,
-                    'product_name' => $productName,
-                    'variant_name' => $variantName,
-                    'sku' => $sku,
-                    'barcode' => $barcode,
-                    'hsn_sac' => $hsnSac,
-                    'quantity' => $qty,
-                    'unit' => $unit,
-                    'mrp_price' => round($mrpPrice, 2),
-                    'price' => round($salePrice, 2),
-                    'discount' => round($discountPercent, 2),
-                    'tax_percent' => round($taxPercent, 2),
-                    'tax_amount' => round($itemTax, 2),
-                    'cgst_amount' => round($cgstAmount, 2),
-                    'sgst_amount' => round($sgstAmount, 2),
-                    'igst_amount' => round($igstAmount, 2),
-                    'total' => round($itemFinal, 2),
-                    'warranty_type' => $warrantyType,
-                    'warranty_period' => $warrantyPeriod,
-                    'warranty_start' => $warrantyStart,
-                    'warranty_end' => $warrantyEnd,
+                    'product_id'       => $item['product_id'],
+                    'variant_id'       => $item['variant_id'] ?? null,
+                    'product_name'     => $productName,
+                    'variant_name'     => $variantName,
+                    'sku'              => $sku,
+                    'barcode'          => $barcode,
+                    'hsn_sac'          => $hsnSac,
+                    'quantity'         => $qty,
+                    'unit'             => $unit,
+                    'mrp_price'        => round($mrpPrice, 2),
+                    'price'            => round($salePrice, 2),
+                    'discount'         => round($discountPercent, 2),
+                    'tax_percent'      => round($taxPercent, 2),
+                    'tax_amount'       => round($itemTax, 2),
+                    'cgst_amount'      => round($cgstAmount, 2),
+                    'sgst_amount'      => round($sgstAmount, 2),
+                    'igst_amount'      => round($igstAmount, 2),
+                    'total'            => round($itemFinal, 2),
+                    'warranty_type'    => $warrantyType,
+                    'warranty_period'  => $warrantyPeriod,
+                    'warranty_start'   => $warrantyStart,
+                    'warranty_end'     => $warrantyEnd,
                 ]);
             }
 
             return response()->json([
-                'success' => true,
+                'success'    => true,
                 'invoice_id' => $invoice->_id,
-                'message' => 'Invoice draft created successfully'
+                'message'    => 'Invoice draft created successfully'
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
@@ -715,84 +600,61 @@ public function cancel($id)
     {
         $invoice = SalesInvoice::findOrFail($id);
 
-        // Check if invoice is editable
         if ($invoice->status !== 'draft') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Only draft invoices can be updated.'
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Only draft invoices can be updated.'], 403);
         }
 
-        // Decode items JSON if needed
         if ($request->has('items') && is_string($request->items)) {
-            $request->merge([
-                'items' => json_decode($request->items, true)
-            ]);
+            $request->merge(['items' => json_decode($request->items, true)]);
         }
 
-        // Validation
         $request->validate([
-            'party_id' => 'required|exists:customers,_id',
-            'party_type' => 'required|in:customer,dealer,distributor',
-            'warehouse_id' => 'required|exists:warehouses,_id',
-            'invoice_date' => 'required|date',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required',
-            'items.*.product_type' => 'required|in:simple,variant',
-            'items.*.variant_id' => 'nullable',
-            'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.price' => 'required|numeric|min:0',
-            'items.*.mrp_price' => 'required|numeric|min:0',
-            'items.*.discount' => 'nullable|numeric|min:0|max:100',
-            'items.*.tax_percent' => 'nullable|numeric|min:0|max:100',
-            'extra_discount' => 'nullable|numeric|min:0',
-            'extra_discount_type' => 'nullable|in:amount,percent',
-            'extra_charge' => 'nullable|numeric|min:0',
-            'amount_paid' => 'nullable|numeric|min:0',
+            'party_id'              => 'required|exists:customers,_id',
+            'party_type'            => 'required|in:customer,dealer,distributor',
+            'warehouse_id'          => 'required|exists:warehouses,_id',
+            'invoice_date'          => 'required|date',
+            'items'                 => 'required|array|min:1',
+            'items.*.product_id'    => 'required',
+            'items.*.product_type'  => 'required|in:simple,variant',
+            'items.*.variant_id'    => 'nullable',
+            'items.*.quantity'      => 'required|numeric|min:0.01',
+            'items.*.price'         => 'required|numeric|min:0',
+            'items.*.mrp_price'     => 'required|numeric|min:0',
+            'items.*.discount'      => 'nullable|numeric|min:0|max:100',
+            'items.*.tax_percent'   => 'nullable|numeric|min:0|max:100',
+            'extra_discount'        => 'nullable|numeric|min:0',
+            'extra_discount_type'   => 'nullable|in:amount,percent',
+            'extra_charge'          => 'nullable|numeric|min:0',
+            'amount_paid'           => 'nullable|numeric|min:0',
         ]);
 
         try {
-
-            /* ================= GET PARTY ADDRESSES ================= */
-            $party = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
-
-            // Opening balance
+            $party          = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
             $openingBalance = (float) ($party->opening_balance ?? 0);
 
-            // Existing unpaid invoices ka total balance (excluding current invoice)
             $unpaidInvoicesBalance = SalesInvoice::where('party_id', $request->party_id)
                 ->where('status', '!=', 'draft')
                 ->where('payment_status', '!=', 'paid')
-                ->where('_id', '!=', $id) // Exclude current invoice
+                ->where('_id', '!=', $id)
                 ->sum('balance_amount');
-
             $unpaidInvoicesBalance = $this->decimalToFloat($unpaidInvoicesBalance);
 
-            // TOTAL CURRENT DUE = Opening Balance + Unpaid Invoices Balance
-            $currentDue = $openingBalance + $unpaidInvoicesBalance;
-
-            // New invoice ka balance (grand_total - amount_paid)
-            $grandTotal = (float) $request->grand_total;
-            $amountPaid = (float) ($request->amount_paid ?? 0);
-            $newInvoiceBalance = $grandTotal - $amountPaid;
-
-            // Total due after this invoice
+            $currentDue           = $openingBalance + $unpaidInvoicesBalance;
+            $grandTotalFromReq    = (float) $request->grand_total;
+            $amountPaidFromReq    = (float) ($request->amount_paid ?? 0);
+            $newInvoiceBalance    = $grandTotalFromReq - $amountPaidFromReq;
             $totalDueAfterInvoice = $currentDue + $newInvoiceBalance;
+            $creditLimit          = (float) ($party->credit_limit ?? 0);
 
-            // Credit limit check
-            $creditLimit = (float) ($party->credit_limit ?? 0);
-
-            // Agar credit limit set hai to check karo
             if ($creditLimit > 0 && $totalDueAfterInvoice > $creditLimit) {
-                $availableCredit = max(0, $creditLimit - $currentDue);
-
+                $availableCredit         = max(0, $creditLimit - $currentDue);
                 $formattedOpeningBalance = number_format($openingBalance, 2);
                 $formattedUnpaidInvoices = number_format($unpaidInvoicesBalance, 2);
-                $formattedCurrentDue = number_format($currentDue, 2);
-                $formattedNewBalance = number_format($newInvoiceBalance, 2);
-                $formattedTotalDue = number_format($totalDueAfterInvoice, 2);
-                $formattedCreditLimit = number_format($creditLimit, 2);
-                $formattedAvailable = number_format($availableCredit, 2);
+                $formattedCurrentDue     = number_format($currentDue, 2);
+                $formattedNewBalance     = number_format($newInvoiceBalance, 2);
+                $formattedTotalDue       = number_format($totalDueAfterInvoice, 2);
+                $formattedCreditLimit    = number_format($creditLimit, 2);
+                $formattedAvailable      = number_format($availableCredit, 2);
 
                 throw new \Exception(
                     "❌ Credit Limit Exceeded!\n\n" .
@@ -811,238 +673,212 @@ public function cancel($id)
                 );
             }
 
-            $billingAddress = $party->addresses
-                ->where('type', 'billing')
-                ->where('is_default', true)
-                ->first();
+            $billingAddress  = $party->addresses->where('type', 'billing')->where('is_default', true)->first();
+            $shippingAddress = $party->addresses->where('type', 'shipping')->where('is_default', true)->first();
 
-            $shippingAddress = $party->addresses
-                ->where('type', 'shipping')
-                ->where('is_default', true)
-                ->first();
-
-            /* ================= GET WAREHOUSE STATE ================= */
-            $warehouse = Warehouse::find($request->warehouse_id);
+            $warehouse      = Warehouse::find($request->warehouse_id);
             $warehouseState = $warehouse->state ?? '';
+            $partyState     = $billingAddress ? ($billingAddress->state ?? '') : '';
+            $isIntraState   = (!empty($warehouseState) && !empty($partyState) && $warehouseState === $partyState);
+            $taxType        = $isIntraState ? 'intra' : 'inter';
 
-            /* ================= GET PARTY STATE ================= */
-            $partyState = '';
-            if ($billingAddress) {
-                $partyState = $billingAddress->state ?? '';
-            }
-
-            /* ================= DETERMINE TAX TYPE ================= */
-            $isIntraState = (!empty($warehouseState) && !empty($partyState) && $warehouseState === $partyState);
-            $taxType = $isIntraState ? 'intra' : 'inter';
-
-            /* ================= TOTAL CALCULATION WITH GST SPLIT ================= */
-            $totalMRP = 0;
+            $totalMRP            = 0;
             $totalDiscountAmount = 0;
-            $subtotal = 0;
-            $taxTotal = 0;
-            $cgstTotal = 0;
-            $sgstTotal = 0;
-            $igstTotal = 0;
-            $itemsData = [];
+            $subtotal            = 0;
+            $taxTotal            = 0;
+            $cgstTotal           = 0;
+            $sgstTotal           = 0;
+            $igstTotal           = 0;
+            $itemsData           = [];
 
             foreach ($request->items as $item) {
-                $qty = (float) $item['quantity'];
-                $mrpPrice = (float) $item['mrp_price'];
-                $salePrice = (float) $item['price'];
-                $taxPercent = (float) ($item['tax_percent'] ?? 0);
-
-                $itemMRPTotal = $qty * $mrpPrice;
-                $totalMRP += $itemMRPTotal;
-
-                $itemDiscountAmount = ($mrpPrice - $salePrice) * $qty;
-                $totalDiscountAmount += $itemDiscountAmount;
-
-                $itemSaleTotal = $qty * $salePrice;
-                $subtotal += $itemSaleTotal;
-
-                $itemTax = ($itemSaleTotal * $taxPercent) / 100;
-                $taxTotal += $itemTax;
+                $qty             = (float) $item['quantity'];
+                $mrpPrice        = (float) $item['mrp_price'];
+                $salePrice       = (float) $item['price'];
+                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
+                $totalMRP       += $qty * $mrpPrice;
+                $totalDiscountAmount += ($mrpPrice - $salePrice) * $qty;
+                $itemSaleTotal   = $qty * $salePrice;
+                $subtotal       += $itemSaleTotal;
+                $itemTax         = ($itemSaleTotal * $taxPercent) / 100;
+                $taxTotal       += $itemTax;
 
                 if ($isIntraState) {
-                    $halfTax = $itemTax / 2;
-                    $cgstTotal += $halfTax;
-                    $sgstTotal += $halfTax;
+                    $halfTax             = $itemTax / 2;
+                    $cgstTotal          += $halfTax;
+                    $sgstTotal          += $halfTax;
                     $item['cgst_amount'] = $halfTax;
                     $item['sgst_amount'] = $halfTax;
                     $item['igst_amount'] = 0;
                 } else {
-                    $igstTotal += $itemTax;
-                    $item['igst_amount'] = $itemTax;
-                    $item['cgst_amount'] = 0;
-                    $item['sgst_amount'] = 0;
+                    $igstTotal           += $itemTax;
+                    $item['igst_amount']  = $itemTax;
+                    $item['cgst_amount']  = 0;
+                    $item['sgst_amount']  = 0;
                 }
-
                 $itemsData[] = $item;
             }
 
-            /* ================= EXTRA DISCOUNT ================= */
-            $extraDiscountValue = 0;
+            $extraDiscountValue  = 0;
             $extraDiscountAmount = 0;
-            $extraDiscountType = $request->extra_discount_type ?? 'amount';
+            $extraDiscountType   = $request->extra_discount_type ?? 'amount';
 
             if ($request->filled('extra_discount') && (float)$request->extra_discount > 0) {
-                $extraDiscountValue = (float)$request->extra_discount;
-
-                if ($extraDiscountType === 'percent') {
-                    $extraDiscountAmount = ($subtotal * $extraDiscountValue) / 100;
-                } else {
-                    $extraDiscountAmount = $extraDiscountValue;
-                }
+                $extraDiscountValue  = (float)$request->extra_discount;
+                $extraDiscountAmount = $extraDiscountType === 'percent'
+                    ? ($subtotal * $extraDiscountValue) / 100
+                    : $extraDiscountValue;
             }
 
-            $extraCharge = (float) ($request->extra_charge ?? 0);
+            $extraCharge           = (float) ($request->extra_charge ?? 0);
             $afterDiscountSubtotal = $subtotal - $extraDiscountAmount;
-            $grandTotal = $afterDiscountSubtotal + $taxTotal + $extraCharge;
+            $grandTotal            = $afterDiscountSubtotal + $taxTotal + $extraCharge;
 
             $roundOff = 0;
             if ($request->auto_round_off) {
-                $rounded = round($grandTotal);
-                $roundOff = $rounded - $grandTotal;
+                $rounded    = round($grandTotal);
+                $roundOff   = $rounded - $grandTotal;
                 $grandTotal = $rounded;
             }
 
-            /* ================= PAYMENT CALCULATION ================= */
-            $amountPaid = (float) ($request->amount_paid ?? 0);
+            /* ================= PAYMENT + ADVANCE BALANCE ================= */
+            // Agar is invoice mein pehle se advance_used tha to wapas karo
+            $previousAdvanceUsed = (float) ($invoice->advance_used ?? 0);
+            if ($previousAdvanceUsed > 0) {
+                $party->advance_balance = (float)($party->advance_balance ?? 0) + $previousAdvanceUsed;
+                $party->save();
+            }
+
+            $amountPaid     = (float) ($request->amount_paid ?? 0);
+            $advanceUsed    = 0;
+
+
             $balance = $grandTotal - $amountPaid;
 
             if ($amountPaid <= 0) {
                 $paymentStatus = 'unpaid';
             } elseif ($balance <= 0.01) {
                 $paymentStatus = 'paid';
-                $balance = 0;
+                $balance       = 0;
             } else {
                 $paymentStatus = 'partial';
             }
 
-            /* ================= UPDATE INVOICE ================= */
             $invoice->update([
-                'invoice_type' => $request->invoice_type,
-                'invoice_date' => $request->invoice_date,
-                'party_id' => $request->party_id,
-                'salesman_id' => $party->salesman_id,
-                'warehouse_id' => $request->warehouse_id,
-                'billing_address' => $billingAddress ? $billingAddress->full_address : $request->billing_address,
-                'shipping_address' => $shippingAddress ? $shippingAddress->full_address : $request->shipping_address,
-                'payment_terms' => $request->payment_terms,
-                'due_date' => $request->due_date,
-                'po_number' => $request->po_number,
-                'total_mrp' => round($totalMRP, 2),
-                'subtotal' => round($subtotal, 2),
-                'discount_total' => round($totalDiscountAmount, 2),
-                'tax_total' => round($taxTotal, 2),
-                'cgst_total' => round($cgstTotal, 2),
-                'sgst_total' => round($sgstTotal, 2),
-                'igst_total' => round($igstTotal, 2),
-                'tax_type' => $taxType,
-                'extra_discount' => round($extraDiscountValue, 2),
+                'invoice_type'        => $request->invoice_type,
+                'invoice_date'        => $request->invoice_date,
+                'party_id'            => $request->party_id,
+                'salesman_id'         => $party->salesman_id,
+                'warehouse_id'        => $request->warehouse_id,
+                'billing_address'     => $billingAddress ? $billingAddress->full_address : $request->billing_address,
+                'shipping_address'    => $shippingAddress ? $shippingAddress->full_address : $request->shipping_address,
+                'payment_terms'       => $request->payment_terms,
+                'due_date'            => $request->due_date,
+                'po_number'           => $request->po_number,
+                'total_mrp'           => round($totalMRP, 2),
+                'subtotal'            => round($subtotal, 2),
+                'discount_total'      => round($totalDiscountAmount, 2),
+                'tax_total'           => round($taxTotal, 2),
+                'cgst_total'          => round($cgstTotal, 2),
+                'sgst_total'          => round($sgstTotal, 2),
+                'igst_total'          => round($igstTotal, 2),
+                'tax_type'            => $taxType,
+                'extra_discount'      => round($extraDiscountValue, 2),
                 'extra_discount_type' => $extraDiscountType,
-                'extra_charge' => round($extraCharge, 2),
-                'charge_name' => $request->charge_name,
-                'round_off' => round($roundOff, 2),
-                'grand_total' => round($grandTotal, 2),
-                'total_paid' => round($amountPaid, 2),
-                'balance_amount' => round($balance, 2),
-                'payment_status' => $paymentStatus,
-                'notes' => $request->notes,
+                'extra_charge'        => round($extraCharge, 2),
+                'charge_name'         => $request->charge_name,
+                'round_off'           => round($roundOff, 2),
+                'grand_total'         => round($grandTotal, 2),
+                'total_paid'          => round($amountPaid, 2),
+                'balance_amount'      => round($balance, 2),
+                'payment_status'      => $paymentStatus,
+                'advance_used'        => round($advanceUsed, 2),
+                'notes'               => $request->notes,
             ]);
 
-            /* ================= DELETE OLD ITEMS AND CREATE NEW ================= */
             SalesInvoiceItem::where('sales_invoice_id', $invoice->_id)->delete();
 
             foreach ($request->items as $index => $item) {
-                $qty = (float) $item['quantity'];
-                $mrpPrice = (float) $item['mrp_price'];
-                $salePrice = (float) $item['price'];
+                $qty             = (float) $item['quantity'];
+                $mrpPrice        = (float) $item['mrp_price'];
+                $salePrice       = (float) $item['price'];
                 $discountPercent = (float) ($item['discount'] ?? 0);
-                $taxPercent = (float) ($item['tax_percent'] ?? 0);
-
-                $cgstAmount = $itemsData[$index]['cgst_amount'] ?? 0;
-                $sgstAmount = $itemsData[$index]['sgst_amount'] ?? 0;
-                $igstAmount = $itemsData[$index]['igst_amount'] ?? 0;
+                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
+                $cgstAmount      = $itemsData[$index]['cgst_amount'] ?? 0;
+                $sgstAmount      = $itemsData[$index]['sgst_amount'] ?? 0;
+                $igstAmount      = $itemsData[$index]['igst_amount'] ?? 0;
 
                 if ($item['product_type'] === 'simple') {
-                    $product = SimpleProduct::find($item['product_id']);
+                    $product     = SimpleProduct::find($item['product_id']);
                     $productName = $product->name ?? 'Unknown Product';
-                    $sku = $product->sku_code ?? '';
-                    $barcode = $product->barcode ?? '';
-                    $unit = $product->unit ?? 'PCS';
-                    $hsnSac = $product->hsn_code ?? '';
+                    $sku         = $product->sku_code ?? '';
+                    $barcode     = $product->barcode ?? '';
+                    $unit        = $product->unit ?? 'PCS';
+                    $hsnSac      = $product->hsn_code ?? '';
                     $variantName = null;
                 } else {
-                    $product = VariantProduct::find($item['product_id']);
+                    $product     = VariantProduct::find($item['product_id']);
                     $productName = $product->name ?? 'Unknown Product';
-                    $hsnSac = $product->hsn_code ?? '';
-
-                    $variants = $product->variants ?? [];
-                    $variant = collect($variants)->first(function($v) use ($item) {
-                        $vId = isset($v['_id']) ? (string)$v['_id'] : null;
-                        return $vId === $item['variant_id'];
+                    $hsnSac      = $product->hsn_code ?? '';
+                    $variants    = $product->variants ?? [];
+                    $variant     = collect($variants)->first(function($v) use ($item) {
+                        return (string)(isset($v['_id']) ? $v['_id'] : null) === $item['variant_id'];
                     });
-
                     $variantName = $variant['name'] ?? null;
-                    $sku = $variant['sku_code'] ?? '';
-                    $barcode = $variant['barcode'] ?? '';
-                    $unit = $variant['unit'] ?? 'PCS';
+                    $sku         = $variant['sku_code'] ?? '';
+                    $barcode     = $variant['barcode'] ?? '';
+                    $unit        = $variant['unit'] ?? 'PCS';
                 }
 
                 $itemSaleTotal = $qty * $salePrice;
-                $itemTax = ($itemSaleTotal * $taxPercent) / 100;
-                $itemFinal = $itemSaleTotal + $itemTax;
+                $itemTax       = ($itemSaleTotal * $taxPercent) / 100;
+                $itemFinal     = $itemSaleTotal + $itemTax;
 
-                $warrantyType = $item['warranty_type'] ?? 'none';
+                $warrantyType   = $item['warranty_type'] ?? 'none';
                 $warrantyPeriod = (int) ($item['warranty_period'] ?? 0);
-                $warrantyStart = null;
-                $warrantyEnd = null;
+                $warrantyStart  = null;
+                $warrantyEnd    = null;
 
                 if ($warrantyType !== 'none' && $warrantyPeriod > 0) {
                     $warrantyStart = $request->invoice_date;
-                    $warrantyEnd = $this->calculateWarrantyEnd($warrantyStart, $warrantyType, $warrantyPeriod);
+                    $warrantyEnd   = $this->calculateWarrantyEnd($warrantyStart, $warrantyType, $warrantyPeriod);
                 }
 
                 SalesInvoiceItem::create([
                     'sales_invoice_id' => $invoice->_id,
-                    'product_id' => $item['product_id'],
-                    'variant_id' => $item['variant_id'] ?? null,
-                    'product_name' => $productName,
-                    'variant_name' => $variantName,
-                    'sku' => $sku,
-                    'barcode' => $barcode,
-                    'hsn_sac' => $hsnSac,
-                    'quantity' => $qty,
-                    'unit' => $unit,
-                    'mrp_price' => round($mrpPrice, 2),
-                    'price' => round($salePrice, 2),
-                    'discount' => round($discountPercent, 2),
-                    'tax_percent' => round($taxPercent, 2),
-                    'tax_amount' => round($itemTax, 2),
-                    'cgst_amount' => round($cgstAmount, 2),
-                    'sgst_amount' => round($sgstAmount, 2),
-                    'igst_amount' => round($igstAmount, 2),
-                    'total' => round($itemFinal, 2),
-                    'warranty_type' => $warrantyType,
-                    'warranty_period' => $warrantyPeriod,
-                    'warranty_start' => $warrantyStart,
-                    'warranty_end' => $warrantyEnd,
+                    'product_id'       => $item['product_id'],
+                    'variant_id'       => $item['variant_id'] ?? null,
+                    'product_name'     => $productName,
+                    'variant_name'     => $variantName,
+                    'sku'              => $sku,
+                    'barcode'          => $barcode,
+                    'hsn_sac'          => $hsnSac,
+                    'quantity'         => $qty,
+                    'unit'             => $unit,
+                    'mrp_price'        => round($mrpPrice, 2),
+                    'price'            => round($salePrice, 2),
+                    'discount'         => round($discountPercent, 2),
+                    'tax_percent'      => round($taxPercent, 2),
+                    'tax_amount'       => round($itemTax, 2),
+                    'cgst_amount'      => round($cgstAmount, 2),
+                    'sgst_amount'      => round($sgstAmount, 2),
+                    'igst_amount'      => round($igstAmount, 2),
+                    'total'            => round($itemFinal, 2),
+                    'warranty_type'    => $warrantyType,
+                    'warranty_period'  => $warrantyPeriod,
+                    'warranty_start'   => $warrantyStart,
+                    'warranty_end'     => $warrantyEnd,
                 ]);
             }
 
-
             return response()->json([
-                'success' => true,
+                'success'    => true,
                 'invoice_id' => $invoice->_id,
-                'message' => 'Invoice draft updated successfully'
+                'message'    => 'Invoice draft updated successfully'
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
@@ -1107,17 +943,59 @@ public function cancel($id)
                 }
             }
 
+$party          = Customer::find($invoice->party_id);
+$cashPaid       = (float) ($invoice->total_paid ?? 0);  // sirf cash jo customer ne diya
+$advanceBalance = (float) ($party->advance_balance ?? 0);
+$advanceUsed    = 0;
+$grandTotal     = (float) $invoice->grand_total;
+
+if ($advanceBalance > 0) {
+    // Advance hamesha use karo — chahe cash se poora pay ho ya na ho
+    $advanceUsed    = min($advanceBalance, $grandTotal);
+    $party->advance_balance = max(0, $advanceBalance - $advanceUsed);
+    $party->save();
+}
+
+// Total paid = cash + advance
+$amountPaid = $cashPaid + $advanceUsed;
+
+// Agar overpaid hai (cash + advance > grandTotal) to extra wapas karo advance mein
+if ($amountPaid > $grandTotal) {
+    $extra = $amountPaid - $grandTotal;
+    $party->advance_balance = ($party->advance_balance ?? 0) + $extra;
+    $party->save();
+    $amountPaid = $grandTotal;
+}
+
+            $balance = $grandTotal - $amountPaid;
+
+            if ($amountPaid <= 0) {
+                $paymentStatus = 'unpaid';
+            } elseif ($balance <= 0.01) {
+                $paymentStatus = 'paid';
+                $balance       = 0;
+            } else {
+                $paymentStatus = 'partial';
+            }
+
+            // Invoice payment fields update karo
+            $invoice->total_paid     = round($amountPaid, 2);
+            $invoice->balance_amount = round($balance, 2);
+            $invoice->payment_status = $paymentStatus;
+            $invoice->advance_used   = round($advanceUsed, 2);
+            $invoice->save();
+
             // Create payment records if any amount paid
-            if ($invoice->total_paid > 0) {
+            if ($amountPaid > 0) {
                 SalesPayment::create([
                     'sales_invoice_id' => $invoice->_id,
-                    'party_id' => $invoice->party_id,
-                    'amount' => $invoice->total_paid,
-                    'payment_method' => request()->payment_method ?? 'cash',
-                    'payment_date' => now(),
-                    'status' => 'completed',
-                    'reference_no' => request()->reference_no,
-                    'notes' => "Payment for invoice {$invoice->invoice_number}"
+                    'party_id'         => $invoice->party_id,
+                    'amount'           => round($amountPaid, 2),
+                    'payment_method'   => request()->payment_method ?? 'cash',
+                    'payment_date'     => now(),
+                    'status'           => 'completed',
+                    'reference_no'     => request()->reference_no,
+                    'notes'            => "Payment for invoice {$invoice->invoice_number}"
                 ]);
             }
 
@@ -1125,6 +1003,8 @@ public function cancel($id)
             $invoice->update([
                 'status' => 'confirmed'
             ]);
+
+
 
 
             return response()->json([
@@ -1200,6 +1080,7 @@ public function cancel($id)
                 ->pluck('product_id');
 
             $simpleProducts = SimpleProduct::whereIn('_id', $simpleStocks)
+                ->where('status', 'active')
                 ->get()
                 ->map(function ($product) use ($warehouse) {
                     $stock = WarehouseStock::where('warehouse_id', $warehouse->_id)
@@ -1236,7 +1117,9 @@ public function cancel($id)
             $productIds = $variantStocks->pluck('product_id')->unique();
 
             foreach ($productIds as $productId) {
-                $product = VariantProduct::find($productId);
+                $product = VariantProduct::where('_id', $productId)
+                    ->where('status', 'active')
+                    ->first();
                 if (!$product) continue;
 
                 $rawVariants = $product->getRawOriginal('variants');
@@ -1337,39 +1220,37 @@ return response()->json([
         ]);
     }
 
-    /**
-     * Get party details by ID
-     */
     public function getPartyDetails($id)
     {
         $party = Customer::with(['addresses', 'salesman'])->findOrFail($id);
 
         $billing = $party->addresses
-            ->where('type','billing')
+            ->where('type', 'billing')
             ->where('is_default', true)
             ->first();
 
         $shipping = $party->addresses
-            ->where('type','shipping')
+            ->where('type', 'shipping')
             ->where('is_default', true)
             ->first();
 
         return response()->json([
             'success' => true,
             'party' => [
-                'id' => (string)$party->_id,
-                'name' => $party->name,
-                'phone' => $party->phone,
-                'email' => $party->email,
-                'party_type' => $party->party_type,
-                'party_type_text' => ucfirst($party->party_type),
-                'opening_balance' => $party->opening_balance ?? 0,
-                'credit_limit' => $party->credit_limit ?? 0,
-                'salesman_id' => $party->salesman_id,
-                'salesman_name' => $party->salesman ? $party->salesman->name : null,
-                'billing_address' => $billing?->full_address ?? '',
+                'id'               => (string)$party->_id,
+                'name'             => $party->name,
+                'phone'            => $party->phone,
+                'email'            => $party->email,
+                'party_type'       => $party->party_type,
+                'party_type_text'  => ucfirst($party->party_type),
+                'opening_balance'  => (float) ($party->opening_balance ?? 0),
+                'advance_balance'  => (float) ($party->advance_balance ?? 0),
+                'credit_limit'     => (float) ($party->credit_limit ?? 0),
+                'salesman_id'      => $party->salesman_id,
+                'salesman_name'    => $party->salesman ? $party->salesman->name : null,
+                'billing_address'  => $billing?->full_address ?? '',
                 'shipping_address' => $shipping?->full_address ?? '',
-                'billing_state' => $billing?->state ?? '',
+                'billing_state'    => $billing?->state ?? '',
             ]
         ]);
     }
@@ -1549,63 +1430,51 @@ return response()->json([
         }
         return (float) $value;
     }
-    /**
- * Get party credit limit status
- */
-/**
- * Get party credit limit status with opening balance included
- */
-public function getPartyCreditStatus($partyId)
-{
-    try {
-        $party = Customer::findOrFail($partyId);
+    public function getPartyCreditStatus($partyId)
+    {
+        try {
+            $party = Customer::findOrFail($partyId);
 
-        // Opening balance
-        $openingBalance = (float) ($party->opening_balance ?? 0);
+            $openingBalance         = (float) ($party->opening_balance ?? 0);
+            $advanceBalance         = (float) ($party->advance_balance ?? 0); // NEW
 
-        // Unpaid invoices balance
-        $unpaidInvoicesBalance = SalesInvoice::where('party_id', $partyId)
-            ->where('status', '!=', 'draft')
-            ->where('payment_status', '!=', 'paid')
-            ->sum('balance_amount');
+            $unpaidInvoicesBalance = SalesInvoice::where('party_id', $partyId)
+                ->where('status', '!=', 'draft')
+                ->where('payment_status', '!=', 'paid')
+                ->sum('balance_amount');
 
-        $unpaidInvoicesBalance = $this->decimalToFloat($unpaidInvoicesBalance);
+            $unpaidInvoicesBalance = $this->decimalToFloat($unpaidInvoicesBalance);
+            $currentDue            = $openingBalance + $unpaidInvoicesBalance;
 
-        // TOTAL CURRENT DUE = Opening Balance + Unpaid Invoices
-        $currentDue = $openingBalance + $unpaidInvoicesBalance;
+            $creditLimit     = (float) ($party->credit_limit ?? 0);
+            $availableCredit = $creditLimit > 0 ? max(0, $creditLimit - $currentDue) : null;
 
-        $creditLimit = (float) ($party->credit_limit ?? 0);
-        $availableCredit = $creditLimit > 0 ? max(0, $creditLimit - $currentDue) : null;
+            $usagePercent = 0;
+            if ($creditLimit > 0 && $currentDue > 0) {
+                $usagePercent = min(100, ($currentDue / $creditLimit) * 100);
+            }
 
-        // Usage percentage for warning
-        $usagePercent = 0;
-        if ($creditLimit > 0 && $currentDue > 0) {
-            $usagePercent = min(100, ($currentDue / $creditLimit) * 100);
+            return response()->json([
+                'success' => true,
+                'credit_info' => [
+                    'party_name'      => $party->name,
+                    'opening_balance' => $openingBalance,
+                    'advance_balance' => $advanceBalance,  // NEW
+                    'unpaid_invoices' => $unpaidInvoicesBalance,
+                    'current_due'     => $currentDue,
+                    'credit_limit'    => $creditLimit,
+                    'available_credit'=> $availableCredit,
+                    'has_limit'       => $creditLimit > 0,
+                    'is_exceeded'     => $creditLimit > 0 && $currentDue >= $creditLimit,
+                    'usage_percent'   => round($usagePercent, 2),
+                    'warning_level'   => $this->getWarningLevel($usagePercent)
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'credit_info' => [
-                'party_name' => $party->name,
-                'opening_balance' => $openingBalance,
-                'unpaid_invoices' => $unpaidInvoicesBalance,
-                'current_due' => $currentDue,
-                'credit_limit' => $creditLimit,
-                'available_credit' => $availableCredit,
-                'has_limit' => $creditLimit > 0,
-                'is_exceeded' => $creditLimit > 0 && $currentDue >= $creditLimit,
-                'usage_percent' => round($usagePercent, 2),
-                'warning_level' => $this->getWarningLevel($usagePercent)
-            ]
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage()
-        ], 500);
     }
-}
 
 /**
  * Helper to determine warning level based on usage percentage

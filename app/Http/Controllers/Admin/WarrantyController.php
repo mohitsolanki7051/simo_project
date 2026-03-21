@@ -15,6 +15,8 @@ use App\Models\WarehouseStock;
 use App\Models\WarehouseMovement;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use App\Models\SalesReturn;
+use App\Models\SalesReturnItem;
 use Carbon\Carbon;
 
 class WarrantyController extends Controller
@@ -109,29 +111,47 @@ class WarrantyController extends Controller
         $searchTerm = $request->search_term;
 
         $invoices = SalesInvoice::with(['party', 'warehouse', 'items' => fn($q) => $q->with(['product'])])
-            ->where(function ($query) use ($searchTerm) {
-                $query->where('invoice_number', 'like', "%{$searchTerm}%")
-                      ->orWhereHas('party', fn($q) => $q->where('phone', 'like', "%{$searchTerm}%")->orWhere('name', 'like', "%{$searchTerm}%"))
-                      ->orWhereHas('items', fn($q) => $q->where('barcode', 'like', "%{$searchTerm}%")->orWhere('sku', 'like', "%{$searchTerm}%"));
-            })
-            ->orderBy('invoice_date', 'desc')
-            ->limit(10)
-            ->get();
+        ->whereNotIn('status', ['draft', 'cancelled', 'returned'])
+        ->where(function ($query) use ($searchTerm) {
+            $query->where('invoice_number', 'like', "%{$searchTerm}%")
+                ->orWhereHas('party', fn($q) => $q->where('phone', 'like', "%{$searchTerm}%")
+                ->orWhere('name', 'like', "%{$searchTerm}%"))
+                ->orWhereHas('items', fn($q) => $q->where('barcode', 'like', "%{$searchTerm}%")
+                ->orWhere('sku', 'like', "%{$searchTerm}%"));
+        })
+        ->orderBy('invoice_date', 'desc')
+        ->limit(10)
+        ->get();
 
         return response()->json(['success' => true, 'invoices' => $invoices]);
     }
 
-    public function getInvoiceDetails($id)
-    {
-        $invoice = SalesInvoice::with(['party', 'warehouse', 'items' => fn($q) => $q->with(['product'])])->findOrFail($id);
+public function getInvoiceDetails($id)
+{
+    $invoice = SalesInvoice::with(['party','warehouse','items'=>fn($q)=>$q->with(['product'])])->findOrFail($id);
 
-        foreach ($invoice->items as $item) {
-            $item->warranty_valid = $this->checkWarrantyValidity($item);
-            $item->can_claim      = $this->canClaimWarranty($item);
-        }
+    $returnedItems = SalesReturnItem::whereIn(
+        'sales_return_id',
+        SalesReturn::where('sales_invoice_id', $id)
+            ->where('status','completed')
+            ->pluck('_id')
+    )->pluck('sales_invoice_item_id')->toArray();
 
-        return response()->json(['success' => true, 'invoice' => $invoice]);
+    // remove returned items
+    $invoice->items = $invoice->items->filter(function ($item) use ($returnedItems) {
+        return !in_array((string)$item->_id, $returnedItems);
+    });
+
+    foreach ($invoice->items as $item) {
+        $item->warranty_valid = $this->checkWarrantyValidity($item);
+        $item->can_claim      = $this->canClaimWarranty($item);
     }
+
+    return response()->json([
+        'success'=>true,
+        'invoice'=>$invoice
+    ]);
+}
 
     private function checkWarrantyValidity($item)
     {
