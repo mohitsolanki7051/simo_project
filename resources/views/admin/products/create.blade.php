@@ -1931,6 +1931,10 @@
             const submitBtn = this.querySelector('#submitBtn');
             submitBtn.innerHTML = '⏳ Creating...';
             submitBtn.disabled = true;
+            if (localStorage.getItem('opened_from_purchase') === 'true') {
+                localStorage.setItem('product_created', 'true');
+                localStorage.setItem('product_created_close', 'true');
+            }
         });
 
         // Update variant names when product name changes

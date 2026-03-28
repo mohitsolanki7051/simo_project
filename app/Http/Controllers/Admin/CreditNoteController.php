@@ -90,9 +90,9 @@ class CreditNoteController extends Controller
         $usedCountQuery = clone $statsQuery;
         $cancelledCountQuery = clone $statsQuery;
 
-        $activeCount = $activeCountQuery->where('status', 'active')->count();
-        $usedCount = $usedCountQuery->where('status', 'used')->count();
-        $cancelledCount = $cancelledCountQuery->where('status', 'cancelled')->count();
+        $activeCount            = (clone $statsQuery)->where('status', 'active')->count();
+        $settledCount          = (clone $statsQuery)->where('status', 'settled')->count();
+        $partial   = (clone $statsQuery)->where('status', 'partial')->count();
 
         // Get active parties for filter dropdown
         $parties = Customer::where('status', 'active')->orderBy('name')->get();
@@ -103,8 +103,8 @@ class CreditNoteController extends Controller
             'totalUsed',
             'totalRemaining',
             'activeCount',
-            'usedCount',
-            'cancelledCount',
+            'settledCount',
+            'partial',
             'parties'
         ));
     }

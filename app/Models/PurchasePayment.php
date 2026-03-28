@@ -15,7 +15,7 @@ class PurchasePayment extends Model
     protected $fillable = [
         'payment_number',
         'purchase_invoice_id',
-        'vendor_id',
+        'party_id',
         'amount',
         'payment_method',
         'payment_date',
@@ -23,11 +23,16 @@ class PurchasePayment extends Model
         'reference_no',
         'notes',
         'created_by',
+        'payment_type',      // Add this
+        'payment_subtype',   // Add this (for purchase_payment or credit_refund)
+        'allocations',       // Add this (for storing allocation details)
+        'party_details',     // Optional: for caching party info
     ];
 
     protected $casts = [
         'amount' => 'float',
         'payment_date' => 'date',
+        'allocations' => 'array',  // Cast allocations to array
     ];
 
     // Relationships
@@ -46,7 +51,28 @@ class PurchasePayment extends Model
         return $this->belongsTo(Admin::class, 'created_by');
     }
 
-    // Accessors
+    // Accessor for party (handles both vendor and customer)
+    public function getPartyAttribute()
+    {
+        if (empty($this->party_id)) {
+            return null;
+        }
+
+        // Try vendor first
+        $vendor = Vendor::find($this->party_id);
+        if ($vendor) {
+            return $vendor;
+        }
+
+        // Then try customer
+        $customer = Customer::find($this->party_id);
+        if ($customer) {
+            return $customer;
+        }
+
+        return null;
+    }
+
     public function getPaymentMethodTextAttribute()
     {
         $methods = [

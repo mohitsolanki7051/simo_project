@@ -162,10 +162,8 @@
                     <td class="td-actions">
                         <div class="action-icons">
                             <!-- View Ledger -->
-                            <a href="{{ route('admin.parties.ledger', $party->id) }}"
-                               class="icon-btn icon-view" title="View Ledger">
-                                📒
-                            </a>
+                            <a href="{{ route('admin.ledger.show', [$party->party_type, $party->id]) }}"
+                                class="icon-btn icon-ledger" title="View Ledger">📒</a>
 
                             <!-- Edit -->
                             <a href="{{ route('admin.parties.edit', $party->id) }}"

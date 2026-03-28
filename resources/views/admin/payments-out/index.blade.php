@@ -1,76 +1,74 @@
 @extends('layouts.admin')
 
-@section('title', 'Payment In - Transactions')
-@section('header-title', 'Payment In')
+@section('title', 'Payment Out - Transactions')
+@section('header-title', 'Payment Out')
 
 @section('content')
-<div class="pi-wrap">
+<div class="po-wrap">
     <div id="alertBox"></div>
 
     {{-- ── Header ── --}}
-    <div class="pi-header">
-        <div class="pi-header-left">
-            <div class="pi-header-icon">
+    <div class="po-header">
+        <div class="po-header-left">
+            <div class="po-header-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="1" x2="12" y2="23"/>
                     <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                 </svg>
             </div>
             <div>
-                <h1 class="pi-title">Payment In Transactions</h1>
-                <p class="pi-sub">Track and manage all incoming payments</p>
+                <h1 class="po-title">Payment Out Transactions</h1>
+                <p class="po-sub">Track and manage all outgoing payments to vendors, dealers, and distributors</p>
             </div>
         </div>
-        <a href="{{ route('admin.payments.create') }}" class="pi-btn-create">
+        <a href="{{ route('admin.payments-out.create') }}" class="po-btn-create">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"/>
                 <line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            New Payment In
+            New Payment Out
         </a>
     </div>
 
     {{-- ── Stats ── --}}
-    <div class="pi-stats">
-        <div class="pi-stat pi-stat--green">
-            <div class="pi-stat-icon">
+    <div class="po-stats">
+        <div class="po-stat po-stat--orange">
+            <div class="po-stat-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="2" y="7" width="20" height="14" rx="2"/>
                     <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
                 </svg>
             </div>
-            <div class="pi-stat-content">
-                <div class="pi-stat-label">Total Payments</div>
-                <div class="pi-stat-value">{{ $totalCount }}</div>
-
+            <div class="po-stat-content">
+                <div class="po-stat-label">Total Payments</div>
+                <div class="po-stat-value">{{ $totalCount }}</div>
             </div>
         </div>
-        <div class="pi-stat pi-stat--blue">
-            <div class="pi-stat-icon">
+        <div class="po-stat po-stat--purple">
+            <div class="po-stat-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="1" x2="12" y2="23"/>
                     <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                 </svg>
             </div>
-            <div class="pi-stat-content">
-                <div class="pi-stat-label">Total Amount</div>
-                <div class="pi-stat-value">₹ {{ number_format($totalAmount, 2) }}</div>
-
+            <div class="po-stat-content">
+                <div class="po-stat-label">Total Amount Paid</div>
+                <div class="po-stat-value">₹ {{ number_format($totalAmount, 2) }}</div>
             </div>
         </div>
     </div>
 
     {{-- ── Filters ── --}}
-    <div class="pi-filters">
-        <div class="pi-filters-header">
-            <div class="pi-filters-title">
+    <div class="po-filters">
+        <div class="po-filters-header">
+            <div class="po-filters-title">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                 </svg>
                 Filters
             </div>
             @if(request()->anyFilled(['search','party_id','payment_method','from_date','to_date','warehouse_id']))
-            <a href="{{ route('admin.payments.index') }}" class="pi-clear-filters">
+            <a href="{{ route('admin.payments-out.index') }}" class="po-clear-filters">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <line x1="18" y1="6" x2="6" y2="18"/>
                     <line x1="6" y1="6" x2="18" y2="18"/>
@@ -79,39 +77,39 @@
             </a>
             @endif
         </div>
-        <form method="GET" action="{{ route('admin.payments.index') }}">
-            <div class="pi-filter-row">
+        <form method="GET" action="{{ route('admin.payments-out.index') }}">
+            <div class="po-filter-row">
 
                 {{-- Search --}}
-                <div class="pi-filter-group">
-                    <label class="pi-filter-label">Search</label>
-                    <div class="pi-input-icon-wrap">
-                        <svg class="pi-input-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <div class="po-filter-group">
+                    <label class="po-filter-label">Search</label>
+                    <div class="po-input-icon-wrap">
+                        <svg class="po-input-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                             <circle cx="11" cy="11" r="8"/>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                         </svg>
-                        <input type="text" name="search" class="pi-input pi-input-with-icon"
+                        <input type="text" name="search" class="po-input po-input-with-icon"
                                placeholder="Payment No / Ref…" value="{{ request('search') }}">
                     </div>
                 </div>
 
                 {{-- Party --}}
-                <div class="pi-filter-group" style="min-width:155px;">
-                    <label class="pi-filter-label">Party</label>
-                    <select name="party_id" class="pi-select">
+                <div class="po-filter-group" style="min-width:155px;">
+                    <label class="po-filter-label">Party</label>
+                    <select name="party_id" class="po-select">
                         <option value="">All Parties</option>
                         @foreach($parties as $party)
                         <option value="{{ $party['id'] }}" {{ request('party_id') == $party['id'] ? 'selected' : '' }}>
-                            {{ $party['name'] }}
+                            {{ $party['name'] }} ({{ $party['party_type_text'] }})
                         </option>
                         @endforeach
                     </select>
                 </div>
 
                 {{-- Payment Method --}}
-                <div class="pi-filter-group">
-                    <label class="pi-filter-label">Method</label>
-                    <select name="payment_method" class="pi-select">
+                <div class="po-filter-group">
+                    <label class="po-filter-label">Method</label>
+                    <select name="payment_method" class="po-select">
                         <option value="">All Methods</option>
                         <option value="cash"          {{ request('payment_method') == 'cash'          ? 'selected' : '' }}>Cash</option>
                         <option value="upi"           {{ request('payment_method') == 'upi'           ? 'selected' : '' }}>UPI</option>
@@ -121,29 +119,28 @@
                     </select>
                 </div>
 
-
                 {{-- From Date --}}
-                <div class="pi-filter-group">
-                    <label class="pi-filter-label">From Date</label>
-                    <input type="date" name="from_date" class="pi-input" value="{{ request('from_date') }}">
+                <div class="po-filter-group">
+                    <label class="po-filter-label">From Date</label>
+                    <input type="date" name="from_date" class="po-input" value="{{ request('from_date') }}">
                 </div>
 
                 {{-- To Date --}}
-                <div class="pi-filter-group">
-                    <label class="pi-filter-label">To Date</label>
-                    <input type="date" name="to_date" class="pi-input" value="{{ request('to_date') }}">
+                <div class="po-filter-group">
+                    <label class="po-filter-label">To Date</label>
+                    <input type="date" name="to_date" class="po-input" value="{{ request('to_date') }}">
                 </div>
 
                 {{-- Buttons --}}
-                <div class="pi-filter-btns">
-                    <button type="submit" class="pi-btn-filter">
+                <div class="po-filter-btns">
+                    <button type="submit" class="po-btn-filter">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                             <circle cx="11" cy="11" r="8"/>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                         </svg>
                         Apply
                     </button>
-                    <a href="{{ route('admin.payments.index') }}" class="pi-btn-reset">Reset</a>
+                    <a href="{{ route('admin.payments-out.index') }}" class="po-btn-reset">Reset</a>
                 </div>
 
             </div>
@@ -151,13 +148,13 @@
     </div>
 
     {{-- ── Table Card ── --}}
-    <div class="pi-table-card">
+    <div class="po-table-card">
 
-        <div class="pi-table-topbar">
-            <div class="pi-table-count">
+        <div class="po-table-topbar">
+            <div class="po-table-count">
                 <strong>{{ $payments->total() }}</strong> payment{{ $payments->total() != 1 ? 's' : '' }}
                 @if(request()->anyFilled(['search','party_id','payment_method','from_date','to_date','warehouse_id']))
-                <span class="pi-filtered-pill">
+                <span class="po-filtered-pill">
                     <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                     </svg>
@@ -165,15 +162,15 @@
                 </span>
                 @endif
             </div>
-            <div class="pi-table-topbar-right">
-                <div class="pi-page-info-top">
+            <div class="po-table-topbar-right">
+                <div class="po-page-info-top">
                     Showing {{ $payments->firstItem() ?? 0 }}–{{ $payments->lastItem() ?? 0 }} of {{ $payments->total() }}
                 </div>
             </div>
         </div>
 
-        <div class="pi-table-wrap">
-            <table class="pi-tbl">
+        <div class="po-table-wrap">
+            <table class="po-tbl">
                 <thead>
                     <tr>
                         <th class="tc-no">S. No.</th>
@@ -186,8 +183,7 @@
                         <th class="tc-method">Method</th>
                         <th class="tc-alloc">Allocated To</th>
                         <th class="tc-act">Action</th>
-                    </tr>
-                </thead>
+                    </thead>
                 <tbody>
                     @forelse($payments as $i => $payment)
                     @php
@@ -197,23 +193,27 @@
                         $allocations = $payment->allocations ?? [];
                         $openingAlloc  = collect($allocations)->where('type', 'opening_balance')->sum('amount');
                         $invoiceAllocs = collect($allocations)->where('type', 'invoice')->count();
-                        $debitAllocs   = collect($allocations)->where('type', 'debit_note')->count(); // ← ADD THIS
-                        $debitTotal    = collect($allocations)->where('type', 'debit_note')->sum('amount'); // ← ADD THIS
+                        $creditAllocs  = collect($allocations)->where('type', 'credit_note')->count();
 
                         $allocInvoiceIds = collect($allocations)
                             ->where('type', 'invoice')
                             ->pluck('invoice_id')
                             ->unique()
                             ->toArray();
-                        $warehouseNames = \App\Models\SalesInvoice::whereIn('_id', $allocInvoiceIds)
+                        $warehouseNames = \App\Models\PurchaseInvoice::whereIn('_id', $allocInvoiceIds)
                             ->with('warehouse')
                             ->get()
                             ->pluck('warehouse.name')
                             ->unique()
                             ->filter()
                             ->implode(', ');
+
+                        // Determine payment subtype display
+                        $subtype = $payment->payment_subtype ?? 'purchase_payment';
+                        $subtypeLabel = $subtype === 'credit_refund' ? 'Credit Refund' : 'Purchase Payment';
+                        $subtypeClass = $subtype === 'credit_refund' ? 'po-subtype-refund' : 'po-subtype-purchase';
                     @endphp
-                    <tr class="pi-tr">
+                    <tr class="po-tr">
                         <td class="tc-no">
                             <span class="td-serial">{{ ($payments->currentPage() - 1) * $payments->perPage() + $i + 1 }}</span>
                         </td>
@@ -222,65 +222,55 @@
                             <div class="td-date-sub">{{ $payment->payment_date->format('D') }}</div>
                         </td>
                         <td class="tc-pno">
-                            <span class="pi-pno-chip">{{ $payment->payment_number ?? 'N/A' }}</span>
+                            <span class="po-pno-chip">{{ $payment->payment_number ?? 'N/A' }}</span>
                         </td>
                         <td class="tc-party">
-                            @php $party = $payment->party_details; @endphp
-
-                            <div class="td-party-name" title="{{ $party['name'] ?? '—' }}">
-                                {{ $party['name'] ?? '—' }}
+                            <div class="td-party-name" title="{{ $payment->party->name ?? $payment->party->company_name ?? '—' }}">
+                                {{ $payment->party->name ?? $payment->party->company_name ?? '—' }}
                             </div>
-
-                            @if(!empty($party['phone']))
-                            <div class="td-party-phone">{{ $party['phone'] }}</div>
+                            @if(($payment->party->phone ?? null))
+                            <div class="td-party-phone">{{ $payment->party->phone }}</div>
                             @endif
                         </td>
                         <td class="tc-type">
-                            @php
-                                $pt = $party['party_type'] ?? null;
-                            @endphp
-                            @if($pt)
-                            <span class="pi-ptype pi-ptype--{{ $pt }}">{{ ucfirst($pt) }}</span>
-                            @else
-                            <span class="td-muted">—</span>
-                            @endif
+                            <span class="po-subtype-badge {{ $subtypeClass }}">{{ $subtypeLabel }}</span>
                         </td>
                         <td class="tc-wh">
-                            <span class="pi-wh-badge">{{ $warehouseNames ?: '—' }}</span>
+                            <span class="po-wh-badge">{{ $warehouseNames ?: '—' }}</span>
                         </td>
                         <td class="tc-amount">
                             <span class="td-amount">₹ {{ number_format($amount, 2) }}</span>
                         </td>
                         <td class="tc-method">
-                            <span class="pi-method-badge pi-method--{{ $payment->payment_method }}">
+                            <span class="po-method-badge po-method--{{ $payment->payment_method }}">
                                 {{ $payment->payment_method_text }}
                             </span>
                         </td>
                         <td class="tc-alloc">
-                            <div class="pi-alloc-wrap">
+                            <div class="po-alloc-wrap">
                                 @if($openingAlloc > 0)
-                                <span class="pi-alloc-tag pi-alloc--opening">
+                                <span class="po-alloc-tag po-alloc--opening">
                                     Opening ₹{{ number_format($openingAlloc, 2) }}
                                 </span>
                                 @endif
                                 @if($invoiceAllocs > 0)
-                                <span class="pi-alloc-tag pi-alloc--invoice">
+                                <span class="po-alloc-tag po-alloc--invoice">
                                     {{ $invoiceAllocs }} Invoice{{ $invoiceAllocs > 1 ? 's' : '' }}
                                 </span>
                                 @endif
-                                @if($debitAllocs > 0)  {{-- ← ADD THIS BLOCK --}}
-                                <span class="pi-alloc-tag pi-alloc--debit">
-                                    Debit Refund ₹{{ number_format($debitTotal, 2) }}
+                                @if($creditAllocs > 0)
+                                <span class="po-alloc-tag po-alloc--credit">
+                                    {{ $creditAllocs }} Credit Note{{ $creditAllocs > 1 ? 's' : '' }}
                                 </span>
                                 @endif
-                                @if($openingAlloc == 0 && $invoiceAllocs == 0 && $debitAllocs == 0)  {{-- ← UPDATE CONDITION --}}
+                                @if($openingAlloc == 0 && $invoiceAllocs == 0 && $creditAllocs == 0)
                                 <span class="td-muted">—</span>
                                 @endif
                             </div>
                         </td>
                         <td class="tc-act">
-                            <div class="pi-act-grp">
-                                <button type="button" class="pi-act pi-act--view"
+                            <div class="po-act-grp">
+                                <button type="button" class="po-act po-act--view"
                                         onclick="viewPayment('{{ $payment->_id }}')" title="View Payment">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -292,28 +282,28 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="pi-empty-cell">
-                            <div class="pi-empty">
-                                <div class="pi-empty-icon">
+                        <td colspan="10" class="po-empty-cell">
+                            <div class="po-empty">
+                                <div class="po-empty-icon">
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                         <line x1="12" y1="1" x2="12" y2="23"/>
                                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                                     </svg>
                                 </div>
-                                <p class="pi-empty-title">No payments found</p>
-                                <p class="pi-empty-sub">
+                                <p class="po-empty-title">No payments found</p>
+                                <p class="po-empty-sub">
                                     @if(request()->anyFilled(['search','party_id','payment_method','from_date','to_date','warehouse_id']))
-                                        Try adjusting your filters or <a href="{{ route('admin.payments.index') }}">clear all</a>
+                                        Try adjusting your filters or <a href="{{ route('admin.payments-out.index') }}">clear all</a>
                                     @else
-                                        Get started by recording your first payment
+                                        Get started by recording your first payment out
                                     @endif
                                 </p>
-                                <a href="{{ route('admin.payments.create') }}" class="pi-btn-create" style="margin-top:4px;">
+                                <a href="{{ route('admin.payments-out.create') }}" class="po-btn-create" style="margin-top:4px;">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                         <line x1="12" y1="5" x2="12" y2="19"/>
                                         <line x1="5" y1="12" x2="19" y2="12"/>
                                     </svg>
-                                    New Payment In
+                                    New Payment Out
                                 </a>
                             </div>
                         </td>
@@ -325,18 +315,18 @@
 
         {{-- Pagination --}}
         @if($payments->hasPages())
-        <div class="pi-pagination">
-            <div class="pi-page-info">
+        <div class="po-pagination">
+            <div class="po-page-info">
                 Page <strong>{{ $payments->currentPage() }}</strong> of <strong>{{ $payments->lastPage() }}</strong>
                 &nbsp;·&nbsp; {{ $payments->total() }} total records
             </div>
-            <div class="pi-pages">
+            <div class="po-pages">
                 @if($payments->onFirstPage())
-                    <span class="pi-pg pi-pg--dis">«</span>
-                    <span class="pi-pg pi-pg--dis">‹</span>
+                    <span class="po-pg po-pg--dis">«</span>
+                    <span class="po-pg po-pg--dis">‹</span>
                 @else
-                    <a href="{{ $payments->url(1) }}" class="pi-pg" title="First">«</a>
-                    <a href="{{ $payments->previousPageUrl() }}" class="pi-pg" title="Previous">‹</a>
+                    <a href="{{ $payments->url(1) }}" class="po-pg" title="First">«</a>
+                    <a href="{{ $payments->previousPageUrl() }}" class="po-pg" title="Previous">‹</a>
                 @endif
 
                 @php
@@ -347,29 +337,29 @@
                 @endphp
 
                 @if($start > 1)
-                    <a href="{{ $payments->url(1) }}" class="pi-pg">1</a>
-                    @if($start > 2)<span class="pi-pg-dots">…</span>@endif
+                    <a href="{{ $payments->url(1) }}" class="po-pg">1</a>
+                    @if($start > 2)<span class="po-pg-dots">…</span>@endif
                 @endif
 
                 @for($p = $start; $p <= $end; $p++)
                     @if($p == $cur)
-                        <span class="pi-pg pi-pg--active">{{ $p }}</span>
+                        <span class="po-pg po-pg--active">{{ $p }}</span>
                     @else
-                        <a href="{{ $payments->url($p) }}" class="pi-pg">{{ $p }}</a>
+                        <a href="{{ $payments->url($p) }}" class="po-pg">{{ $p }}</a>
                     @endif
                 @endfor
 
                 @if($end < $last)
-                    @if($end < $last - 1)<span class="pi-pg-dots">…</span>@endif
-                    <a href="{{ $payments->url($last) }}" class="pi-pg">{{ $last }}</a>
+                    @if($end < $last - 1)<span class="po-pg-dots">…</span>@endif
+                    <a href="{{ $payments->url($last) }}" class="po-pg">{{ $last }}</a>
                 @endif
 
                 @if($payments->hasMorePages())
-                    <a href="{{ $payments->nextPageUrl() }}" class="pi-pg" title="Next">›</a>
-                    <a href="{{ $payments->url($last) }}" class="pi-pg" title="Last">»</a>
+                    <a href="{{ $payments->nextPageUrl() }}" class="po-pg" title="Next">›</a>
+                    <a href="{{ $payments->url($last) }}" class="po-pg" title="Last">»</a>
                 @else
-                    <span class="pi-pg pi-pg--dis">›</span>
-                    <span class="pi-pg pi-pg--dis">»</span>
+                    <span class="po-pg po-pg--dis">›</span>
+                    <span class="po-pg po-pg--dis">»</span>
                 @endif
             </div>
         </div>
@@ -381,95 +371,98 @@
 {{-- ═══════════════════════════════════════════
      VIEW PAYMENT MODAL
 ════════════════════════════════════════════════ --}}
-<div class="pi-modal" id="viewModal" style="display:none;">
-    <div class="pi-modal-overlay" onclick="closeViewModal()"></div>
-    <div class="pi-modal-box">
-        <div class="pi-modal-head">
-            <div class="pi-modal-ico">
+<div class="po-modal" id="viewModal" style="display:none;">
+    <div class="po-modal-overlay" onclick="closeViewModal()"></div>
+    <div class="po-modal-box">
+        <div class="po-modal-head">
+            <div class="po-modal-ico">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
                     <line x1="12" y1="1" x2="12" y2="23"/>
                     <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                 </svg>
             </div>
             <div>
-                <div class="pi-modal-title">Payment Details</div>
-                <div class="pi-modal-sub" id="modalPaymentNo">—</div>
+                <div class="po-modal-title">Payment Out Details</div>
+                <div class="po-modal-sub" id="modalPaymentNo">—</div>
             </div>
-            <button class="pi-modal-close" onclick="closeViewModal()">×</button>
+            <button class="po-modal-close" onclick="closeViewModal()">×</button>
         </div>
 
-        <div class="pi-modal-body">
-            <div id="modalLoader" class="pi-modal-loader">
-                <div class="pi-spinner"></div>
+        <div class="po-modal-body">
+            <div id="modalLoader" class="po-modal-loader">
+                <div class="po-spinner"></div>
                 <span>Loading…</span>
             </div>
             <div id="modalContent" style="display:none;"></div>
         </div>
 
-        <div class="pi-modal-foot">
-            <button class="pi-btn-modal-close" onclick="closeViewModal()">Close</button>
+        <div class="po-modal-foot">
+            <button class="po-btn-modal-close" onclick="closeViewModal()">Close</button>
         </div>
     </div>
 </div>
 
-@endsection
+
 
 @push('styles')
 <style>
 /* ─── Variables ─────────────────────────────────────────── */
 :root {
-    --pi-brand:   #10b981;
-    --pi-brand-d: #059669;
-    --pi-brand-l: #ecfdf5;
-    --pi-text:    #111827;
-    --pi-text2:   #374151;
-    --pi-muted:   #6b7280;
-    --pi-border:  #e5e7eb;
-    --pi-bg:      #f9fafb;
-    --pi-white:   #ffffff;
-    --pi-shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
-    --pi-shadow2: 0 4px 12px rgba(0,0,0,.08);
+    --po-brand:   #f97316;
+    --po-brand-d: #ea580c;
+    --po-brand-l: #fff7ed;
+    --po-purple:  #7c3aed;
+    --po-purple-d:#6d28d9;
+    --po-purple-l:#f5f3ff;
+    --po-text:    #111827;
+    --po-text2:   #374151;
+    --po-muted:   #6b7280;
+    --po-border:  #e5e7eb;
+    --po-bg:      #f9fafb;
+    --po-white:   #ffffff;
+    --po-shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --po-shadow2: 0 4px 12px rgba(0,0,0,.08);
     --r:          7px;
     --r-sm:       5px;
 }
 
 /* ─── Wrap ──────────────────────────────────────────────── */
-.pi-wrap {
+.po-wrap {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: 12.5px;
-    color: var(--pi-text);
+    color: var(--po-text);
     padding: 16px;
     max-width: 100%;
 }
 
 /* ─── Header ────────────────────────────────────────────── */
-.pi-header {
+.po-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
     padding-bottom: 14px;
-    border-bottom: 1px solid var(--pi-border);
+    border-bottom: 1px solid var(--po-border);
     gap: 12px;
     flex-wrap: wrap;
 }
-.pi-header-left {
+.po-header-left {
     display: flex;
     align-items: center;
     gap: 11px;
 }
-.pi-header-icon {
+.po-header-icon {
     width: 38px; height: 38px;
-    background: var(--pi-brand-l);
+    background: var(--po-brand-l);
     border-radius: 9px;
     display: flex; align-items: center; justify-content: center;
-    color: var(--pi-brand);
+    color: var(--po-brand);
     flex-shrink: 0;
 }
-.pi-title { font-size: 17px; font-weight: 700; margin: 0 0 2px; letter-spacing: -.3px; }
-.pi-sub   { font-size: 11px; color: var(--pi-muted); margin: 0; }
+.po-title { font-size: 17px; font-weight: 700; margin: 0 0 2px; letter-spacing: -.3px; }
+.po-sub   { font-size: 11px; color: var(--po-muted); margin: 0; }
 
-.pi-btn-create {
+.po-btn-create {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -483,84 +476,86 @@
     cursor: pointer;
     text-decoration: none;
     transition: background .15s, transform .1s, box-shadow .15s;
-    box-shadow: 0 2px 8px rgba(16,185,129,.3);
+    box-shadow: 0 2px 8px rgba(249,115,22,.3);
     white-space: nowrap;
 }
-
+.po-btn-create:hover {
+    background: #ea580c;
+    transform: translateY(-1px);
+}
 
 /* ─── Stats ─────────────────────────────────────────────── */
-.pi-stats {
+.po-stats {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     margin-bottom: 14px;
 }
-.pi-stat {
+.po-stat {
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 14px 16px;
-    background: var(--pi-white);
-    border: 1px solid var(--pi-border);
+    background: var(--po-white);
+    border: 1px solid var(--po-border);
     border-radius: var(--r);
-    box-shadow: var(--pi-shadow);
+    box-shadow: var(--po-shadow);
     position: relative;
     overflow: hidden;
     transition: box-shadow .2s, transform .15s;
 }
-.pi-stat:hover {
-    box-shadow: var(--pi-shadow2);
+.po-stat:hover {
+    box-shadow: var(--po-shadow2);
     transform: translateY(-1px);
 }
-.pi-stat::before {
+.po-stat::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
     border-radius: var(--r) var(--r) 0 0;
 }
-.pi-stat--green::before { background: #22c55e; }
-.pi-stat--blue::before  { background: #3b82f6; }
+.po-stat--orange::before { background: #f97316; }
+.po-stat--purple::before  { background: #7c3aed; }
 
-.pi-stat-icon {
+.po-stat-icon {
     width: 40px; height: 40px;
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
-.pi-stat--green .pi-stat-icon { background: #dcfce7; color: #16a34a; }
-.pi-stat--blue  .pi-stat-icon { background: #dbeafe; color: #2563eb; }
+.po-stat--orange .po-stat-icon { background: #fff7ed; color: #f97316; }
+.po-stat--purple  .po-stat-icon { background: #f5f3ff; color: #7c3aed; }
 
-.pi-stat-label { font-size: 10.5px; color: var(--pi-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
-.pi-stat-value { font-size: 17px; font-weight: 800; color: var(--pi-text); letter-spacing: -.4px; margin-bottom: 2px; }
-.pi-stat-hint  { font-size: 10px; color: var(--pi-muted); }
+.po-stat-label { font-size: 10.5px; color: var(--po-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+.po-stat-value { font-size: 17px; font-weight: 800; color: var(--po-text); letter-spacing: -.4px; margin-bottom: 2px; }
 
 /* ─── Filters ───────────────────────────────────────────── */
-.pi-filters {
-    background: var(--pi-white);
-    border: 1px solid var(--pi-border);
+.po-filters {
+    background: var(--po-white);
+    border: 1px solid var(--po-border);
     border-radius: var(--r);
     padding: 11px 14px 13px;
     margin-bottom: 12px;
-    box-shadow: var(--pi-shadow);
+    box-shadow: var(--po-shadow);
 }
-.pi-filters-header {
+.po-filters-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 10px;
 }
-.pi-filters-title {
+.po-filters-title {
     font-size: 11px;
     font-weight: 700;
-    color: var(--pi-text2);
+    color: var(--po-text2);
     display: flex;
     align-items: center;
     gap: 5px;
     text-transform: uppercase;
     letter-spacing: .5px;
 }
-.pi-clear-filters {
+.po-clear-filters {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -570,69 +565,64 @@
     font-weight: 500;
     transition: color .15s;
 }
-.pi-clear-filters:hover { color: var(--pi-brand-d); text-decoration: underline; }
-.md-type-badge.credit {
-    background: #fef9c3;
-    color: #854d0e;
-    border: 1px solid #fde68a;
-}
-.pi-filter-row {
+.po-clear-filters:hover { color: #ea580c; text-decoration: underline; }
+.po-filter-row {
     display: flex;
     flex-wrap: wrap;
     gap: 15px;
     align-items: flex-end;
 }
-.pi-filter-group {
+.po-filter-group {
     display: flex;
     flex-direction: column;
     gap: 4px;
     min-width: 120px;
 }
-.pi-filter-label {
+.po-filter-label {
     font-size: 9.5px;
     font-weight: 700;
-    color: var(--pi-muted);
+    color: var(--po-muted);
     text-transform: uppercase;
     letter-spacing: .5px;
 }
-.pi-input, .pi-select {
+.po-input, .po-select {
     height: 31px;
     padding: 0 9px;
-    border: 1px solid var(--pi-border);
+    border: 1px solid var(--po-border);
     border-radius: var(--r-sm);
     font-size: 11.5px;
-    color: var(--pi-text);
-    background: var(--pi-bg);
+    color: var(--po-text);
+    background: var(--po-bg);
     transition: border-color .15s, background .15s, box-shadow .15s;
     outline: none;
 }
-.pi-input:focus, .pi-select:focus {
-    border-color: var(--pi-brand);
-    background: var(--pi-white);
-    box-shadow: 0 0 0 3px rgba(16,185,129,.1);
+.po-input:focus, .po-select:focus {
+    border-color: var(--po-brand);
+    background: var(--po-white);
+    box-shadow: 0 0 0 3px rgba(249,115,22,.1);
 }
-.pi-input-icon-wrap { position: relative; }
-.pi-input-icon {
+.po-input-icon-wrap { position: relative; }
+.po-input-icon {
     position: absolute;
     left: 9px; top: 50%;
     transform: translateY(-50%);
-    color: var(--pi-muted);
+    color: var(--po-muted);
     pointer-events: none;
 }
-.pi-input-with-icon { padding-left: 28px; }
+.po-input-with-icon { padding-left: 28px; }
 
-.pi-filter-btns {
+.po-filter-btns {
     display: flex;
     gap: 10px;
     align-items: flex-end;
 }
-.pi-btn-filter {
+.po-btn-filter {
     display: inline-flex;
     align-items: center;
     gap: 5px;
     height: 31px;
     padding: 0 14px;
-    background: var(--pi-text);
+    background: var(--po-text);
     color: #fff;
     border: none;
     border-radius: var(--r-sm);
@@ -641,110 +631,102 @@
     cursor: pointer;
     transition: background .15s;
 }
-.pi-btn-filter:hover { background: #1f2937; }
-.pi-btn-reset {
+.po-btn-filter:hover { background: #1f2937; }
+.po-btn-reset {
     display: inline-flex;
     align-items: center;
     height: 31px;
     padding: 0 12px;
-    background: var(--pi-bg);
-    color: var(--pi-muted);
-    border: 1px solid var(--pi-border);
+    background: var(--po-bg);
+    color: var(--po-muted);
+    border: 1px solid var(--po-border);
     border-radius: var(--r-sm);
     font-size: 11.5px;
     text-decoration: none;
     transition: all .15s;
     font-weight: 500;
 }
-.pi-btn-reset:hover { background: #f3f4f6; color: var(--pi-text); }
+.po-btn-reset:hover { background: #f3f4f6; color: var(--po-text); }
 
 /* ─── Table Card ────────────────────────────────────────── */
-.pi-table-card {
-    background: var(--pi-white);
-    border: 1px solid var(--pi-border);
+.po-table-card {
+    background: var(--po-white);
+    border: 1px solid var(--po-border);
     border-radius: var(--r);
-    box-shadow: var(--pi-shadow);
+    box-shadow: var(--po-shadow);
     overflow: hidden;
 }
-.pi-table-topbar {
+.po-table-topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--pi-border);
-    background: var(--pi-bg);
+    border-bottom: 1px solid var(--po-border);
+    background: var(--po-bg);
     flex-wrap: wrap;
     gap: 6px;
 }
-.pi-table-count {
+.po-table-count {
     font-size: 11.5px;
-    color: var(--pi-muted);
+    color: var(--po-muted);
     font-weight: 500;
     display: flex;
     align-items: center;
     gap: 6px;
 }
-.pi-ptype--vendor {
-    background: #fee2e2;
-    color: #991b1b;
-}
-.pi-table-count strong { color: var(--pi-text); font-weight: 700; }
-.pi-filtered-pill {
+.po-table-count strong { color: var(--po-text); font-weight: 700; }
+.po-filtered-pill {
     display: inline-flex;
     align-items: center;
     gap: 3px;
     padding: 2px 7px;
-    background: #ecfdf5;
-    color: #065f46;
-    border: 1px solid #a7f3d0;
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
     border-radius: 10px;
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .3px;
 }
-.pi-page-info-top { font-size: 10.5px; color: var(--pi-muted); }
-.pi-table-topbar-right { display: flex; align-items: center; gap: 8px; }
+.po-page-info-top { font-size: 10.5px; color: var(--po-muted); }
 
 /* ─── Table ─────────────────────────────────────────────── */
-.pi-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.pi-tbl {
+.po-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.po-tbl {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
     min-width: 1050px;
 }
-.pi-tbl th {
+.po-tbl th {
     padding: 9px 11px;
     background: #f3f4f6;
     font-size: 9.5px;
     font-weight: 700;
-    color: var(--pi-muted);
+    color: var(--po-muted);
     text-transform: uppercase;
     letter-spacing: .5px;
-    border-bottom: 1px solid var(--pi-border);
+    border-bottom: 1px solid var(--po-border);
     white-space: nowrap;
     text-align: left;
-    position: sticky;
-    top: 0;
-    z-index: 1;
 }
-.pi-tbl td {
+.po-tbl td {
     padding: 9px 11px;
     border-bottom: 1px solid #f3f4f6;
     vertical-align: middle;
-    color: var(--pi-text2);
+    color: var(--po-text2);
 }
-.pi-tbl tr:last-child td { border-bottom: none; }
-.pi-tr { transition: background .12s; }
-.pi-tr:hover td { background: #fafafa; }
+.po-tbl tr:last-child td { border-bottom: none; }
+.po-tr { transition: background .12s; }
+.po-tr:hover td { background: #fafafa; }
 
 /* Column widths */
 .tc-no     { width: 45px;  text-align: center; }
 .tc-date   { width: 90px;  }
 .tc-pno    { width: 165px; }
 .tc-party  { width: 170px; }
-.tc-type   { width: 90px;  }
+.tc-type   { width: 110px; }
 .tc-wh     { width: 120px; }
 .tc-amount { width: 110px; }
 .tc-method { width: 110px; }
@@ -755,51 +737,57 @@
 .td-serial {
     display: inline-flex; align-items: center; justify-content: center;
     width: 22px; height: 22px;
-    background: var(--pi-bg);
+    background: var(--po-bg);
     border-radius: 4px;
-    font-size: 10px; color: var(--pi-muted); font-weight: 600;
+    font-size: 10px; color: var(--po-muted); font-weight: 600;
 }
-.td-muted      { color: var(--pi-muted); font-size: 10.5px; }
-.td-date-main  { font-size: 11.5px; color: var(--pi-text2); white-space: nowrap; font-weight: 500; }
-.td-date-sub   { font-size: 9.5px; color: var(--pi-muted); }
+.td-muted      { color: var(--po-muted); font-size: 10.5px; }
+.td-date-main  { font-size: 11.5px; color: var(--po-text2); white-space: nowrap; font-weight: 500; }
+.td-date-sub   { font-size: 9.5px; color: var(--po-muted); }
 .td-party-name {
-    font-weight: 500; color: var(--pi-text); font-size: 12px; margin-bottom: 2px;
+    font-weight: 500; color: var(--po-text); font-size: 12px; margin-bottom: 2px;
     max-width: 155px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.td-party-phone { font-size: 10.5px; color: var(--pi-muted); }
-.td-amount { font-weight: 700; font-size: 12.5px; color: #065f46; }
+.td-party-phone { font-size: 10.5px; color: var(--po-muted); }
+.td-amount { font-weight: 700; font-size: 12.5px; color: #c2410c; }
 
 /* Payment No chip */
-.pi-pno-chip {
+.po-pno-chip {
     display: inline-block;
     padding: 3px 8px;
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
     border-radius: 4px;
     font-size: 10.5px;
     font-weight: 600;
-    color: #065f46;
+    color: #c2410c;
     white-space: nowrap;
     font-family: 'Courier New', monospace;
     letter-spacing: .2px;
 }
 
-/* Party type badges */
-.pi-ptype {
+/* Subtype badges */
+.po-subtype-badge {
     display: inline-block;
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 8.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .3px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
 }
-.pi-ptype--customer    { background: #d1fae5; color: #065f46; }
-.pi-ptype--dealer      { background: #dbeafe; color: #1e40af; }
-.pi-ptype--distributor { background: #fef3c7; color: #92400e; }
+.po-subtype-purchase {
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+}
+.po-subtype-refund {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+}
 
 /* Warehouse badge */
-.pi-wh-badge {
+.po-wh-badge {
     display: inline-block;
     padding: 2px 7px;
     background: #f0fdf4;
@@ -812,7 +800,7 @@
 }
 
 /* Method badges */
-.pi-method-badge {
+.po-method-badge {
     display: inline-block;
     padding: 3px 8px;
     border-radius: 20px;
@@ -820,15 +808,15 @@
     font-weight: 600;
     white-space: nowrap;
 }
-.pi-method--cash          { background: #d1fae5; color: #065f46; }
-.pi-method--upi           { background: #dbeafe; color: #1e40af; }
-.pi-method--bank_transfer { background: #fef3c7; color: #92400e; }
-.pi-method--cheque        { background: #fed7aa; color: #9a3412; }
-.pi-method--card          { background: #e0e7ff; color: #3730a3; }
+.po-method--cash          { background: #d1fae5; color: #065f46; }
+.po-method--upi           { background: #dbeafe; color: #1e40af; }
+.po-method--bank_transfer { background: #fef3c7; color: #92400e; }
+.po-method--cheque        { background: #fed7aa; color: #9a3412; }
+.po-method--card          { background: #e0e7ff; color: #3730a3; }
 
 /* Allocation tags */
-.pi-alloc-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
-.pi-alloc-tag {
+.po-alloc-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+.po-alloc-tag {
     display: inline-block;
     padding: 2px 7px;
     border-radius: 4px;
@@ -836,12 +824,13 @@
     font-weight: 500;
     white-space: nowrap;
 }
-.pi-alloc--opening { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
-.pi-alloc--invoice { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.po-alloc--opening { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+.po-alloc--invoice { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.po-alloc--credit  { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
 
 /* Actions */
-.pi-act-grp { display: flex; gap: 4px; align-items: center; }
-.pi-act {
+.po-act-grp { display: flex; gap: 4px; align-items: center; }
+.po-act {
     width: 28px; height: 28px;
     border: none;
     border-radius: var(--r-sm);
@@ -849,128 +838,127 @@
     cursor: pointer; transition: all .15s;
     text-decoration: none; flex-shrink: 0;
 }
-.pi-act--view       { background: #dbeafe; color: #2563eb; }
-.pi-act--view:hover { background: #bfdbfe; transform: scale(1.05); }
+.po-act--view       { background: #dbeafe; color: #2563eb; }
+.po-act--view:hover { background: #bfdbfe; transform: scale(1.05); }
 
 /* Empty state */
-.pi-empty-cell { padding: 52px 20px; text-align: center; }
-.pi-empty { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; }
-.pi-empty-icon {
+.po-empty-cell { padding: 52px 20px; text-align: center; }
+.po-empty { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; }
+.po-empty-icon {
     width: 56px; height: 56px;
-    background: var(--pi-bg);
+    background: var(--po-bg);
     border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
     color: #d1d5db; margin-bottom: 4px;
 }
-.pi-empty-title { font-size: 13px; font-weight: 600; color: var(--pi-text2); margin: 0; }
-.pi-empty-sub   { font-size: 11px; color: var(--pi-muted); margin: 0; }
-.pi-empty-sub a { color: #fc7d2b}
+.po-empty-title { font-size: 13px; font-weight: 600; color: var(--po-text2); margin: 0; }
+.po-empty-sub   { font-size: 11px; color: var(--po-muted); margin: 0; }
+.po-empty-sub a { color: #fc7d2b; text-decoration: none; }
+.po-empty-sub a:hover { text-decoration: underline; }
 
 /* ─── Pagination ────────────────────────────────────────── */
-.pi-pagination {
+.po-pagination {
     display: flex; justify-content: space-between; align-items: center;
     padding: 10px 14px;
-    border-top: 1px solid var(--pi-border);
-    background: var(--pi-bg);
+    border-top: 1px solid var(--po-border);
+    background: var(--po-bg);
     flex-wrap: wrap; gap: 8px;
 }
-.pi-page-info { font-size: 10.5px; color: var(--pi-muted); }
-.pi-page-info strong { color: var(--pi-text2); }
-.pi-pages { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
-.pi-pg {
+.po-page-info { font-size: 10.5px; color: var(--po-muted); }
+.po-pages { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+.po-pg {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 28px; height: 28px; padding: 0 5px;
-    border: 1px solid var(--pi-border); border-radius: var(--r-sm);
-    font-size: 11px; color: var(--pi-text2);
-    text-decoration: none; background: var(--pi-white);
+    border: 1px solid var(--po-border); border-radius: var(--r-sm);
+    font-size: 11px; color: var(--po-text2);
+    text-decoration: none; background: var(--po-white);
     transition: all .12s; font-weight: 500;
 }
-.pi-pg:hover         { background: #f3f4f6; border-color: #d1d5db; }
-.pi-pg--active       { background: var(--pi-brand); color: #fff; border-color: var(--pi-brand); font-weight: 700; }
-.pi-pg--active:hover { background: var(--pi-brand); }
-.pi-pg--dis          { color: #d1d5db; background: var(--pi-bg); cursor: default; pointer-events: none; }
-.pi-pg-dots          { font-size: 11px; color: var(--pi-muted); padding: 0 2px; }
+.po-pg:hover         { background: #f3f4f6; border-color: #d1d5db; }
+.po-pg--active       { background: var(--po-brand); color: #fff; border-color: var(--po-brand); font-weight: 700; }
+.po-pg--active:hover { background: var(--po-brand); }
+.po-pg--dis          { color: #d1d5db; background: var(--po-bg); cursor: default; pointer-events: none; }
+.po-pg-dots          { font-size: 11px; color: var(--po-muted); padding: 0 2px; }
 
 /* ─── Modal ─────────────────────────────────────────────── */
-.pi-modal {
+.po-modal {
     position: fixed; inset: 0; z-index: 1000;
     display: flex; align-items: center; justify-content: center;
 }
-.pi-modal-overlay {
+.po-modal-overlay {
     position: absolute; inset: 0;
     background: rgba(0,0,0,.45);
     backdrop-filter: blur(2px);
 }
-.pi-modal-box {
+.po-modal-box {
     position: relative;
-    background: var(--pi-white);
+    background: var(--po-white);
     border-radius: 10px;
     width: 720px; max-width: 94%; max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 20px 50px rgba(0,0,0,.15);
-    animation: piMIn .2s ease;
+    animation: poMIn .2s ease;
     display: flex; flex-direction: column;
 }
-@keyframes piMIn {
+@keyframes poMIn {
     from { opacity:0; transform: scale(.95) translateY(10px); }
     to   { opacity:1; transform: scale(1) translateY(0); }
 }
-.pi-modal-head {
+.po-modal-head {
     display: flex; align-items: center; gap: 11px;
     padding: 14px 18px;
-    border-bottom: 1px solid var(--pi-border);
-    background: var(--pi-bg);
+    border-bottom: 1px solid var(--po-border);
+    background: var(--po-bg);
     border-radius: 10px 10px 0 0;
     position: sticky; top: 0; z-index: 1;
 }
-.pi-modal-ico {
+.po-modal-ico {
     width: 34px; height: 34px;
-    background: var(--pi-brand);
+    background: var(--po-brand);
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
-.pi-modal-title { font-size: 13.5px; font-weight: 700; margin-bottom: 1px; }
-.pi-modal-sub   { font-size: 10.5px; color: var(--pi-muted); }
-.pi-modal-close {
+.po-modal-title { font-size: 13.5px; font-weight: 700; margin-bottom: 1px; }
+.po-modal-sub   { font-size: 10.5px; color: var(--po-muted); }
+.po-modal-close {
     margin-left: auto;
     background: none; border: none;
-    font-size: 20px; color: var(--pi-muted);
+    font-size: 20px; color: var(--po-muted);
     cursor: pointer; width: 28px; height: 28px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 5px; line-height: 1; transition: all .15s;
 }
-.pi-modal-close:hover { background: #e5e7eb; color: var(--pi-text); }
-.pi-modal-body { padding: 18px; flex: 1; }
-.pi-modal-foot {
+.po-modal-close:hover { background: #e5e7eb; color: var(--po-text); }
+.po-modal-body { padding: 18px; flex: 1; }
+.po-modal-foot {
     display: flex; justify-content: flex-end;
     padding: 12px 18px;
-    border-top: 1px solid var(--pi-border);
+    border-top: 1px solid var(--po-border);
     background: #fafafa;
     border-radius: 0 0 10px 10px;
 }
-.pi-btn-modal-close {
+.po-btn-modal-close {
     padding: 7px 20px;
-    border: 1px solid var(--pi-border); border-radius: var(--r-sm);
-    background: var(--pi-bg); color: var(--pi-text2);
+    border: 1px solid var(--po-border); border-radius: var(--r-sm);
+    background: var(--po-bg); color: var(--po-text2);
     font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s;
 }
-.pi-btn-modal-close:hover { background: #e5e7eb; }
+.po-btn-modal-close:hover { background: #e5e7eb; }
 
-.pi-modal-loader {
+.po-modal-loader {
     display: flex; align-items: center; justify-content: center;
-    gap: 10px; padding: 40px; color: var(--pi-muted); font-size: 13px;
+    gap: 10px; padding: 40px; color: var(--po-muted); font-size: 13px;
 }
-.pi-alloc--debit { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
-.pi-spinner {
+.po-spinner {
     width: 22px; height: 22px;
     border: 3px solid #e5e7eb;
-    border-top-color: var(--pi-brand);
+    border-top-color: var(--po-brand);
     border-radius: 50%;
-    animation: piSpin .8s linear infinite;
+    animation: poSpin .8s linear infinite;
     flex-shrink: 0;
 }
-@keyframes piSpin { to { transform: rotate(360deg); } }
+@keyframes poSpin { to { transform: rotate(360deg); } }
 
 /* Modal detail content */
 .md-grid {
@@ -981,24 +969,25 @@
 }
 .md-item { display: flex; flex-direction: column; gap: 3px; }
 .md-label {
-    font-size: 10.5px; color: var(--pi-muted); font-weight: 600;
+    font-size: 10.5px; color: var(--po-muted); font-weight: 600;
     text-transform: uppercase; letter-spacing: .4px;
 }
-.md-value { font-size: 13px; font-weight: 600; color: var(--pi-text); }
+.md-value { font-size: 13px; font-weight: 600; color: var(--po-text); }
 .md-value.green { color: #059669; }
-.md-value.blue  { color: #2563eb; }
+.md-value.purple { color: #7c3aed; }
+.md-value.orange { color: #f97316; }
 
 .md-section-title {
-    font-size: 11.5px; font-weight: 700; color: var(--pi-muted);
+    font-size: 11.5px; font-weight: 700; color: var(--po-muted);
     text-transform: uppercase; letter-spacing: .5px;
     margin: 0 0 10px; padding-bottom: 6px;
-    border-bottom: 1px solid var(--pi-border);
+    border-bottom: 1px solid var(--po-border);
 }
 .md-alloc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .md-alloc-table th {
     background: #f8fafc; padding: 8px 10px;
     text-align: left; font-size: 11px; font-weight: 600;
-    color: var(--pi-muted); border-bottom: 1px solid var(--pi-border);
+    color: var(--po-muted); border-bottom: 1px solid var(--po-border);
 }
 .md-alloc-table td {
     padding: 9px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
@@ -1010,58 +999,59 @@
 }
 .md-type-badge.opening { background: #f3e8ff; color: #6b21a8; }
 .md-type-badge.invoice { background: #dbeafe; color: #1e40af; }
+.md-type-badge.credit  { background: #fef3c7; color: #92400e; }
 .md-bal-change { display: flex; align-items: center; gap: 5px; font-size: 11px; }
 .md-bal-from   { color: #dc2626; text-decoration: line-through; opacity: .7; }
-.md-bal-arrow  { color: var(--pi-muted); }
+.md-bal-arrow  { color: var(--po-muted); }
 .md-bal-to     { color: #059669; font-weight: 600; }
-.md-no-alloc   { text-align: center; padding: 20px; color: var(--pi-muted); font-size: 12.5px; }
+.md-no-alloc   { text-align: center; padding: 20px; color: var(--po-muted); font-size: 12.5px; }
 
 .md-summary {
     display: flex; gap: 0;
-    border: 1px solid var(--pi-border); border-radius: var(--r);
+    border: 1px solid var(--po-border); border-radius: var(--r);
     overflow: hidden; margin-top: 16px;
 }
 .md-summary-item {
     flex: 1; padding: 12px 16px; text-align: center;
-    border-right: 1px solid var(--pi-border);
+    border-right: 1px solid var(--po-border);
 }
 .md-summary-item:last-child { border-right: none; }
-.md-summary-label { font-size: 10px; color: var(--pi-muted); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .3px; }
+.md-summary-label { font-size: 10px; color: var(--po-muted); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .3px; }
 .md-summary-val { font-size: 14px; font-weight: 700; }
 .md-summary-val.green  { color: #059669; }
 .md-summary-val.purple { color: #7c3aed; }
-.md-summary-val.blue   { color: #2563eb; }
+.md-summary-val.orange { color: #f97316; }
 
 /* ─── Alert ─────────────────────────────────────────────── */
 #alertBox { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 7px; }
-.pi-alert {
+.po-alert {
     padding: 10px 14px; border-radius: 6px;
     font-size: 12px; font-weight: 500;
     box-shadow: 0 4px 14px rgba(0,0,0,.12);
-    animation: piAIn .25s ease;
+    animation: poAIn .25s ease;
     min-width: 220px; max-width: 320px;
 }
-@keyframes piAIn {
+@keyframes poAIn {
     from { transform: translateX(110%); opacity: 0; }
     to   { transform: translateX(0);    opacity: 1; }
 }
-.pi-alert-success { background: #f0fdf4; color: #166534; border-left: 3px solid #22c55e; }
-.pi-alert-error   { background: #fef2f2; color: #991b1b; border-left: 3px solid #ef4444; }
+.po-alert-success { background: #f0fdf4; color: #166534; border-left: 3px solid #22c55e; }
+.po-alert-error   { background: #fef2f2; color: #991b1b; border-left: 3px solid #ef4444; }
 
 /* ─── Responsive ────────────────────────────────────────── */
 @media (max-width: 768px) {
-    .pi-stats { grid-template-columns: 1fr 1fr; }
-    .pi-filter-group { min-width: calc(50% - 4px); flex: 1 1 calc(50% - 4px); }
-    .pi-filter-btns { width: 100%; }
+    .po-stats { grid-template-columns: 1fr 1fr; }
+    .po-filter-group { min-width: calc(50% - 4px); flex: 1 1 calc(50% - 4px); }
+    .po-filter-btns { width: 100%; }
     .md-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
-    .pi-wrap { padding: 10px; }
-    .pi-stats { grid-template-columns: 1fr; }
-    .pi-header { flex-direction: column; align-items: flex-start; }
-    .pi-filter-group { min-width: 100%; flex: 1 1 100%; }
-    .pi-pagination { flex-direction: column; align-items: flex-start; }
-    .pi-pages { justify-content: center; width: 100%; }
+    .po-wrap { padding: 10px; }
+    .po-stats { grid-template-columns: 1fr; }
+    .po-header { flex-direction: column; align-items: flex-start; }
+    .po-filter-group { min-width: 100%; flex: 1 1 100%; }
+    .po-pagination { flex-direction: column; align-items: flex-start; }
+    .po-pages { justify-content: center; width: 100%; }
 }
 </style>
 @endpush
@@ -1075,7 +1065,7 @@ function viewPayment(id) {
     document.getElementById('modalLoader').style.display   = 'flex';
     document.getElementById('modalContent').style.display  = 'none';
 
-    $.get('{{ route("admin.payments.show", "__ID__") }}'.replace('__ID__', id))
+    $.get('{{ route("admin.payments-out.show", "__ID__") }}'.replace('__ID__', id))
         .done(function(res) {
             document.getElementById('modalLoader').style.display = 'none';
             if (!res.success) { showAlert('Failed to load payment details', 'error'); closeViewModal(); return; }
@@ -1088,7 +1078,7 @@ function viewPayment(id) {
             html += `<div class="md-grid">
                 <div class="md-item">
                     <span class="md-label">Payment Number</span>
-                    <span class="md-value blue">${esc(p.payment_number)}</span>
+                    <span class="md-value purple">${esc(p.payment_number)}</span>
                 </div>
                 <div class="md-item">
                     <span class="md-label">Date</span>
@@ -1103,8 +1093,8 @@ function viewPayment(id) {
                     <span class="md-value">${esc(p.party_type)}</span>
                 </div>
                 <div class="md-item">
-                    <span class="md-label">Amount Received</span>
-                    <span class="md-value green">₹${fmt(p.amount)}</span>
+                    <span class="md-label">Amount Paid</span>
+                    <span class="md-value orange">₹${fmt(p.amount)}</span>
                 </div>
                 <div class="md-item">
                     <span class="md-label">Payment Method</span>
@@ -1135,92 +1125,104 @@ function viewPayment(id) {
                             <th>Details</th>
                             <th style="text-align:right">Amount</th>
                             <th>Balance Change / Status</th>
-                        </tr>
-                    </thead><tbody>`;
+                        </thead>
+                    <tbody>`;
 
                 allocs.forEach(function(a) {
                     if (a.type === 'opening_balance') {
                         openingTotal += parseFloat(a.amount) || 0;
-                        html += `<tr>
-                            <td><span class="md-type-badge opening">Opening Balance</span></td>
-                            <td>${esc(a.description || 'Opening Balance Payment')}</td>
-                            <td style="text-align:right"><strong>₹${fmt(a.amount)}</strong></td>
-                            <td><span style="color:var(--pi-muted)">—</span></td>
-                        </tr>`;
+                        html += `——
+                            <td><span class="md-type-badge opening">Opening Balance</span>——
+                            <td>${esc(a.description || 'Opening Balance Payment')}——
+                            <td style="text-align:right"><strong>₹${fmt(a.amount)}</strong>——
+                            <td><span style="color:var(--po-muted)">—</span>——
+                        \)`;
                     }
                     else if (a.type === 'invoice') {
                         invoiceTotal += parseFloat(a.amount) || 0;
-                        html += `<tr>
-                            <td><span class="md-type-badge invoice">Invoice</span></td>
+                        html += `——
+                            <td><span class="md-type-badge invoice">Purchase Invoice</span>——
                             <td><strong>${esc(a.invoice_number)}</strong>
-                                ${a.invoice_date ? `<br><small style="color:var(--pi-muted);font-size:10px;">Date: ${a.invoice_date}</small>` : ''}
-                                ${a.grand_total ? `<br><small style="color:var(--pi-muted);font-size:10px;">Total: ₹${fmt(a.grand_total)}</small>` : ''}
-                            </td>
-                            <td style="text-align:right"><strong>₹${fmt(a.amount)}</strong></td>
+                                ${a.invoice_date ? `<br><small style="color:var(--po-muted);font-size:10px;">Date: ${a.invoice_date}</small>` : ''}
+                                ${a.grand_total ? `<br><small style="color:var(--po-muted);font-size:10px;">Total: ₹${fmt(a.grand_total)}</small>` : ''}
+                            ——
+                            <td style="text-align:right"><strong>₹${fmt(a.amount)}</strong>——
                             <td>
                                 <div class="md-bal-change">
                                     <span class="md-bal-from">₹${fmt(a.previous_balance)}</span>
                                     <span class="md-bal-arrow">→</span>
                                     <span class="md-bal-to">₹${fmt(a.new_balance)}</span>
                                 </div>
-                            </td>
-                        </tr>`;
+                            ——
+                        \)`;
                     }
                     else if (a.type === 'credit_note') {
                         creditTotal += parseFloat(a.amount) || 0;
-                        html += `<tr>
-                            <td><span class="md-type-badge credit">Credit Note</span></td>
-                            <td><strong>${esc(a.credit_note_number)}</strong><br>
-                                <small style="color:var(--pi-muted);font-size:10px;">${esc(a.description || '')}</small>
-                            </td>
-                            <td style="text-align:right"><strong style="color:#059669;">₹${fmt(a.amount)}</strong></td>
-                            <td><span style="color:#059669;font-size:11px;">Adjusted</span></td>
-                        </tr>`;
-                    }
-                    else if (a.type === 'debit_note') {
-                        debitTotal += parseFloat(a.amount) || 0;
                         const remainingAfter = a.new_remaining || 0;
                         const previousRemaining = a.previous_remaining || 0;
 
-                        html += `<tr>
-                            <td><span class="md-type-badge" style="background:#f5f3ff; color:#6d28d9;">Debit Note</span></td>
-                            <td><strong>${esc(a.debit_note_number)}</strong>
-                                ${a.debit_date ? `<br><small style="color:var(--pi-muted);font-size:10px;">Date: ${a.debit_date}</small>` : ''}
-                                ${a.total_amount ? `<br><small style="color:var(--pi-muted);font-size:10px;">Total: ₹${fmt(a.total_amount)}</small>` : ''}
-                                ${a.description ? `<br><small style="color:var(--pi-muted);font-size:10px;">${esc(a.description)}</small>` : ''}
-                            </td>
-                            <td style="text-align:right"><strong style="color:#7c3aed;">₹${fmt(a.amount)}</strong></td>
+                        html += `——
+                            <td><span class="md-type-badge credit">Credit Note Refund</span>——
+                            <td><strong>${esc(a.credit_note_number)}</strong>
+                                ${a.credit_date ? `<br><small style="color:var(--po-muted);font-size:10px;">Date: ${a.credit_date}</small>` : ''}
+                                ${a.total_amount ? `<br><small style="color:var(--po-muted);font-size:10px;">Total: ₹${fmt(a.total_amount)}</small>` : ''}
+                                ${a.description ? `<br><small style="color:var(--po-muted);font-size:10px;">${esc(a.description)}</small>` : ''}
+                            ——
+                            <td style="text-align:right"><strong style="color:#7c3aed;">₹${fmt(a.amount)}</strong>——
                             <td>
                                 <div class="md-bal-change">
                                     <span class="md-bal-from">₹${fmt(previousRemaining)}</span>
                                     <span class="md-bal-arrow">→</span>
                                     <span class="md-bal-to">₹${fmt(remainingAfter)}</span>
                                 </div>
-                            </td>
-                        </tr>`;
+                            ——
+                        \)`;
+                    }
+                    else if (a.type === 'debit_note') {
+                        debitTotal += parseFloat(a.amount) || 0;
+                        const remainingAfter = a.new_remaining || 0;
+                        const previousRemaining = a.previous_remaining || 0;
+
+                        html += `——
+                            <td><span class="md-type-badge" style="background:#f5f3ff; color:#6d28d9;">Debit Note</span>——
+                            <td><strong>${esc(a.debit_note_number)}</strong>
+                                ${a.debit_date ? `<br><small style="color:var(--po-muted);font-size:10px;">Date: ${a.debit_date}</small>` : ''}
+                                ${a.total_amount ? `<br><small style="color:var(--po-muted);font-size:10px;">Total: ₹${fmt(a.total_amount)}</small>` : ''}
+                                ${a.description ? `<br><small style="color:var(--po-muted);font-size:10px;">${esc(a.description)}</small>` : ''}
+                            ——
+                            <td style="text-align:right"><strong style="color:#059669;">₹${fmt(a.amount)}</strong>——
+                            <td>
+                                <div class="md-bal-change">
+                                    <span class="md-bal-from">₹${fmt(previousRemaining)}</span>
+                                    <span class="md-bal-arrow">→</span>
+                                    <span class="md-bal-to">₹${fmt(remainingAfter)}</span>
+                                </div>
+                            ——
+                        \)`;
                     }
                 });
-                html += `</tbody></table>`;
+                html += `</tbody>`;
+                html += `</table>`;
             }
 
-            // Summary section with debit notes included
+            // Summary section with all allocation types
             html += `<div class="md-summary">
                 <div class="md-summary-item">
-                    <div class="md-summary-label">Cash Received</div>
-                    <div class="md-summary-val green">₹${fmt(p.amount)}</div>
+                    <div class="md-summary-label">Cash Paid</div>
+                    <div class="md-summary-val orange">₹${fmt(p.amount)}</div>
                 </div>`;
-
-            if (creditTotal > 0) {
-                html += `<div class="md-summary-item">
-                    <div class="md-summary-label">Credit Adjusted</div>
-                    <div class="md-summary-val" style="color:#059669;">₹${fmt(creditTotal)}</div>
-                </div>`;
-            }
 
             if (debitTotal > 0) {
                 html += `<div class="md-summary-item">
-                    <div class="md-summary-label">Debit Refund</div>
-                    <div class="md-summary-val" style="color:#7c3aed;">₹${fmt(debitTotal)}</div>
+                    <div class="md-summary-label">Debit Adjusted</div>
+                    <div class="md-summary-val" style="color:#059669;">₹${fmt(debitTotal)}</div>
+                </div>`;
+            }
+
+            if (creditTotal > 0) {
+                html += `<div class="md-summary-item">
+                    <div class="md-summary-label">Credit Refund</div>
+                    <div class="md-summary-val" style="color:#7c3aed;">₹${fmt(creditTotal)}</div>
                 </div>`;
             }
 
@@ -1234,7 +1236,7 @@ function viewPayment(id) {
             if (invoiceTotal > 0) {
                 html += `<div class="md-summary-item">
                     <div class="md-summary-label">Invoice Settled</div>
-                    <div class="md-summary-val blue">₹${fmt(invoiceTotal)}</div>
+                    <div class="md-summary-val" style="color:#2563eb;">₹${fmt(invoiceTotal)}</div>
                 </div>`;
             }
 
@@ -1271,10 +1273,12 @@ function esc(s) {
 function showAlert(msg, type = 'success') {
     const box = document.getElementById('alertBox');
     const el  = document.createElement('div');
-    el.className   = 'pi-alert pi-alert-' + type;
+    el.className   = 'po-alert po-alert-' + type;
     el.textContent = msg;
     box.appendChild(el);
     setTimeout(() => el.remove(), 4500);
 }
 </script>
 @endpush
+
+@endsection

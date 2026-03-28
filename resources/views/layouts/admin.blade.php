@@ -496,6 +496,7 @@
                     <a href="{{ route('admin.parties.index.type', 'customer') }}" class="submenu-item {{ request()->routeIs('admin.parties.*') && request()->segment(3) === 'customer' ? 'active' : '' }}"><span class="submenu-dot"></span> Customers</a>
                     <a href="{{ route('admin.parties.index.type', 'dealer') }}" class="submenu-item {{ request()->routeIs('admin.parties.*') && request()->segment(3) === 'dealer' ? 'active' : '' }}"><span class="submenu-dot"></span> Dealers</a>
                     <a href="{{ route('admin.parties.index.type', 'distributor') }}" class="submenu-item {{ request()->routeIs('admin.parties.*') && request()->segment(3) === 'distributor' ? 'active' : '' }}"><span class="submenu-dot"></span> Distributors</a>
+                    <a href="{{ url('/admin/vendors') }}" class="submenu-item {{ request()->is('admin/vendors') ? 'active' : '' }}"><span class="submenu-dot"></span>Vendors</a>
                 </div>
             </div>
             <span class="nav-tooltip">Parties</span>
@@ -531,27 +532,12 @@
             <span class="nav-tooltip">Purchase Executive</span>
         </div>
 
-        <!-- NEW: Vendors Section -->
-        @php $vendorsActive = request()->is('admin/vendors*'); @endphp
-        <div class="nav-item">
-            <div class="nav-link {{ $vendorsActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
-                <span class="nav-icon">🚚</span>
-                <span class="nav-text">Vendors</span>
-                <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
-            </div>
-            <div class="submenu">
-                <div class="submenu-inner">
-                    <a href="{{ url('/admin/vendors') }}" class="submenu-item {{ request()->is('admin/vendors') ? 'active' : '' }}"><span class="submenu-dot"></span> All Vendors</a>
-                </div>
-            </div>
-            <span class="nav-tooltip">Vendors</span>
-        </div>
 
         <div class="nav-section-label">Finance</div>
 
         @php
             $salesActive = !request()->is('admin/salesmen*') && !request()->is('admin/warranty*') && (
-                request()->is('admin/sales*') || request()->is('admin/payments*')
+                request()->is('admin/sales*') || request()->is('admin/payments') || request()->is('admin/payments/*')
             );
         @endphp
         <div class="nav-item">
@@ -568,12 +554,36 @@
                     <a href="{{ url('/admin/credit-notes') }}" class="submenu-item {{ request()->is('admin/credit-notes*') ? 'active' : '' }}"><span class="submenu-dot"></span> Credit Notes</a>
 
                     <a href="{{ url('/admin/quotations') }}" class="submenu-item {{ request()->is('admin/quotations*') ? 'active' : '' }}"><span class="submenu-dot"></span> Quotations </a>
-                    <a href="{{ url('/admin/payments') }}" class="submenu-item {{ request()->is('admin/payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a>
+                    <a href="{{ url('/admin/payments') }}" class="submenu-item {{ request()->is('admin/payments')  || request()->is('admin/payments/*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment In</a>
                 </div>
             </div>
             <span class="nav-tooltip">Sales</span>
         </div>
 
+        @php
+        $purchaseActive = request()->is('admin/purchases*') ||
+                        request()->is('admin/purchase-returns*') ||
+                        request()->is('admin/debit-notes*') ||
+                        request()->is('admin/payments-out*');  // Add this line
+        @endphp
+
+        <div class="nav-item">
+            <div class="nav-link {{ $purchaseActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
+                <span class="nav-icon">📋</span>
+                <span class="nav-text">Purchases</span>
+                <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+            <div class="submenu">
+                <div class="submenu-inner">
+                    <a href="{{ url('/admin/purchases') }}" class="submenu-item {{ request()->is('admin/purchases') ? 'active' : '' }}"><span class="submenu-dot"></span>Purchases Invoices</a>
+                    <a href="{{ url('/admin/purchase-returns') }}" class="submenu-item {{ request()->is('admin/purchase-returns*') ? 'active' : '' }}"><span class="submenu-dot"></span> Purchase Returns</a>
+
+                    <a href="{{ url('/admin/debit-notes') }}" class="submenu-item {{ request()->is('admin/debit-notes*') ? 'active' : '' }}"><span class="submenu-dot"></span> Debit Notes</a>
+                    <a href="{{ url('/admin/payments-out') }}" class="submenu-item {{ request()->is('admin/payments-out*') ? 'active' : '' }}"><span class="submenu-dot"></span> Payment Out</a>
+                </div>
+            </div>
+            <span class="nav-tooltip">Purchases</span>
+        </div>
         <!-- WARRANTY SECTION - Placed between Sales and Purchase Orders -->
         @php $warrantyActive = request()->is('admin/warranty*'); @endphp
         <div class="nav-item">
@@ -591,22 +601,7 @@
             <span class="nav-tooltip">Warranty</span>
         </div>
 
-        @php $purchaseActive = request()->is('admin/purchases*') || request()->is('admin/suppliers*') || request()->is('admin/supplier-payments*'); @endphp
-        <div class="nav-item">
-            <div class="nav-link {{ $purchaseActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
-                <span class="nav-icon">📋</span>
-                <span class="nav-text">Purchases</span>
-                <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
-            </div>
-            <div class="submenu">
-                <div class="submenu-inner">
-                    <a href="{{ url('/admin/purchases') }}" class="submenu-item {{ request()->is('admin/purchases') ? 'active' : '' }}"><span class="submenu-dot"></span>Purchases Invoices</a>
-                    <a href="{{ url('/admin/suppliers') }}" class="submenu-item {{ request()->is('admin/suppliers') ? 'active' : '' }}"><span class="submenu-dot"></span> All Suppliers</a>
-                    <a href="{{ url('/admin/supplier-payments') }}" class="submenu-item {{ request()->is('admin/supplier-payments*') ? 'active' : '' }}"><span class="submenu-dot"></span> Supplier Payments</a>
-                </div>
-            </div>
-            <span class="nav-tooltip">Purchases</span>
-        </div>
+
 
         <div class="nav-section-label">More</div>
 
@@ -766,6 +761,11 @@ const searchPages = [
     { name: 'Purchase Executives', path: '/admin/purchase-executives', icon: '🧑‍🔧', group: 'People' },
     { name: 'Vendors',            path: '/admin/vendors',              icon: '🚚',  group: 'People' },
     { name: 'Sales Invoices',    path: '/admin/sales',              icon: '🛍️', group: 'Sales' },
+    { name: 'Sales Returns',     path: '/admin/sales-returns',   icon: '🔄',  group: 'Sales' },
+    { name: 'Credit Notes',      path: '/admin/credit-notes',    icon: '📝',  group: 'Sales' },
+    { name: 'Purchase Invoices',    path: '/admin/purchases',              icon: '📋', group: 'Purchases' },
+    { name: 'Purchase Returns',    path: '/admin/purchase-returns',    icon: '🔄',  group: 'Purchases' },
+    { name: 'Debit Notes',         path: '/admin/debit-notes',         icon: '📝',  group: 'Purchases' },
     { name: 'Payment In',        path: '/admin/payments',           icon: '💳',  group: 'Sales' },
     { name: 'All Claims',        path: '/admin/warranty',           icon: '🛡️', group: 'Warranty' },
     { name: 'New Claim',         path: '/admin/warranty/create',    icon: '➕',  group: 'Warranty' },

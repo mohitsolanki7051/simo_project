@@ -388,7 +388,7 @@
 
                                         <div class="form-group">
                                             <label class="form-label">Amount Paid</label>
-                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" step="0.01" min="0" oninput="calculateBalance()">
+                                           <input type="number" name="amount_paid" id="amountPaid" class="form-control" step="0.01" min="0" oninput="validateAndCalculateBalance()" onblur="clampAmountPaid()">
                                         </div>
                                         <div class="form-group">
                                             <button type="button" onclick="markFullyPaid()" class="btn-mark-paid" style="width:auto; padding:4px 8px; font-size:10px;">
@@ -3297,7 +3297,7 @@ function selectParty(partyId) {
         $('#partyEmail').text(p.email || '-');
 
         // Show opening balance
-        const openingBalance = p.opening_balance ? parseFloat(p.opening_balance) : 0;
+        const openingBalance = p.dynamic_opening_balance || 0;
         $('#partyOpeningBalance').text('₹ ' + openingBalance.toFixed(2));
 
         // Show credit limit with visual indicator if exists
@@ -3356,25 +3356,35 @@ function selectParty(partyId) {
 
         closeSelectPartyModal();
         showAlert('Party selected successfully', 'success');
-        // ── Advance Balance show karo ──
-        $('#advanceBalanceRow').remove();
-        const advBal = parseFloat(p.advance_balance || 0);
-        if (advBal > 0) {
+
+        // ✅ SHOW CREDIT NOTE REMAINING AMOUNT (instead of advance balance)
+        $('#creditNoteRemainingRow').remove();
+        const creditRemaining = parseFloat(p.credit_notes_remaining || 0);
+
+        if (creditRemaining > 0) {
             $('.info-column').first().append(`
-                <div class="info-row" id="advanceBalanceRow">
-                    <span class="info-label">Advance:</span>
+                <div class="info-row" id="creditNoteRemainingRow">
+                    <span class="info-label">CN Balance:</span>
                     <span class="info-value" style="color:#047857;font-weight:600;">
-                        ₹ ${advBal.toFixed(2)}
-                        <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">AUTO-ADJUST</small>
+                        ₹ ${creditRemaining.toFixed(2)}
+                        <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">
+                            WILL AUTO-ADJUST
+                        </small>
                     </span>
                 </div>
             `);
         }
+
+        // ✅ Remove advance balance row if exists
+        $('#advanceBalanceRow').remove();
+
         // Check credit limit status after party selection
         checkCreditLimitStatus(p.id);
+
+        // ✅ Recalculate balance with credit note
+        calculateBalance();
     });
 }
-
 // UPDATED: Function to check credit limit status with opening balance
 function checkCreditLimitStatus(partyId) {
     $.get('/admin/sales/party-credit-status/' + partyId, function(res) {
@@ -3711,7 +3721,28 @@ function markFullyPaid() {
     $('#amountPaid').val(grandTotal.toFixed(2));
     calculateBalance();
 }
+function validateAndCalculateBalance() {
+    const grand = parseFloat($('#grandTotal').text()) || 0;
+    const paid  = parseFloat($('#amountPaid').val())  || 0;
+    if (paid > grand) {
+        $('#amountPaid').css('border-color', '#dc3545');
+    } else {
+        $('#amountPaid').css('border-color', '#ccc');
+    }
+    calculateBalance();
+}
 
+function clampAmountPaid() {
+    const grand = parseFloat($('#grandTotal').text()) || 0;
+    let paid    = parseFloat($('#amountPaid').val())  || 0;
+    if (paid > grand) {
+        paid = grand;
+        $('#amountPaid').val(paid.toFixed(2));
+        $('#amountPaid').css('border-color', '#ccc');
+        showAlert('Amount paid cannot exceed grand total', 'error');
+    }
+    calculateBalance();
+}
 function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotal) {
     let extraDiscount = 0;
     const discountType = $('#extraDiscountTypeInput').val();
@@ -3744,7 +3775,7 @@ function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotal) {
     $('#taxAmountInput').val(totalTax.toFixed(2));
     $('#discountAmountInput').val(totalDiscount.toFixed(2));
 
-    calculateBalance();
+    clampAmountPaid();
 }
 
 function calculateTotals() {
@@ -3754,28 +3785,40 @@ function calculateTotals() {
 function calculateBalance() {
     const grandTotal  = parseFloat($('#grandTotal').text().replace(/,/g, '')) || 0;
     const amountPaid  = parseFloat($('#amountPaid').val()) || 0;
-    const advanceBal  = window.selectedParty ? parseFloat(window.selectedParty.advance_balance || 0) : 0;
 
-    const advanceWillUse  = Math.min(advanceBal, grandTotal);
-    const cashRequired    = Math.max(0, grandTotal - advanceWillUse);
-    const totalWillBePaid = amountPaid + advanceWillUse;
-    const finalBalance    = Math.max(0, grandTotal - totalWillBePaid);
+    // ✅ Get credit note remaining amount from the displayed value
+    let creditRemaining = 0;
+    const creditRowText = $('#creditNoteRemainingRow .info-value').text();
+    if (creditRowText) {
+        const match = creditRowText.match(/₹\s*([\d,]+\.?\d*)/);
+        if (match) creditRemaining = parseFloat(match[1].replace(/,/g, '')) || 0;
+    }
+
+    // ✅ Calculate how much credit note will be used
+    const remainingAfterCash = Math.max(0, grandTotal - amountPaid);
+    const creditWillUse = Math.min(creditRemaining, remainingAfterCash);
+    const finalBalance = Math.max(0, grandTotal - (amountPaid + creditWillUse));
 
     $('#balanceAmount').text(finalBalance.toFixed(2));
 
-    $('#advanceUsedInfo').remove();
-    if (advanceWillUse > 0) {
+    // ✅ Remove existing adjustment info
+    $('#creditAdjustmentInfo').remove();
+
+    // ✅ Show adjustment preview if credit note will be used
+    if (creditWillUse > 0) {
+        const cashRequired = Math.max(0, grandTotal - creditWillUse);
         $('#amountPaid').closest('.payment-section-container').append(`
-            <div id="advanceUsedInfo" style="margin-top:8px;padding:8px 10px;background:#d1fae5;border-radius:5px;font-size:11px;color:#065f46;border:1px solid #6ee7b7;">
-                ✓ Advance Balance ₹${advanceWillUse.toFixed(2)} will be auto-adjusted on generate
+            <div id="creditAdjustmentInfo" style="margin-top:8px;padding:8px 10px;background:#d1fae5;border-radius:5px;font-size:11px;color:#065f46;border:1px solid #6ee7b7;">
+                ✓ Credit Note ₹${creditWillUse.toFixed(2)} will be auto-adjusted on generate
                 <br>
                 <span style="font-size:10px;color:#047857;">
-                    Customer needs to pay only ₹${cashRequired.toFixed(2)} in cash
+                    Customer needs to pay only ₹${cashRequired.toFixed(2)} (Cash + Credit Note)
                 </span>
             </div>
         `);
     }
 }
+
 function validateForm() {
     if (!$('#partyIdInput').val()) {
         showAlert('Please select a party', 'error');
@@ -3833,7 +3876,7 @@ $(document).ready(function() {
     $('#invoiceDate').on('change', updateDueDateFromTerms);
     $('#paymentTermsDays').on('change', updateDueDateFromTerms);
     $('#dueDate').on('change', updatePaymentTermsFromDueDate);
-    $('#amountPaid').on('input', calculateBalance);
+    $('#amountPaid').on('input', validateAndCalculateBalance);
 
     // Modal close handlers
     $('.modal-overlay').on('click', function() {

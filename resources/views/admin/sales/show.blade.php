@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
 @section('title', 'Invoice #' . $invoice->invoice_number . ' - Admin Panel')
-@section('header-title', 'Sales Invoice #' . $invoice->invoice_number)
+@section('header-title', 'Sales Invoice ' . $invoice->invoice_number)
 
 @section('content')
 
@@ -624,7 +624,7 @@
     <div class="iv-actions-bar no-print">
         <div class="iv-actions-left">
             <a href="{{ route('admin.sales.index') }}" class="iv-back-btn">← Back</a>
-            <h2 class="iv-page-title">{{ $invoice->invoice_type === 'cash' ? 'Cash Memo' : 'Tax Invoice' }} #{{ $invoice->invoice_number }}</h2>
+            <h2 class="iv-page-title">{{ $invoice->invoice_type === 'cash' ? 'Cash Memo' : 'Tax Invoice' }} {{ $invoice->invoice_number }}</h2>
             <span class="iv-status-pill" style="background: {{ $ps['bg'] }}; color: {{ $ps['text'] }};">
                 {{ ucfirst($invoice->payment_status) }}
             </span>
@@ -919,18 +919,18 @@
                     <span>₹ {{ number_format($invoice->grand_total, 2) }}</span>
                 </div>
 
-                @if($invoice->total_paid > 0)
+
                 <div style="margin-top: 15px;">
                     <div class="iv-total-row">
-                        <span>Paid</span>
-                        <span>₹ {{ number_format($invoice->total_paid, 2) }}</span>
+                        <span>Total Paid</span>
+                        <span>₹ {{ number_format($invoice->total_paid ?? 0, 2) }}</span>
                     </div>
                     <div class="iv-total-row" style="color: #dc2626;">
                         <span>Balance Due</span>
-                        <span>₹ {{ number_format($invoice->balance_amount, 2) }}</span>
+                        <span>₹ {{ number_format($invoice->balance_amount ?? 0, 2) }}</span>
                     </div>
                 </div>
-                @endif
+
 
                 <!-- Amount in Words -->
                 <div class="iv-amount-words">

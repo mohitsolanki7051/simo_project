@@ -24,7 +24,8 @@ class Customer extends Model
         'pan_number',
         'status',
         'notes',
-        'advance_balance', 
+        'advance_balance',
+        'advance_payable'
     ];
 
     protected $casts = [

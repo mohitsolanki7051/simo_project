@@ -20,11 +20,11 @@ class CreditNote extends Model
         'subtotal',              // ✅ New field
         'tax_amount',             // ✅ New field
         'discount_amount',        // ✅ New field
-        'amount',                  // subtotal + tax - discount
+        'amount',
         'used_amount',
         'remaining_amount',
         'reason',
-        'status', // active, used, cancelled
+        'status',
         'created_by',
     ];
 
@@ -69,8 +69,8 @@ class CreditNote extends Model
     {
         $badges = [
             'active' => 'badge-success',
-            'used' => 'badge-info',
-            'cancelled' => 'badge-danger'
+            'partial'  => 'badge-warning',
+            'settled'  => 'badge-info',
         ];
         return $badges[$this->status] ?? 'badge-secondary';
     }
@@ -78,7 +78,8 @@ class CreditNote extends Model
     // Helper: Can be used for adjustment?
     public function canBeUsed()
     {
-        return $this->status === 'active' && $this->remaining_amount > 0;
+          return in_array($this->status, ['active', 'partial'])
+           && $this->remaining_amount > 0;
     }
 
     // Helper: Get available amount for adjustment
@@ -101,8 +102,12 @@ class CreditNote extends Model
         $this->used_amount += $adjustAmount;
         $this->remaining_amount -= $adjustAmount;
 
-        if ($this->remaining_amount == 0) {
-            $this->status = 'used';
+        if ($this->remaining_amount == $this->amount) {
+            $this->status = 'active';
+        } elseif ($this->remaining_amount > 0) {
+            $this->status = 'partial';
+        } else {
+            $this->status = 'settled';
         }
 
         $this->save();

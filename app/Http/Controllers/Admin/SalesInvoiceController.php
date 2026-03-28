@@ -99,11 +99,11 @@ class SalesInvoiceController extends Controller
             ->unique()->values()->toArray();
 
         $creditNoteMap = [];
-        $advanceMap    = [];
+
 
         if (!empty($partyIds)) {
             \App\Models\CreditNote::whereIn('party_id', $partyIds)
-                ->where('status', 'active')
+                ->where('status',  ['active', 'partial'])
                 ->where('remaining_amount', '>', 0)
                 ->get()
                 ->each(function ($cn) use (&$creditNoteMap) {
@@ -111,12 +111,7 @@ class SalesInvoiceController extends Controller
                     $creditNoteMap[$pid] = ($creditNoteMap[$pid] ?? 0) + $this->decimalToFloat($cn->remaining_amount);
                 });
 
-            \App\Models\Customer::whereIn('_id', $partyIds)
-                ->get()
-                ->each(function ($c) use (&$advanceMap) {
-                    $adv = (float) ($c->advance_balance ?? 0);
-                    if ($adv > 0) $advanceMap[(string)$c->_id] = $adv;
-                });
+
         }
 
         /* ── Stats Query ── */
@@ -153,7 +148,7 @@ class SalesInvoiceController extends Controller
 
         return view('admin.sales.index', compact(
             'invoices', 'totalSales', 'totalPaid', 'totalUnpaid',
-            'customers', 'creditNoteMap', 'advanceMap'
+            'customers', 'creditNoteMap'
         ));
     }
 
@@ -176,7 +171,12 @@ class SalesInvoiceController extends Controller
         // Get active salesmen for dropdown
         $salesmen = Salesman::where('status', 'active')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function($party) {
+                // Add dynamic opening balance to the party object
+                $party->dynamic_opening_balance = $this->getDynamicOpeningBalance($party->_id);
+                return $party;
+            });
 
         $warehouses = Warehouse::active()->get();
         $mainWarehouse = Warehouse::main()->first();
@@ -302,7 +302,7 @@ public function cancel($id)
 
         try {
             $party          = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
-            $openingBalance = (float) ($party->opening_balance ?? 0);
+             $openingBalance = $this->getDynamicOpeningBalance($request->party_id);
 
             $unpaidInvoicesBalance = SalesInvoice::where('party_id', $request->party_id)
                 ->where('status', '!=', 'draft')
@@ -579,8 +579,12 @@ public function cancel($id)
             }])
             ->where('status', 'active')
             ->orderBy('name')
-            ->get();
-
+            ->get()
+            ->map(function($party) {
+                // Add dynamic opening balance to the party object
+                $party->dynamic_opening_balance = $this->getDynamicOpeningBalance($party->_id);
+                return $party;
+            });
         // Get active salesmen
         $salesmen = Salesman::where('status', 'active')
             ->orderBy('name')
@@ -630,7 +634,7 @@ public function cancel($id)
 
         try {
             $party          = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
-            $openingBalance = (float) ($party->opening_balance ?? 0);
+            $openingBalance = $this->getDynamicOpeningBalance($request->party_id);
 
             $unpaidInvoicesBalance = SalesInvoice::where('party_id', $request->party_id)
                 ->where('status', '!=', 'draft')
@@ -886,141 +890,205 @@ public function cancel($id)
      * Generate invoice (confirm and deduct stock)
      */
     public function generate($id)
-    {
-        try {
+{
+    try {
+        $invoice = SalesInvoice::with(['items', 'party'])->findOrFail($id);
 
-            $invoice = SalesInvoice::with(['items','party'])->findOrFail($id);
-
-            // Check if invoice is in draft status
-            if ($invoice->status !== 'draft') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invoice is already generated or completed.'
-                ], 400);
-            }
-
-            // Check stock availability for all items
-            foreach ($invoice->items as $item) {
-                $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
-                    ->where('product_id', $item->product_id)
-                    ->where('product_type', $item->variant_id ? 'variant' : 'simple')
-                    ->when($item->variant_id, function ($q) use ($item) {
-                        return $q->where('variant_id', $item->variant_id);
-                    })
-                    ->first();
-
-                if (!$stock || $stock->quantity < $item->quantity) {
-                    throw new \Exception("Insufficient stock for {$item->product_name}" . ($item->variant_name ? " - {$item->variant_name}" : ""));
-                }
-            }
-
-            // Deduct stock for each item
-            foreach ($invoice->items as $item) {
-                $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
-                    ->where('product_id', $item->product_id)
-                    ->where('product_type', $item->variant_id ? 'variant' : 'simple')
-                    ->when($item->variant_id, function ($q) use ($item) {
-                        return $q->where('variant_id', $item->variant_id);
-                    })
-                    ->first();
-
-                if ($stock) {
-                    $stock->update([
-                        'quantity' => $stock->quantity - $item->quantity
-                    ]);
-
-                    // Create warehouse movement
-                    WarehouseMovement::create([
-                        'warehouse_id' => $invoice->warehouse_id,
-                        'product_id' => $item->product_id,
-                        'product_type' => $item->variant_id ? 'variant' : 'simple',
-                        'variant_id' => $item->variant_id ?? null,
-                        'type' => WarehouseMovement::TYPE_SALE,
-                        'quantity' => -$item->quantity,
-                        'reference_id' => $invoice->_id,
-                        'remarks' => "Sales Invoice Generated: {$invoice->invoice_number}",
-                    ]);
-                }
-            }
-
-$party          = Customer::find($invoice->party_id);
-$cashPaid       = (float) ($invoice->total_paid ?? 0);  // sirf cash jo customer ne diya
-$advanceBalance = (float) ($party->advance_balance ?? 0);
-$advanceUsed    = 0;
-$grandTotal     = (float) $invoice->grand_total;
-
-if ($advanceBalance > 0) {
-    // Advance hamesha use karo — chahe cash se poora pay ho ya na ho
-    $advanceUsed    = min($advanceBalance, $grandTotal);
-    $party->advance_balance = max(0, $advanceBalance - $advanceUsed);
-    $party->save();
-}
-
-// Total paid = cash + advance
-$amountPaid = $cashPaid + $advanceUsed;
-
-// Agar overpaid hai (cash + advance > grandTotal) to extra wapas karo advance mein
-if ($amountPaid > $grandTotal) {
-    $extra = $amountPaid - $grandTotal;
-    $party->advance_balance = ($party->advance_balance ?? 0) + $extra;
-    $party->save();
-    $amountPaid = $grandTotal;
-}
-
-            $balance = $grandTotal - $amountPaid;
-
-            if ($amountPaid <= 0) {
-                $paymentStatus = 'unpaid';
-            } elseif ($balance <= 0.01) {
-                $paymentStatus = 'paid';
-                $balance       = 0;
-            } else {
-                $paymentStatus = 'partial';
-            }
-
-            // Invoice payment fields update karo
-            $invoice->total_paid     = round($amountPaid, 2);
-            $invoice->balance_amount = round($balance, 2);
-            $invoice->payment_status = $paymentStatus;
-            $invoice->advance_used   = round($advanceUsed, 2);
-            $invoice->save();
-
-            // Create payment records if any amount paid
-            if ($amountPaid > 0) {
-                SalesPayment::create([
-                    'sales_invoice_id' => $invoice->_id,
-                    'party_id'         => $invoice->party_id,
-                    'amount'           => round($amountPaid, 2),
-                    'payment_method'   => request()->payment_method ?? 'cash',
-                    'payment_date'     => now(),
-                    'status'           => 'completed',
-                    'reference_no'     => request()->reference_no,
-                    'notes'            => "Payment for invoice {$invoice->invoice_number}"
-                ]);
-            }
-
-            // Update invoice status to confirmed
-            $invoice->update([
-                'status' => 'confirmed'
-            ]);
-
-
-
-
-            return response()->json([
-                'success' => true,
-                'invoice_id' => $invoice->_id,
-                'message' => 'Invoice generated successfully'
-            ]);
-
-        } catch (\Exception $e) {
+        if ($invoice->status !== 'draft') {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+                'message' => 'Invoice is already generated or completed.'
+            ], 400);
         }
-    }
 
+        // Check stock availability
+        foreach ($invoice->items as $item) {
+            $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                ->where('product_id', $item->product_id)
+                ->where('product_type', $item->variant_id ? 'variant' : 'simple')
+                ->when($item->variant_id, function ($q) use ($item) {
+                    return $q->where('variant_id', $item->variant_id);
+                })
+                ->first();
+
+            if (!$stock || $stock->quantity < $item->quantity) {
+                throw new \Exception("Insufficient stock for {$item->product_name}" . ($item->variant_name ? " - {$item->variant_name}" : ""));
+            }
+        }
+
+        // Deduct stock
+        foreach ($invoice->items as $item) {
+            $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                ->where('product_id', $item->product_id)
+                ->where('product_type', $item->variant_id ? 'variant' : 'simple')
+                ->when($item->variant_id, function ($q) use ($item) {
+                    return $q->where('variant_id', $item->variant_id);
+                })
+                ->first();
+
+            if ($stock) {
+                $stock->update(['quantity' => $stock->quantity - $item->quantity]);
+
+                WarehouseMovement::create([
+                    'warehouse_id' => $invoice->warehouse_id,
+                    'product_id' => $item->product_id,
+                    'product_type' => $item->variant_id ? 'variant' : 'simple',
+                    'variant_id' => $item->variant_id ?? null,
+                    'type' => WarehouseMovement::TYPE_SALE,
+                    'quantity' => -$item->quantity,
+                    'reference_id' => $invoice->_id,
+                    'remarks' => "Sales Invoice Generated: {$invoice->invoice_number}",
+                ]);
+            }
+        }
+
+        $cashPaid = (float) ($invoice->total_paid ?? 0);
+        $grandTotal = (float) $invoice->grand_total;
+
+        /* ================= CREDIT NOTE AUTO-ADJUSTMENT ================= */
+        // Party ke sare active ya partially_used credit notes (oldest first)
+        $activeCreditNotes = \App\Models\CreditNote::where('party_id', $invoice->party_id)
+            ->whereIn('status', ['active', 'partial'])
+            ->where('remaining_amount', '>', 0)
+            ->orderBy('credit_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $totalCreditApplied = 0;
+        $appliedCNNumbers = [];
+
+        // Kitna adjust karna hai: grand_total - cashPaid (jo already pay hua)
+        $remainingToAdjust = max(0, $grandTotal - $cashPaid);
+
+        foreach ($activeCreditNotes as $cn) {
+            if ($remainingToAdjust <= 0) break;
+
+            // Convert Decimal128 to float
+            $cnRemaining = $cn->remaining_amount;
+            if ($cnRemaining instanceof \MongoDB\BSON\Decimal128) {
+                $cnRemaining = (float) $cnRemaining->__toString();
+            } else {
+                $cnRemaining = (float) $cnRemaining;
+            }
+
+            $applyAmount = min($cnRemaining, $remainingToAdjust);
+
+            // Credit note update karo
+            $cn->used_amount = (float) $cn->used_amount + $applyAmount;
+            $cn->remaining_amount = $cnRemaining - $applyAmount;
+
+            if ($cn->remaining_amount <= 0.001) {
+                $cn->remaining_amount = 0;
+                $cn->status = 'settled';
+            } else {
+                $cn->status = 'partial';
+            }
+            $cn->save();
+
+            $totalCreditApplied += $applyAmount;
+            $remainingToAdjust -= $applyAmount;
+            $appliedCNNumbers[] = $cn->credit_note_number;
+        }
+
+        /* ================= PAYMENT CALCULATION ================= */
+        $amountPaid = $cashPaid + $totalCreditApplied;
+
+        if ($amountPaid > $grandTotal) {
+            $amountPaid = $grandTotal;
+        }
+
+        $balance = max(0, $grandTotal - $amountPaid);
+
+        if ($amountPaid <= 0) {
+            $paymentStatus = 'unpaid';
+        } elseif ($balance <= 0.01) {
+            $paymentStatus = 'paid';
+            $balance = 0;
+        } else {
+            $paymentStatus = 'partial';
+        }
+
+        // Invoice payment fields update
+        $invoice->total_paid = round($amountPaid, 2);
+        $invoice->balance_amount = round($balance, 2);
+        $invoice->payment_status = $paymentStatus;
+        $invoice->credit_note_applied = round($totalCreditApplied, 2);
+
+        if (!empty($appliedCNNumbers)) {
+            $invoice->credit_note_numbers = implode(', ', $appliedCNNumbers);
+        }
+        $invoice->save();
+
+        // Create payment records
+        if ($amountPaid > 0) {
+            $notes = [];
+            if ($totalCreditApplied > 0) {
+                $notes[] = "Credit note adjusted: ₹" . number_format($totalCreditApplied, 2)
+                         . " (" . implode(', ', $appliedCNNumbers) . ")";
+            }
+            if ($cashPaid > 0) {
+                $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
+            }
+
+            SalesPayment::create([
+                'sales_invoice_id' => $invoice->_id,
+                'party_id'         => $invoice->party_id,
+                'amount'           => round($amountPaid, 2),
+                'payment_method'   => request()->payment_method ?? 'cash',
+                'payment_date'     => now(),
+                'status'           => 'completed',
+                'notes'            => implode("\n", $notes),
+                'created_by'       => Auth::guard('admin')->id(),
+            ]);
+        }
+
+        $invoice->update(['status' => 'confirmed']);
+
+        $msg = 'Invoice generated successfully. Stock deducted from warehouse.';
+        if ($totalCreditApplied > 0) {
+            $msg .= ' Credit note adjusted: ₹' . number_format($totalCreditApplied, 2)
+                  . ' (' . implode(', ', $appliedCNNumbers) . ')';
+        }
+
+        return response()->json([
+            'success' => true,
+            'invoice_id' => $invoice->_id,
+            'message' => $msg,
+            'credit_note_applied' => $totalCreditApplied,
+            'credit_note_numbers' => $appliedCNNumbers,
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
+    /**
+     * Calculate dynamic opening balance (original opening minus payments allocated to opening balance)
+     */
+    private function getDynamicOpeningBalance($partyId)
+    {
+        $party = Customer::find($partyId);
+        if (!$party) return 0;
+
+        $originalOpening = (float) ($party->opening_balance ?? 0);
+
+        // Get total payments allocated to opening balance for this party
+        $openingPaid = SalesPayment::where('party_id', (string)$partyId)
+            ->where('payment_type', 'payment_in')
+            ->get()
+            ->sum(function($payment) {
+                $allocations = $payment->allocations ?? [];
+                return collect($allocations)
+                    ->where('type', 'opening_balance')
+                    ->sum('amount');
+            });
+
+        // Dynamic opening balance = original - paid
+        return max(0, $originalOpening - $openingPaid);
+    }
     /**
      * Delete a sales invoice.
      */
@@ -1220,40 +1288,60 @@ return response()->json([
         ]);
     }
 
-    public function getPartyDetails($id)
-    {
-        $party = Customer::with(['addresses', 'salesman'])->findOrFail($id);
+ public function getPartyDetails($id)
+{
+    $party = Customer::with(['addresses', 'salesman'])->findOrFail($id);
 
-        $billing = $party->addresses
-            ->where('type', 'billing')
-            ->where('is_default', true)
-            ->first();
+    $billing = $party->addresses
+        ->where('type', 'billing')
+        ->where('is_default', true)
+        ->first();
 
-        $shipping = $party->addresses
-            ->where('type', 'shipping')
-            ->where('is_default', true)
-            ->first();
+    $shipping = $party->addresses
+        ->where('type', 'shipping')
+        ->where('is_default', true)
+        ->first();
 
-        return response()->json([
-            'success' => true,
-            'party' => [
-                'id'               => (string)$party->_id,
-                'name'             => $party->name,
-                'phone'            => $party->phone,
-                'email'            => $party->email,
-                'party_type'       => $party->party_type,
-                'party_type_text'  => ucfirst($party->party_type),
-                'opening_balance'  => (float) ($party->opening_balance ?? 0),
-                'advance_balance'  => (float) ($party->advance_balance ?? 0),
-                'credit_limit'     => (float) ($party->credit_limit ?? 0),
-                'salesman_id'      => $party->salesman_id,
-                'salesman_name'    => $party->salesman ? $party->salesman->name : null,
-                'billing_address'  => $billing?->full_address ?? '',
-                'shipping_address' => $shipping?->full_address ?? '',
-                'billing_state'    => $billing?->state ?? '',
-            ]
-        ]);
+    $dynamicOpeningBalance = $this->getDynamicOpeningBalance($id);
+
+    // ✅ Calculate total remaining amount from active credit notes
+    $creditNotes = \App\Models\CreditNote::where('party_id', (string)$party->_id)
+        ->whereIn('status', ['active', 'partial'])
+        ->where('remaining_amount', '>', 0)
+        ->get();
+
+    $totalCreditRemaining = 0;
+    foreach ($creditNotes as $cn) {
+        $remaining = $cn->remaining_amount;
+        if ($remaining instanceof \MongoDB\BSON\Decimal128) {
+            $totalCreditRemaining += (float) $remaining->__toString();
+        } else {
+            $totalCreditRemaining += (float) $remaining;
+        }
     }
+
+    return response()->json([
+        'success' => true,
+        'party' => [
+            'id'               => (string)$party->_id,
+            'name'             => $party->name,
+            'phone'            => $party->phone,
+            'email'            => $party->email,
+            'party_type'       => $party->party_type,
+            'party_type_text'  => ucfirst($party->party_type),
+            'opening_balance'  => (float) ($party->opening_balance ?? 0),
+            'dynamic_opening_balance' => $dynamicOpeningBalance,
+            'advance_balance'  => (float) ($party->advance_balance ?? 0),
+            'credit_limit'     => (float) ($party->credit_limit ?? 0),
+            'credit_notes_remaining' => $totalCreditRemaining, // ✅ Add this
+            'salesman_id'      => $party->salesman_id,
+            'salesman_name'    => $party->salesman ? $party->salesman->name : null,
+            'billing_address'  => $billing?->full_address ?? '',
+            'shipping_address' => $shipping?->full_address ?? '',
+            'billing_state'    => $billing?->state ?? '',
+        ]
+    ]);
+}
 
     /**
      * Create party via AJAX
@@ -1435,7 +1523,7 @@ return response()->json([
         try {
             $party = Customer::findOrFail($partyId);
 
-            $openingBalance         = (float) ($party->opening_balance ?? 0);
+           $openingBalance = $this->getDynamicOpeningBalance($partyId);
             $advanceBalance         = (float) ($party->advance_balance ?? 0); // NEW
 
             $unpaidInvoicesBalance = SalesInvoice::where('party_id', $partyId)

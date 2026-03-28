@@ -40,6 +40,30 @@ class SalesPayment extends Model
     {
         return $this->belongsTo(Customer::class, 'party_id');
     }
+    public function getPartyDetailsAttribute()
+{
+    // Customer check
+    $customer = \App\Models\Customer::find($this->party_id);
+    if ($customer) {
+        return [
+            'name' => $customer->name,
+            'phone' => $customer->phone,
+            'party_type' => $customer->party_type
+        ];
+    }
+
+    // Vendor check
+    $vendor = \App\Models\Vendor::find($this->party_id);
+    if ($vendor) {
+        return [
+            'name' => $vendor->company_name,
+            'phone' => $vendor->phone,
+            'party_type' => 'vendor'
+        ];
+    }
+
+    return null;
+}
     // Accessors
     public function getPaymentMethodTextAttribute()
     {

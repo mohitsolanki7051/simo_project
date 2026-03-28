@@ -1558,6 +1558,18 @@
             .catch(error => console.error('Error loading report data:', error));
     }
 
+    // Handle purchase invoice flow
+if (localStorage.getItem('product_created_close') === 'true') {
+    localStorage.removeItem('product_created_close');
+    localStorage.removeItem('opened_from_purchase');
+    window.close();
+}
+
+    // Auto open modal if ?open_modal=1 in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('open_modal') === '1') {
+        openProductTypeModal();
+    }
     // Product Type Filter
     function filterByProductType(value) {
         const url = new URL(window.location.href);

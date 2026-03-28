@@ -18,6 +18,7 @@ class Vendor extends Model
         'pan_number',
         'opening_balance',
         'credit_limit',
+        'advance_payable',
         'bank_name',
         'account_number',
         'ifsc_code',

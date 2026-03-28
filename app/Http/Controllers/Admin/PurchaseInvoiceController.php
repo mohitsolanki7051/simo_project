@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseInvoiceItem;
+use App\Models\PurchasePayment;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\Vendor;
@@ -33,7 +34,7 @@ class PurchaseInvoiceController extends Controller
 
     /**
      * Given a purchase_invoice record, determine the party type by:
-     *  - checking whether vendor_id matches a Vendor (→ 'vendor')
+     *  - checking whether party_id matches a Vendor (→ 'vendor')
      *  - otherwise loading the Customer record and using its party_type field
      *
      * Returns: ['type' => 'vendor'|'dealer'|'distributor', 'model' => Vendor|Customer|null]
@@ -41,23 +42,27 @@ class PurchaseInvoiceController extends Controller
     private function resolvePartyFromInvoice(PurchaseInvoice $invoice): array
     {
         // Try vendor first
-        if ($invoice->vendor_id) {
-            $vendor = Vendor::find($invoice->vendor_id);
-            if ($vendor) {
-                return ['type' => 'vendor', 'model' => $vendor];
+        if ($invoice->party_id) {
+            if ($invoice->party_type === 'vendor') {
+                return [
+                    'type' => 'vendor',
+                    'model' => Vendor::find($invoice->party_id)
+                ];
             }
-            // Not a vendor → must be a customer (dealer/distributor)
-            $customer = Customer::find($invoice->vendor_id);
-            if ($customer) {
-                return ['type' => $customer->party_type, 'model' => $customer];
+
+            if (in_array($invoice->party_type, ['dealer', 'distributor'])) {
+                return [
+                    'type' => $invoice->party_type,
+                    'model' => Customer::find($invoice->party_id)
+                ];
             }
         }
-        return ['type' => 'vendor', 'model' => null];
+            return ['type' => 'vendor', 'model' => null];
     }
 
     /**
      * Resolve party from incoming request data.
-     * vendor_id / dealer_id / distributor_id are separate form fields — we pick the right one.
+     * party_id / vendor_id(form) / dealer_id / distributor_id are separate form fields — we pick the right one.
      * Returns [$partyId, $billingAddress, $shippingAddress, $purchaseExecutiveId, $partyModel]
      */
     private function resolvePartyFromRequest(Request $request): array
@@ -69,7 +74,9 @@ class PurchaseInvoiceController extends Controller
             $vendor = Vendor::with('addresses')->findOrFail($request->vendor_id);
             $billing  = $vendor->addresses->where('type','billing')->where('is_default',true)->first();
             $shipping = $vendor->addresses->where('type','shipping')->where('is_default',true)->first();
-            $purchaseExecutiveId = $vendor->purchase_executive_id; // auto-assigned
+            $purchaseExecutiveId = $request->purchase_executive_id
+                ?? $vendor->purchase_executive_id
+                ?? null;
             return [$vendor->id, $billing, $shipping, $purchaseExecutiveId, $vendor];
 
         } elseif ($partyType === 'dealer') {
@@ -145,32 +152,83 @@ class PurchaseInvoiceController extends Controller
     //  INDEX
     // =========================================================
 
-    public function index(Request $request)
+  public function index(Request $request)
     {
-        $query = PurchaseInvoice::with(['warehouse','purchaseExecutive'])
-                    ->orderBy('created_at','desc');
+        $query = PurchaseInvoice::with(['warehouse', 'purchaseExecutive'])
+                    ->orderBy('created_at', 'desc');
 
         if ($request->filled('period')) {
             $p = $request->period;
-            if ($p === 'today')          $query->whereDate('invoice_date', today());
-            elseif ($p === 'custom') {
-                if ($request->filled('date_from')) $query->whereDate('invoice_date','>=',$request->date_from);
-                if ($request->filled('date_to'))   $query->whereDate('invoice_date','<=',$request->date_to);
-            } elseif (is_numeric($p))    $query->whereDate('invoice_date','>=',now()->subDays((int)$p)->toDateString());
+            if ($p === 'today') {
+                $query->whereDate('invoice_date', today());
+            } elseif ($p === 'custom') {
+                if ($request->filled('date_from')) $query->whereDate('invoice_date', '>=', $request->date_from);
+                if ($request->filled('date_to'))   $query->whereDate('invoice_date', '<=', $request->date_to);
+            } elseif (is_numeric($p)) {
+                $query->whereDate('invoice_date', '>=', now()->subDays((int)$p)->toDateString());
+            }
         }
 
-        if ($request->filled('invoice_number')) $query->where('invoice_number','like','%'.$request->invoice_number.'%');
-        if ($request->filled('invoice_type'))   $query->where('invoice_type',$request->invoice_type);
-        if ($request->filled('payment_status')) $query->where('payment_status',$request->payment_status);
-        if ($request->filled('status'))         $query->where('status',$request->status);
-        if ($request->filled('warehouse_id'))   $query->where('warehouse_id',$request->warehouse_id);
+        if ($request->filled('date')) {
+            $query->whereDate('invoice_date', $request->date);
+        }
+
+        if ($request->filled('invoice_number')) $query->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
+        if ($request->filled('invoice_type'))   $query->where('invoice_type', $request->invoice_type);
+        if ($request->filled('payment_status')) $query->where('payment_status', $request->payment_status);
+        if ($request->filled('status'))         $query->where('status', $request->status);
+        if ($request->filled('warehouse_id'))   $query->where('warehouse_id', $request->warehouse_id);
+        if ($request->filled('party_id'))       $query->where('party_id', $request->party_id);
 
         $invoices = $query->paginate(20)->withQueryString();
-        $vendors  = Vendor::where('status','active')->orderBy('company_name')->get();
+        $partyIds = $invoices->pluck('party_id')
+            ->map(fn($id) => (string)$id)
+            ->unique()
+            ->values()
+            ->toArray();
 
-        return view('admin.purchases.index', compact('invoices','vendors'));
+        $debitNoteMap = [];
+
+        if (!empty($partyIds)) {
+            \App\Models\DebitNote::whereIn('party_id', $partyIds)
+                ->whereIn('status', ['active', 'partial'])
+                ->where('remaining_amount', '>', 0)
+                ->get()
+                ->each(function ($dn) use (&$debitNoteMap) {
+                    $pid = (string) $dn->party_id;
+                    $debitNoteMap[$pid] = ($debitNoteMap[$pid] ?? 0) + $this->decimalToFloat($dn->remaining_amount);
+                });
+        }
+        // Party dropdown for filter
+        $vendors = Vendor::where('status', 'active')->orderBy('company_name')
+            ->get()->map(fn($v) => [
+                'id'   => $v->id,
+                'name' => $v->company_name . ' (Vendor)',
+            ]);
+
+        $dealers = Customer::where('status', 'active')
+            ->where('party_type', 'dealer')->orderBy('name')
+            ->get()->map(fn($c) => [
+                'id'   => (string) $c->_id,
+                'name' => $c->name . ' (Dealer)',
+            ]);
+
+        $distributors = Customer::where('status', 'active')
+            ->where('party_type', 'distributor')->orderBy('name')
+            ->get()->map(fn($c) => [
+                'id'   => (string) $c->_id,
+                'name' => $c->name . ' (Distributor)',
+            ]);
+
+        $allParties = collect()
+            ->merge($vendors)
+            ->merge($dealers)
+            ->merge($distributors)
+            ->sortBy('name')
+            ->values();
+
+        return view('admin.purchases.index', compact('invoices', 'allParties','debitNoteMap'));
     }
-
     // =========================================================
     //  CREATE
     // =========================================================
@@ -217,8 +275,8 @@ class PurchaseInvoiceController extends Controller
             if ($search) {
                 $query->where(function ($q) use ($search, $nameCol) {
                     $q->where($nameCol,   'like', "%{$search}%")
-                      ->orWhere('phone',  'like', "%{$search}%")
-                      ->orWhere('email',  'like', "%{$search}%");
+                    ->orWhere('phone',  'like', "%{$search}%")
+                    ->orWhere('email',  'like', "%{$search}%");
                 });
             }
         };
@@ -233,8 +291,7 @@ class PurchaseInvoiceController extends Controller
                 'email'           => $v->email,
                 'party_type'      => 'vendor',
                 'party_type_text' => 'Vendor',
-                // Opening balance shown for info but NOT deducted during purchase
-                'opening_balance' => (float)($v->opening_balance ?? 0),
+                'opening_balance' => (float)($v->opening_balance ?? 0), // Only vendors show opening balance
             ]));
         }
 
@@ -249,78 +306,100 @@ class PurchaseInvoiceController extends Controller
                 'email'           => $c->email,
                 'party_type'      => $pt,
                 'party_type_text' => ucfirst($pt),
-                'opening_balance' => (float)($c->opening_balance ?? 0),
+                // No opening_balance for dealer/distributor
             ]));
         }
 
         return response()->json(['parties' => $parties->values()]);
     }
 
-    // =========================================================
-    //  PARTY DETAILS  (AJAX)
-    // =========================================================
+public function getPartyDetails($id, Request $request)
+{
+    $partyType = $request->get('type');
 
-    public function getPartyDetails($id, Request $request)
-    {
-        $partyType = $request->get('type');
+    if ($partyType === 'vendor') {
+        $vendor = Vendor::with('addresses')->find($id);
+        if (!$vendor) return response()->json(['success'=>false,'message'=>'Vendor not found'],404);
 
-        if ($partyType === 'vendor') {
-            $vendor = Vendor::with('addresses')->find($id);
-            if (!$vendor) return response()->json(['success'=>false,'message'=>'Vendor not found'],404);
+        $billing  = $vendor->addresses->where('type','billing')->where('is_default',true)->first();
+        $shipping = $vendor->addresses->where('type','shipping')->where('is_default',true)->first();
+        $pe = $vendor->purchase_executive_id ? Salesman::find($vendor->purchase_executive_id) : null;
 
-            $billing  = $vendor->addresses->where('type','billing')->where('is_default',true)->first();
-            $shipping = $vendor->addresses->where('type','shipping')->where('is_default',true)->first();
-            $pe = $vendor->purchase_executive_id ? Salesman::find($vendor->purchase_executive_id) : null;
+        // ✅ Fix: Calculate total remaining amount from active debit notes
+        $debitNotes = \App\Models\DebitNote::where('party_id', $id)
+            ->whereIn('status', ['active', 'partial'])
+            ->where('remaining_amount', '>', 0)
+            ->get();
 
-            return response()->json(['success'=>true,'party'=>[
-                'id'                      => $id,
-                'name'                    => $vendor->company_name,
-                'phone'                   => $vendor->phone,
-                'email'                   => $vendor->email,
-                'gst_number'              => $vendor->gst_number,
-                'party_type'              => 'vendor',
-                'party_type_text'         => 'Vendor',
-                'purchase_executive_id'   => $vendor->purchase_executive_id,
-                'purchase_executive_name' => $pe?->name,
-                'billing_address'         => $billing?->full_address ?? '',
-                'shipping_address'        => $shipping?->full_address ?? '',
-                'billing_state'           => $billing?->state ?? '',
-                // Opening balance for display only — NOT deducted from invoice total
-                'opening_balance'         => (float)($vendor->opening_balance ?? 0),
-            ]]);
+        $totalDebitRemaining = 0;
+        foreach ($debitNotes as $dn) {
+            // Convert Decimal128 to float
+            $remaining = $dn->remaining_amount;
+            if ($remaining instanceof \MongoDB\BSON\Decimal128) {
+                $totalDebitRemaining += (float) $remaining->__toString();
+            } else {
+                $totalDebitRemaining += (float) $remaining;
+            }
         }
-
-        // Dealer or Distributor
-        $customer = Customer::with('addresses')->find($id);
-        if (!$customer) return response()->json(['success'=>false,'message'=>'Customer not found'],404);
-
-        $billing  = $customer->addresses->where('type','billing')->where('is_default',true)->first();
-        $shipping = $customer->addresses->where('type','shipping')->where('is_default',true)->first();
 
         return response()->json(['success'=>true,'party'=>[
             'id'                      => $id,
-            'name'                    => $customer->name,
-            'phone'                   => $customer->phone,
-            'email'                   => $customer->email,
-            'gst_number'              => $customer->gst_number,
-            'party_type'              => $customer->party_type,
-            'party_type_text'         => ucfirst($customer->party_type),
-            'purchase_executive_id'   => null, // set manually per-invoice
-            'purchase_executive_name' => null,
+            'name'                    => $vendor->company_name,
+            'phone'                   => $vendor->phone,
+            'email'                   => $vendor->email,
+            'gst_number'              => $vendor->gst_number,
+            'party_type'              => 'vendor',
+            'party_type_text'         => 'Vendor',
+            'purchase_executive_id'   => $vendor->purchase_executive_id,
+            'purchase_executive_name' => $pe?->name,
             'billing_address'         => $billing?->full_address ?? '',
             'shipping_address'        => $shipping?->full_address ?? '',
             'billing_state'           => $billing?->state ?? '',
-            // Opening balance for display only — NOT deducted from invoice total
-            'opening_balance'         => (float)($customer->opening_balance ?? 0),
+            'opening_balance'         => (float)($vendor->opening_balance ?? 0),
+            'debit_notes_remaining'   => $totalDebitRemaining,
         ]]);
     }
 
-    // =========================================================
-    //  CREATE PARTY  (AJAX)
-    // =========================================================
-    // Rule: Vendor → save purchase_executive_id
-    //       Dealer / Distributor → NO salesman, NO purchase_executive at creation
-    //       Opening balance is stored as-is and NEVER touched again.
+    // Dealer or Distributor
+    $customer = Customer::with('addresses')->find($id);
+    if (!$customer) return response()->json(['success'=>false,'message'=>'Customer not found'],404);
+
+    $billing  = $customer->addresses->where('type','billing')->where('is_default',true)->first();
+    $shipping = $customer->addresses->where('type','shipping')->where('is_default',true)->first();
+
+    // ✅ Fix: Calculate total remaining amount from active debit notes for customer
+    $debitNotes = \App\Models\DebitNote::where('party_id', (string)$customer->_id)
+        ->whereIn('status', ['active', 'partial'])
+        ->where('remaining_amount', '>', 0)
+        ->get();
+
+    $totalDebitRemaining = 0;
+    foreach ($debitNotes as $dn) {
+        // Convert Decimal128 to float
+        $remaining = $dn->remaining_amount;
+        if ($remaining instanceof \MongoDB\BSON\Decimal128) {
+            $totalDebitRemaining += (float) $remaining->__toString();
+        } else {
+            $totalDebitRemaining += (float) $remaining;
+        }
+    }
+
+    return response()->json(['success'=>true,'party'=>[
+        'id'                      => $id,
+        'name'                    => $customer->name,
+        'phone'                   => $customer->phone,
+        'email'                   => $customer->email,
+        'gst_number'              => $customer->gst_number,
+        'party_type'              => $customer->party_type,
+        'party_type_text'         => ucfirst($customer->party_type),
+        'purchase_executive_id'   => null,
+        'purchase_executive_name' => null,
+        'billing_address'         => $billing?->full_address ?? '',
+        'shipping_address'        => $shipping?->full_address ?? '',
+        'billing_state'           => $billing?->state ?? '',
+        'debit_notes_remaining'   => $totalDebitRemaining,
+    ]]);
+}
 
     public function storePartyAjax(Request $request)
     {
@@ -359,15 +438,18 @@ class PurchaseInvoiceController extends Controller
                     'gst_number'            => strtoupper($request->gst_number ?? ''),
                     'purchase_executive_id' => $request->purchase_executive_id,
                     'opening_balance'       => (float)($request->opening_balance ?? 0),
+                    'notes'                 => $request->notes,
                     'status'                => 'active',
                 ]);
 
                 $this->saveVendorAddress($party->id, $request, 'billing');
-                $this->saveVendorAddress(
-                    $party->id, $request,
-                    'shipping',
-                    (bool)$request->same_billing_shipping
-                );
+                if ($request->same_billing_shipping == '1') {
+                    $this->saveVendorAddress($party->id, $request, 'shipping', true);
+                } elseif ($request->shipping_address) {
+                    $this->saveVendorAddress($party->id, $request, 'shipping', false);
+                } else {
+                    $this->saveVendorAddress($party->id, $request, 'shipping', true);
+                }
                 $partyId = $party->id;
 
             } else {
@@ -379,15 +461,18 @@ class PurchaseInvoiceController extends Controller
                     'party_type'      => $request->party_type,
                     'gst_number'      => strtoupper($request->gst_number ?? ''),
                     'opening_balance' => (float)($request->opening_balance ?? 0),
+                    'notes'           => $request->notes,
                     'status'          => 'active',
                 ]);
 
                 $this->saveCustomerAddress((string)$party->_id, $request, 'billing');
-                $this->saveCustomerAddress(
-                    (string)$party->_id, $request,
-                    'shipping',
-                    (bool)$request->same_billing_shipping
-                );
+               if ($request->same_billing_shipping == '1') {
+                    $this->saveCustomerAddress((string)$party->_id, $request, 'shipping', true);
+                } elseif ($request->shipping_address) {
+                    $this->saveCustomerAddress((string)$party->_id, $request, 'shipping', false);
+                } else {
+                    $this->saveCustomerAddress((string)$party->_id, $request, 'shipping', true);
+                }
                 $partyId = (string)$party->_id;
             }
 
@@ -408,10 +493,10 @@ class PurchaseInvoiceController extends Controller
         VendorAddress::create([
             'vendor_id'  => $vendorId,
             'type'       => $type,
-            'address'    => $usesBilling ? $req->billing_address : ($req->{"{$type}_address"} ?? $req->billing_address),
-            'city'       => $usesBilling ? $req->billing_city    : ($req->{"{$type}_city"}    ?? $req->billing_city),
-            'state'      => $usesBilling ? $req->billing_state   : ($req->{"{$type}_state"}   ?? $req->billing_state),
-            'pincode'    => $usesBilling ? $req->billing_pincode : ($req->{"{$type}_pincode"} ?? $req->billing_pincode),
+            'address' => $usesBilling ? $req->billing_address : ($req->{"{$type}_address"} ?: $req->billing_address),
+            'city'    => $usesBilling ? $req->billing_city    : ($req->{"{$type}_city"}    ?: $req->billing_city),
+            'state'   => $usesBilling ? $req->billing_state   : ($req->{"{$type}_state"}   ?: $req->billing_state),
+            'pincode' => $usesBilling ? $req->billing_pincode : ($req->{"{$type}_pincode"} ?: $req->billing_pincode),
             'country'    => $req->{"{$type}_country"} ?? $req->billing_country ?? 'India',
             'is_default' => true,
         ]);
@@ -422,10 +507,10 @@ class PurchaseInvoiceController extends Controller
         CustomerAddress::create([
             'customer_id' => $customerId,
             'type'        => $type,
-            'address'     => $usesBilling ? $req->billing_address : ($req->{"{$type}_address"} ?? $req->billing_address),
-            'city'        => $usesBilling ? $req->billing_city    : ($req->{"{$type}_city"}    ?? $req->billing_city),
-            'state'       => $usesBilling ? $req->billing_state   : ($req->{"{$type}_state"}   ?? $req->billing_state),
-            'pincode'     => $usesBilling ? $req->billing_pincode : ($req->{"{$type}_pincode"} ?? $req->billing_pincode),
+            'address' => $usesBilling ? $req->billing_address : ($req->{"{$type}_address"} ?: $req->billing_address),
+            'city'    => $usesBilling ? $req->billing_city    : ($req->{"{$type}_city"}    ?: $req->billing_city),
+            'state'   => $usesBilling ? $req->billing_state   : ($req->{"{$type}_state"}   ?: $req->billing_state),
+            'pincode' => $usesBilling ? $req->billing_pincode : ($req->{"{$type}_pincode"} ?: $req->billing_pincode),
             'country'     => $req->{"{$type}_country"} ?? $req->billing_country ?? 'India',
             'is_default'  => true,
         ]);
@@ -461,7 +546,7 @@ class PurchaseInvoiceController extends Controller
                         $variants->push([
                             'id'             => (string)$prod->_id,
                             'product_type'   => 'variant',
-                            'name'           => $prod->name . ' – ' . ($v['name'] ?? ''),
+                            'name'           => $v['name'] ?? $prod->name,
                             'sku'            => $v['sku_code'] ?? '',
                             'mrp_price'      => (float)($v['mrp_price']  ?? 0),
                             'purchase_price' => (float)($v['cost_price'] ?? 0),
@@ -473,7 +558,7 @@ class PurchaseInvoiceController extends Controller
                     }
                 });
 
-            $products = $simple->merge($variants)->values();
+            $products = collect()->concat($simple)->concat($variants)->values();
 
             if ($search) {
                 $products = $products->filter(fn($p) =>
@@ -585,7 +670,9 @@ class PurchaseInvoiceController extends Controller
         if ($request->has('items') && is_string($request->items)) {
             $request->merge(['items' => json_decode($request->items, true)]);
         }
-
+        if (empty($request->purchase_executive_id)) {
+            $request->merge(['purchase_executive_id' => null]);
+        }
         $v = Validator::make($request->all(), [
             'party_type'            => 'required|in:vendor,dealer,distributor',
             'vendor_id'             => 'required_if:party_type,vendor',
@@ -602,10 +689,7 @@ class PurchaseInvoiceController extends Controller
         ]);
         if ($v->fails()) return response()->json(['success'=>false,'message'=>$v->errors()->first()],422);
 
-        // Dealer / distributor must have PE selected
-        if (in_array($request->party_type,['dealer','distributor']) && !$request->purchase_executive_id) {
-            return response()->json(['success'=>false,'message'=>'Purchase Executive is required for '.ucfirst($request->party_type)],422);
-        }
+
 
         try {
 
@@ -642,15 +726,23 @@ class PurchaseInvoiceController extends Controller
             $balance    = $grandTotal - $amountPaid;
             $payStatus  = $this->resolvePaymentStatus($amountPaid, $balance);
             if ($payStatus === 'paid') $balance = 0;
+            $partyName = '';
 
+            if ($request->party_type === 'vendor') {
+                $partyName = $partyModel->company_name;
+            } else {
+                $partyName = $partyModel->name;
+            }
             $invoice = PurchaseInvoice::create([
                 'invoice_number'        => $request->invoice_number ?? $this->generateInvoiceNumber(),
                 'public_token'          => Str::random(40),
                 'invoice_type'          => $request->invoice_type,
                 'invoice_date'          => $request->invoice_date,
-                // vendor_id stores the party ID regardless of type (vendor, dealer, distributor)
+                // party_id stores the party ID regardless of type (vendor, dealer, distributor)
                 // Party type is NOT stored — it is derived by looking up the ID
-                'vendor_id'             => $partyId,
+                'party_id'              => $partyId,
+                'party_type'            => $request->party_type,
+                'party_name'            => $partyName,
                 'purchase_executive_id' => $peId,
                 'warehouse_id'          => $request->warehouse_id,
                 'billing_address'       => $billing?->full_address,
@@ -684,6 +776,29 @@ class PurchaseInvoiceController extends Controller
                 $qty   = (float)$item['quantity'];
                 $price = (float)$item['purchase_price'];
                 $mrp   = (float)($item['mrp_price'] ?? $price);
+                $taxPercent = (float)($item['tax_percent'] ?? 0);
+                $discountPercent = (float)($item['discount'] ?? 0);
+
+                // 1. subtotal
+                $subtotal = $qty * $price;
+
+                // 2. discount
+                $discountAmount = ($subtotal * $discountPercent) / 100;
+
+                // 3. taxable
+                $taxable = $subtotal - $discountAmount;
+
+                // 4. tax
+                $taxAmount = ($taxable * $taxPercent) / 100;
+
+                // 5. GST split
+                $cgst = $isIntra ? $taxAmount / 2 : 0;
+                $sgst = $isIntra ? $taxAmount / 2 : 0;
+                $igst = !$isIntra ? $taxAmount : 0;
+
+                // 6. final total
+                $total = $taxable + $taxAmount;
+
                 PurchaseInvoiceItem::create([
                     'purchase_invoice_id' => $invoice->id,
                     'product_id'          => $item['product_id'] ?? null,
@@ -695,8 +810,17 @@ class PurchaseInvoiceController extends Controller
                     'unit'                => $item['unit'] ?? 'PCS',
                     'mrp_price'           => round($mrp, 2),
                     'purchase_price'      => round($price, 2),
-                    'tax_percent'         => $request->invoice_type === 'gst' ? (float)($item['tax_percent'] ?? 0) : 0,
-                    'total'               => round($qty * $price, 2),
+
+                    // ✅ important fields
+                    'discount'            => round($discountAmount, 2),
+                    'tax_percent'         => $taxPercent,
+                    'tax_amount'          => round($taxAmount, 2),
+                    'cgst_amount'         => round($cgst, 2),
+                    'sgst_amount'         => round($sgst, 2),
+                    'igst_amount'         => round($igst, 2),
+
+                    // ✅ FINAL TOTAL
+                    'total'               => round($total, 2),
                 ]);
             }
 
@@ -713,35 +837,111 @@ class PurchaseInvoiceController extends Controller
     //  GENERATE  (draft → confirmed + stock in)
     // =========================================================
 
-    public function generate($id)
+public function generate($id)
     {
         try {
-
-
             $invoice = PurchaseInvoice::with('items')->findOrFail($id);
+
             if ($invoice->status !== 'draft') {
-                return response()->json(['success'=>false,'message'=>'Invoice is already generated.'],400);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice is already generated.',
+                ], 400);
             }
 
+            $cashPaid   = (float) ($invoice->total_paid ?? 0);
+            $grandTotal = (float) $invoice->grand_total;
+
+            /* ================= DEBIT NOTE AUTO-ADJUSTMENT ================= */
+            // Party ke sare active ya partially_used debit notes (oldest first)
+            $activeDebitNotes = \App\Models\DebitNote::where('party_id', $invoice->party_id)
+                ->whereIn('status', ['active', 'partial'])
+                ->where('remaining_amount', '>', 0)
+                ->orderBy('debit_date', 'asc')   // oldest first
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            $totalDebitApplied = 0;
+            $appliedDNNumbers  = [];
+
+            // Kitna adjust karna hai: grand_total - cashPaid (jo already pay hua)
+            $remainingToAdjust = max(0, $grandTotal - $cashPaid);
+
+            foreach ($activeDebitNotes as $dn) {
+                if ($remainingToAdjust <= 0) break;
+
+                $dnRemaining   = (float) $dn->remaining_amount;
+                $applyAmount   = min($dnRemaining, $remainingToAdjust);
+
+                // Debit note update karo
+                $dn->used_amount      = (float) $dn->used_amount + $applyAmount;
+                $dn->remaining_amount = $dnRemaining - $applyAmount;
+
+                if ($dn->remaining_amount <= 0.001) {
+                    $dn->remaining_amount = 0;
+                    $dn->status           = 'settled';
+                } else {
+                    $dn->status = 'partial';
+                }
+                $dn->save();
+
+                $totalDebitApplied  += $applyAmount;
+                $remainingToAdjust  -= $applyAmount;
+                $appliedDNNumbers[]  = $dn->debit_note_number;
+            }
+
+            /* ================= PAYMENT CALCULATION ================= */
+            $amountPaid = $cashPaid + $totalDebitApplied;
+
+            // Overpaid guard (shouldn't happen but safety)
+            if ($amountPaid > $grandTotal) {
+                $amountPaid = $grandTotal;
+            }
+
+            $balance = max(0, $grandTotal - $amountPaid);
+
+            // Payment status
+            if ($amountPaid <= 0) {
+                $paymentStatus = 'unpaid';
+            } elseif ($balance <= 0.01) {
+                $paymentStatus = 'paid';
+                $balance       = 0;
+            } else {
+                $paymentStatus = 'partial';
+            }
+
+            // Invoice payment fields update
+            $invoice->total_paid          = round($amountPaid, 2);
+            $invoice->balance_amount      = round($balance, 2);
+            $invoice->payment_status      = $paymentStatus;
+            $invoice->debit_note_applied  = round($totalDebitApplied, 2);   // renamed from advance_used
+            // Store which debit notes were applied (for display in index/show)
+            if (!empty($appliedDNNumbers)) {
+                $invoice->debit_note_numbers = implode(', ', $appliedDNNumbers);
+            }
+            $invoice->save();
+
+            /* ================= STOCK ADDITION ================= */
             foreach ($invoice->items as $item) {
                 if (!$item->product_id) continue;
 
-                $isVariant = (bool)$item->variant_id;
-                $stockQ = WarehouseStock::where('warehouse_id',$invoice->warehouse_id)
-                    ->where('product_id',$item->product_id)
+                $isVariant = (bool) $item->variant_id;
+                $stockQ    = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                    ->where('product_id', $item->product_id)
                     ->where('product_type', $isVariant ? 'variant' : 'simple');
-                if ($isVariant) $stockQ->where('variant_id',$item->variant_id);
+                if ($isVariant) $stockQ->where('variant_id', $item->variant_id);
 
                 $stock = $stockQ->first();
                 if ($stock) {
                     $stock->update(['quantity' => $stock->quantity + $item->quantity]);
                 } else {
                     WarehouseStock::create([
-                        'warehouse_id' => $invoice->warehouse_id,
-                        'product_id'   => $item->product_id,
-                        'variant_id'   => $item->variant_id,
-                        'product_type' => $isVariant ? 'variant' : 'simple',
-                        'quantity'     => $item->quantity,
+                        'warehouse_id'    => $invoice->warehouse_id,
+                        'product_id'      => $item->product_id,
+                        'variant_id'      => $item->variant_id,
+                        'product_type'    => $isVariant ? 'variant' : 'simple',
+                        'quantity'        => $item->quantity,
+                        'min_stock_alert' => 0,
                     ]);
                 }
 
@@ -757,13 +957,51 @@ class PurchaseInvoiceController extends Controller
                 ]);
             }
 
+            /* ================= INVOICE STATUS ================= */
             $invoice->update(['status' => 'confirmed']);
 
-            return response()->json(['success'=>true,'message'=>'Invoice generated. Stock added to warehouse.']);
+            /* ================= PAYMENT RECORD ================= */
+            if ($amountPaid > 0) {
+                $notes = [];
+                if ($totalDebitApplied > 0) {
+                    $notes[] = "Debit note adjusted: ₹" . number_format($totalDebitApplied, 2)
+                             . " (" . implode(', ', $appliedDNNumbers) . ")";
+                }
+                if ($cashPaid > 0) {
+                    $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
+                }
+
+                PurchasePayment::create([
+                    'purchase_invoice_id' => $invoice->id,
+                    'party_id'            => $invoice->party_id,
+                    'amount'              => round($amountPaid, 2),
+                    'payment_method'      => request()->payment_method ?? 'cash',
+                    'payment_date'        => $invoice->invoice_date,
+                    'status'              => 'completed',
+                    'notes'               => implode("\n", $notes),
+                    'created_by'          => Auth::guard('admin')->id(),
+                ]);
+            }
+
+            // Response message
+            $msg = 'Invoice generated successfully. Stock added to warehouse.';
+            if ($totalDebitApplied > 0) {
+                $msg .= ' Debit note adjusted: ₹' . number_format($totalDebitApplied, 2)
+                      . ' (' . implode(', ', $appliedDNNumbers) . ')';
+            }
+
+            return response()->json([
+                'success'              => true,
+                'message'              => $msg,
+                'debit_note_applied'   => $totalDebitApplied,
+                'debit_note_numbers'   => $appliedDNNumbers,
+            ]);
 
         } catch (\Exception $e) {
-
-            return response()->json(['success'=>false,'message'=>$e->getMessage()],500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate invoice: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
@@ -775,10 +1013,17 @@ class PurchaseInvoiceController extends Controller
     {
         try {
 
-
             $invoice = PurchaseInvoice::with('items')->findOrFail($id);
             if ($invoice->status !== 'confirmed') {
                 return response()->json(['success'=>false,'message'=>'Only confirmed invoices can be cancelled.'],400);
+            }
+
+            if ($invoice->payment_status === 'paid') {
+                return response()->json(['success'=>false,'message'=>'Paid invoices cannot be cancelled. Please process a return instead.'],400);
+            }
+
+            if ($invoice->total_paid > 0) {
+                return response()->json(['success'=>false,'message'=>'This invoice has received payment. Please process a return instead.'],400);
             }
 
             foreach ($invoice->items as $item) {
@@ -812,11 +1057,9 @@ class PurchaseInvoiceController extends Controller
                             "[Cancelled on ".now()->format('d/m/Y H:i')."]",
             ]);
 
-
             return response()->json(['success'=>true,'message'=>'Invoice cancelled. Stock reversed.']);
 
         } catch (\Exception $e) {
-
             return response()->json(['success'=>false,'message'=>$e->getMessage()],500);
         }
     }
@@ -861,13 +1104,13 @@ class PurchaseInvoiceController extends Controller
         $openingBalance = (float)($partyModel->opening_balance ?? 0);
 
         // Sum of all CONFIRMED purchase invoices for this party
-        $totalPurchased = PurchaseInvoice::where('vendor_id', $partyId)
+        $totalPurchased = PurchaseInvoice::where('party_id', $partyId)
             ->where('status', 'confirmed')
             ->sum('grand_total');
 
         // Sum of all payments made against this party's purchase invoices
         // (requires PurchasePayment model — if not available falls back to total_paid sums)
-        $totalPaid = PurchaseInvoice::where('vendor_id', $partyId)
+        $totalPaid = PurchaseInvoice::where('party_id', $partyId)
             ->where('status', 'confirmed')
             ->sum('total_paid');
 
@@ -963,8 +1206,6 @@ class PurchaseInvoiceController extends Controller
         if ($v->fails()) return response()->json(['success'=>false,'message'=>$v->errors()->first()],422);
 
         try {
-
-
             [$partyId, $billing, $shipping, $peId, $partyModel] = $this->resolvePartyFromRequest($request);
 
             $wh       = Warehouse::findOrFail($request->warehouse_id);
@@ -987,13 +1228,21 @@ class PurchaseInvoiceController extends Controller
             $balance = $grand - $paid;
             $payStatus = $this->resolvePaymentStatus($paid, $balance);
             if ($payStatus === 'paid') $balance = 0;
+            $partyName = '';
 
+            if ($request->party_type === 'vendor') {
+                $partyName = $partyModel->company_name;
+            } else {
+                $partyName = $partyModel->name;
+            }
             PurchaseInvoiceItem::where('purchase_invoice_id',$id)->delete();
 
             $invoice->update([
                 'invoice_type'          => $request->invoice_type,
                 'invoice_date'          => $request->invoice_date,
-                'vendor_id'             => $partyId, // party_type NOT stored — derived on load
+                'party_id'              => $partyId, // party_type NOT stored — derived on load
+                'party_type'             => $request->party_type,
+                'party_name' => $partyName,
                 'purchase_executive_id' => $peId,
                 'warehouse_id'          => $request->warehouse_id,
                 'billing_address'       => $billing?->full_address,
@@ -1021,22 +1270,62 @@ class PurchaseInvoiceController extends Controller
             ]);
 
             foreach ($request->items as $item) {
-                $qty=$item['quantity']; $price=$item['purchase_price']; $mrp=$item['mrp_price']??$price;
+                $qty   = (float)$item['quantity'];
+                $price = (float)$item['purchase_price'];
+                $mrp   = (float)($item['mrp_price'] ?? $price);
+                $taxPercent = (float)($item['tax_percent'] ?? 0);
+                $discountPercent = (float)($item['discount'] ?? 0);
+
+                // 1. subtotal
+                $subtotal = $qty * $price;
+
+                // 2. discount
+                $discountAmount = ($subtotal * $discountPercent) / 100;
+
+                // 3. taxable
+                $taxable = $subtotal - $discountAmount;
+
+                // 4. tax
+                $taxAmount = ($taxable * $taxPercent) / 100;
+
+                // 5. GST split
+                $cgst = $isIntra ? $taxAmount / 2 : 0;
+                $sgst = $isIntra ? $taxAmount / 2 : 0;
+                $igst = !$isIntra ? $taxAmount : 0;
+
+                // 6. final total
+                $total = $taxable + $taxAmount;
+
                 PurchaseInvoiceItem::create([
-                    'purchase_invoice_id'=>$invoice->id,'product_id'=>$item['product_id']??null,
-                    'variant_id'=>$item['variant_id']??null,'product_name'=>$item['product_name'],
-                    'sku'=>$item['sku']??'','hsn_sac'=>$item['hsn_sac']??'','quantity'=>(float)$qty,
-                    'unit'=>$item['unit']??'PCS','mrp_price'=>round((float)$mrp,2),
-                    'purchase_price'=>round((float)$price,2),
-                    'tax_percent'=>$request->invoice_type==='gst'?(float)($item['tax_percent']??0):0,
-                    'total'=>round((float)$qty*(float)$price,2),
+                    'purchase_invoice_id' => $invoice->id,
+                    'product_id'          => $item['product_id'] ?? null,
+                    'variant_id'          => $item['variant_id'] ?? null,
+                    'product_name'        => $item['product_name'],
+                    'sku'                 => $item['sku'] ?? '',
+                    'hsn_sac'             => $item['hsn_sac'] ?? '',
+                    'quantity'            => $qty,
+                    'unit'                => $item['unit'] ?? 'PCS',
+                    'mrp_price'           => round($mrp, 2),
+                    'purchase_price'      => round($price, 2),
+
+                    // ✅ important fields
+                    'discount'            => round($discountAmount, 2),
+                    'tax_percent'         => $taxPercent,
+                    'tax_amount'          => round($taxAmount, 2),
+                    'cgst_amount'         => round($cgst, 2),
+                    'sgst_amount'         => round($sgst, 2),
+                    'igst_amount'         => round($igst, 2),
+
+                    // ✅ FINAL TOTAL
+                    'total'               => round($total, 2),
                 ]);
             }
+
 
             return response()->json(['success'=>true,'invoice_id'=>$invoice->id,'message'=>'Invoice updated successfully']);
 
         } catch (\Exception $e) {
-       
+
             return response()->json(['success'=>false,'message'=>'Error: '.$e->getMessage()],500);
         }
     }
@@ -1058,5 +1347,12 @@ class PurchaseInvoiceController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success'=>false,'message'=>'Failed: '.$e->getMessage()],500);
         }
+    }
+    private function decimalToFloat($value)
+    {
+        if ($value instanceof \MongoDB\BSON\Decimal128) {
+            return (float) $value->__toString();
+        }
+        return (float) $value;
     }
 }

@@ -16,7 +16,9 @@ class PurchaseInvoice extends Model
         'public_token',
         'invoice_type',
         'invoice_date',
-        'vendor_id',
+        'party_id',
+        'party_type',
+        'party_name',
         'purchase_executive_id',
         'warehouse_id',
         'billing_address',
@@ -86,5 +88,15 @@ class PurchaseInvoice extends Model
     public function creator()
     {
         return $this->belongsTo(Admin::class, 'created_by');
+    }
+    public function isGstInvoice()
+    {
+        return $this->invoice_type === 'gst';
+    }
+
+    // Helper to check if Cash Memo
+    public function isCashMemo()
+    {
+        return $this->invoice_type === 'cash';
     }
 }

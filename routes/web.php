@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\SalesInvoiceController;
 use App\Http\Controllers\Admin\InvoiceSettingController;
 use App\Http\Controllers\Admin\CashMemoInvoiceSettingController;
 use App\Http\Controllers\Admin\SalesPaymentController;
+use App\Http\Controllers\Admin\SalesPaymentOutController;
 use App\Http\Controllers\Admin\SalesmanController;
 use App\Http\Controllers\Admin\WarrantyController;
 use App\Http\Controllers\Admin\QuotationController;
@@ -23,6 +24,9 @@ use App\Http\Controllers\Admin\CreditNoteController;
 use App\Http\Controllers\Admin\PurchaseExecutiveController;
 use App\Http\Controllers\Admin\VendorController;
 use App\Http\Controllers\Admin\PurchaseInvoiceController;
+use App\Http\Controllers\Admin\PurchaseReturnController;
+use App\Http\Controllers\Admin\DebitNoteController;
+use App\Http\Controllers\Admin\LedgerController;
 // Redirect root URL based on authentication status
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -226,8 +230,21 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             Route::get('/party-details/{partyId}', [SalesPaymentController::class,'getPartyDetails'])
                 ->name('party.details');
+            Route::get('/refund-party/{id}', [SalesPaymentController::class, 'getRefundPartyDetails'])
+                ->name('refund-party.details');
             Route::get('/{id}', [SalesPaymentController::class, 'show'])->name('show');
 
+        });
+        // Payment Out Routes
+        Route::prefix('payments-out')->name('payments-out.')->group(function () {
+            Route::get('/', [SalesPaymentOutController::class, 'index'])->name('index');
+            Route::get('/create', [SalesPaymentOutController::class, 'create'])->name('create');
+            Route::post('/store', [SalesPaymentOutController::class, 'store'])->name('store');
+            Route::get('/search-parties', [SalesPaymentOutController::class, 'searchParties'])->name('search-parties');
+            Route::get('/party-details/{partyId}', [SalesPaymentOutController::class, 'getPartyDetails'])->name('party.details');
+            Route::get('/refund-party/{id}', [SalesPaymentOutController::class, 'getRefundPartyDetails'])->name('refund-party.details');
+            Route::get('/{id}', [SalesPaymentOutController::class, 'show'])->name('show');
+            Route::delete('/{id}', [SalesPaymentOutController::class, 'destroy'])->name('destroy');
         });
 
         Route::prefix('salesmen')->name('salesmen.')->group(function () {
@@ -380,28 +397,60 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
        // Purchase Invoice Routes
-Route::prefix('purchases')->name('purchases.')->group(function () {
-    Route::get('/', [PurchaseInvoiceController::class, 'index'])->name('index');
-    Route::get('/create', [PurchaseInvoiceController::class, 'create'])->name('create');
-    Route::post('/', [PurchaseInvoiceController::class, 'store'])->name('store');
+        Route::prefix('purchases')->name('purchases.')->group(function () {
+            Route::get('/', [PurchaseInvoiceController::class, 'index'])->name('index');
+            Route::get('/create', [PurchaseInvoiceController::class, 'create'])->name('create');
+            Route::post('/', [PurchaseInvoiceController::class, 'store'])->name('store');
 
-    // AJAX routes
-    Route::get('/parties-list', [PurchaseInvoiceController::class, 'getPartiesList'])->name('parties.list');
-    Route::get('/party-details/{id}', [PurchaseInvoiceController::class, 'getPartyDetails'])->name('party-details');
-    Route::post('/create-party', [PurchaseInvoiceController::class, 'storePartyAjax'])->name('create-party');
-    Route::get('/get-warehouse-products', [PurchaseInvoiceController::class, 'getWarehouseProducts'])->name('get-warehouse-products');
+            // AJAX routes
+            Route::get('/parties-list', [PurchaseInvoiceController::class, 'getPartiesList'])->name('parties.list');
+            Route::get('/party-details/{id}', [PurchaseInvoiceController::class, 'getPartyDetails'])->name('party-details');
+            Route::post('/create-party', [PurchaseInvoiceController::class, 'storePartyAjax'])->name('create-party');
+            Route::get('/get-warehouse-products', [PurchaseInvoiceController::class, 'getWarehouseProducts'])->name('get-warehouse-products');
 
-    // *** NEW: Quick Add Product from inside Purchase Invoice modal ***
-    Route::post('/quick-add-product', [PurchaseInvoiceController::class, 'quickAddSimpleProduct'])->name('quick-add-product');
+            // *** NEW: Quick Add Product from inside Purchase Invoice modal ***
+            Route::post('/quick-add-product', [PurchaseInvoiceController::class, 'quickAddSimpleProduct'])->name('quick-add-product');
 
-    // Invoice actions
-    Route::get('/{id}', [PurchaseInvoiceController::class, 'show'])->name('show');
-    Route::get('/{id}/edit', [PurchaseInvoiceController::class, 'edit'])->name('edit');
-    Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])->name('update');
-    Route::post('/{id}/generate', [PurchaseInvoiceController::class, 'generate'])->name('generate');
-    Route::post('/{id}/cancel', [PurchaseInvoiceController::class, 'cancel'])->name('cancel');
-    Route::delete('/{id}', [PurchaseInvoiceController::class, 'destroy'])->name('destroy');
-});
+            // Invoice actions
+            Route::get('/{id}', [PurchaseInvoiceController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [PurchaseInvoiceController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])->name('update');
+            Route::post('/{id}/generate', [PurchaseInvoiceController::class, 'generate'])->name('generate');
+            Route::post('/{id}/cancel', [PurchaseInvoiceController::class, 'cancel'])->name('cancel');
+            Route::delete('/{id}', [PurchaseInvoiceController::class, 'destroy'])->name('destroy');
+        });
+
+        // Purchase Returns Routes
+        Route::prefix('purchase-returns')->name('purchase-returns.')->group(function () {
+            // List all returns
+            Route::get('/', [PurchaseReturnController::class, 'index'])->name('index');
+
+            // Create new return
+            Route::get('/create', [PurchaseReturnController::class, 'create'])->name('create');
+            Route::post('/', [PurchaseReturnController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [PurchaseReturnController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [PurchaseReturnController::class, 'update'])->name('update');
+
+            // AJAX / helper routes (MUST come before {id} routes)
+            Route::get('/search-invoices', [PurchaseReturnController::class, 'searchInvoices'])->name('search-invoices');
+            Route::get('/invoice-details/{id}', [PurchaseReturnController::class, 'getInvoiceDetails'])->name('invoice-details');
+
+            // Dynamic routes with {id} parameter (these go LAST)
+            Route::get('/{id}', [PurchaseReturnController::class, 'show'])->name('show');
+            Route::post('/{id}/complete', [PurchaseReturnController::class, 'complete'])->name('complete');
+            Route::post('/{id}/cancel', [PurchaseReturnController::class, 'cancel'])->name('cancel');
+            Route::delete('/{id}', [PurchaseReturnController::class, 'destroy'])->name('destroy');
+        });
+
+        // Debit Notes Routes
+        Route::prefix('debit-notes')->name('debit-notes.')->group(function () {
+            Route::get('/', [DebitNoteController::class, 'index'])->name('index');
+            Route::get('/{id}', [DebitNoteController::class, 'show'])->name('show');
+            Route::post('/{id}/cancel', [DebitNoteController::class, 'cancel'])->name('cancel');
+        });
+        Route::get('ledger/{partyType}/{id}', [LedgerController::class, 'show'])
+            ->name('ledger.show')
+            ->where('partyType', 'customer|dealer|distributor|vendor');
 
 
     });

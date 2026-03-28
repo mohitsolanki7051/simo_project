@@ -86,7 +86,7 @@
                                             <div class="info-column">
                                                 <div class="info-row">
                                                     <span class="info-label">Opening Bal:</span>
-                                                    <span id="partyOpeningBalance" class="info-value">{{ optional($invoice->party)->opening_balance ? '₹ '.number_format($invoice->party->opening_balance, 2) : '₹ 0.00' }}</span>
+                                                    <span id="partyOpeningBalance" class="info-value">₹ 0.00</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">Credit Limit:</span>
@@ -409,7 +409,7 @@
 
                                         <div class="form-group">
                                             <label class="form-label">Amount Paid</label>
-                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" step="0.01" min="0" value="{{ $invoice->total_paid }}" oninput="calculateBalance()">
+                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" step="0.01" min="0" value="{{ $invoice->total_paid }}" oninput="validateAndCalculateBalance()" onblur="clampAmountPaid()">
                                         </div>
                                         <div class="form-group">
                                             <button type="button" onclick="markFullyPaid()" class="btn-mark-paid" style="width:auto; padding:4px 8px; font-size:10px;">
@@ -3259,7 +3259,8 @@ function selectParty(partyId) {
         $('#partyTypeBadge').text(p.party_type_text).attr('class', `party-type-badge ${p.party_type}`);
         $('#partyPhone').text(p.phone || '-');
         $('#partyEmail').text(p.email || '-');
-        $('#partyOpeningBalance').text(p.opening_balance ? '₹ ' + parseFloat(p.opening_balance).toFixed(2) : '₹ 0.00');
+        const dynamicOpeningBalance = p.dynamic_opening_balance || 0;
+        $('#partyOpeningBalance').text('₹ ' + dynamicOpeningBalance.toFixed(2));
         $('#partyCreditLimit').text(p.credit_limit ? '₹ ' + parseFloat(p.credit_limit).toFixed(2) : 'No Limit');
 
         $('#partyIdInput').val(p.id);
@@ -3268,7 +3269,7 @@ function selectParty(partyId) {
         updatePriceColumnHeaders();
         updateAddItemButtonState();
 
-        // Clear items when party changes (like create version)
+        // Clear items when party changes
         items = [];
 
         const warehouseState = '{{ $mainWarehouse->state ?? "" }}';
@@ -3311,24 +3312,36 @@ function selectParty(partyId) {
 
         closeSelectPartyModal();
         showAlert('Party changed to ' + p.name + ' successfully', 'success');
-        // ── Advance Balance show karo ──
-        $('#advanceBalanceRow').remove();
-        const advBal = parseFloat(p.advance_balance || 0);
-        if (advBal > 0) {
+
+        // ✅ SHOW CREDIT NOTE REMAINING AMOUNT (instead of advance balance)
+        $('#creditNoteRemainingRow').remove();
+        const creditRemaining = parseFloat(p.credit_notes_remaining || 0);
+
+        if (creditRemaining > 0) {
             $('.info-column').first().append(`
-                <div class="info-row" id="advanceBalanceRow">
-                    <span class="info-label">Advance:</span>
+                <div class="info-row" id="creditNoteRemainingRow">
+                    <span class="info-label">CN Balance:</span>
                     <span class="info-value" style="color:#047857;font-weight:600;">
-                        ₹ ${advBal.toFixed(2)}
-                        <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">AUTO-ADJUST</small>
+                        ₹ ${creditRemaining.toFixed(2)}
+                        <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">
+                            WILL AUTO-ADJUST
+                        </small>
                     </span>
                 </div>
             `);
         }
-        // ✅ NEW: Check credit limit status after party selection
+
+        // ✅ Remove advance balance row
+        $('#advanceBalanceRow').remove();
+
+        // Check credit limit status after party selection
         checkCreditLimitStatus(p.id);
+
+        // ✅ Recalculate balance with credit note
+        calculateBalance();
     });
 }
+
 // Function to check credit limit status with opening balance
 function checkCreditLimitStatus(partyId) {
     $.get('/admin/sales/party-credit-status/' + partyId, function(res) {
@@ -3664,7 +3677,28 @@ function markFullyPaid() {
     $('#amountPaid').val(grandTotal.toFixed(2));
     calculateBalance();
 }
+function validateAndCalculateBalance() {
+    const grand = parseFloat($('#grandTotal').text()) || 0;
+    const paid  = parseFloat($('#amountPaid').val())  || 0;
+    if (paid > grand) {
+        $('#amountPaid').css('border-color', '#dc3545');
+    } else {
+        $('#amountPaid').css('border-color', '#ccc');
+    }
+    calculateBalance();
+}
 
+function clampAmountPaid() {
+    const grand = parseFloat($('#grandTotal').text()) || 0;
+    let paid    = parseFloat($('#amountPaid').val())  || 0;
+    if (paid > grand) {
+        paid = grand;
+        $('#amountPaid').val(paid.toFixed(2));
+        $('#amountPaid').css('border-color', '#ccc');
+        showAlert('Amount paid cannot exceed grand total', 'error');
+    }
+    calculateBalance();
+}
 function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotal) {
     let extraDiscount = 0;
     const discountType = $('#extraDiscountTypeInput').val();
@@ -3697,7 +3731,7 @@ function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotal) {
     $('#taxAmountInput').val(totalTax.toFixed(2));
     $('#discountAmountInput').val(totalDiscount.toFixed(2));
 
-    calculateBalance();
+   clampAmountPaid();
 }
 
 function calculateTotals() {
@@ -3707,29 +3741,39 @@ function calculateTotals() {
 function calculateBalance() {
     const grandTotal  = parseFloat($('#grandTotal').text().replace(/,/g, '')) || 0;
     const amountPaid  = parseFloat($('#amountPaid').val()) || 0;
-    const advanceBal  = window.selectedParty ? parseFloat(window.selectedParty.advance_balance || 0) : 0;
 
-    const advanceWillUse  = Math.min(advanceBal, grandTotal);
-    const cashRequired    = Math.max(0, grandTotal - advanceWillUse);
-    const totalWillBePaid = amountPaid + advanceWillUse;
-    const finalBalance    = Math.max(0, grandTotal - totalWillBePaid);
+    // ✅ Get credit note remaining amount from the displayed value
+    let creditRemaining = 0;
+    const creditRowText = $('#creditNoteRemainingRow .info-value').text();
+    if (creditRowText) {
+        const match = creditRowText.match(/₹\s*([\d,]+\.?\d*)/);
+        if (match) creditRemaining = parseFloat(match[1].replace(/,/g, '')) || 0;
+    }
+
+    // ✅ Calculate how much credit note will be used
+    const remainingAfterCash = Math.max(0, grandTotal - amountPaid);
+    const creditWillUse = Math.min(creditRemaining, remainingAfterCash);
+    const finalBalance = Math.max(0, grandTotal - (amountPaid + creditWillUse));
 
     $('#balanceAmount').text(finalBalance.toFixed(2));
 
-    $('#advanceUsedInfo').remove();
-    if (advanceWillUse > 0) {
+    // ✅ Remove existing adjustment info
+    $('#creditAdjustmentInfo').remove();
+
+    // ✅ Show adjustment preview if credit note will be used
+    if (creditWillUse > 0) {
+        const cashRequired = Math.max(0, grandTotal - creditWillUse);
         $('#amountPaid').closest('.payment-section-container').append(`
-            <div id="advanceUsedInfo" style="margin-top:8px;padding:8px 10px;background:#d1fae5;border-radius:5px;font-size:11px;color:#065f46;border:1px solid #6ee7b7;">
-                ✓ Advance Balance ₹${advanceWillUse.toFixed(2)} will be auto-adjusted on generate
+            <div id="creditAdjustmentInfo" style="margin-top:8px;padding:8px 10px;background:#d1fae5;border-radius:5px;font-size:11px;color:#065f46;border:1px solid #6ee7b7;">
+                ✓ Credit Note ₹${creditWillUse.toFixed(2)} will be auto-adjusted on generate
                 <br>
                 <span style="font-size:10px;color:#047857;">
-                    Customer needs to pay only ₹${cashRequired.toFixed(2)} in cash
+                    Customer needs to pay only ₹${cashRequired.toFixed(2)} (Cash + Credit Note)
                 </span>
             </div>
         `);
     }
 }
-
 function validateForm() {
     if (!$('#partyIdInput').val()) {
         showAlert('Please select a party', 'error');
@@ -3805,27 +3849,30 @@ $(document).ready(function() {
         const warehouseId = $('input[name="warehouse_id"]').val();
 
         // Advance balance fetch karo aur show karo
-        const partyIdForAdv = $('#partyIdInput').val();
-        if (partyIdForAdv) {
-            $.get('{{ route('admin.sales.get-party-details', ':id') }}'.replace(':id', partyIdForAdv), function(res) {
-                if (res.success) {
-                    window.selectedParty = res.party; 
-                    const advBal = parseFloat(res.party.advance_balance || 0);
-                    $('#advanceBalanceRow').remove();
-                    if (advBal > 0) {
-                        $('.info-column').first().append(`
-                            <div class="info-row" id="advanceBalanceRow">
-                                <span class="info-label">Advance:</span>
-                                <span class="info-value" style="color:#047857;font-weight:600;">
-                                    ₹ ${advBal.toFixed(2)}
-                                    <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">AUTO-ADJUST</small>
-                                </span>
-                            </div>
-                        `);
-                    }
-                }
-            });
+       const partyIdForCN = $('#partyIdInput').val();
+if (partyIdForCN) {
+    $.get('{{ route('admin.sales.get-party-details', ':id') }}'.replace(':id', partyIdForCN), function(res) {
+        if (res.success) {
+            window.selectedParty = res.party;
+            const creditRemaining = parseFloat(res.party.credit_notes_remaining || 0);
+            $('#creditNoteRemainingRow').remove();
+            if (creditRemaining > 0) {
+                $('.info-column').first().append(`
+                    <div class="info-row" id="creditNoteRemainingRow">
+                        <span class="info-label">CN Balance:</span>
+                        <span class="info-value" style="color:#047857;font-weight:600;">
+                            ₹ ${creditRemaining.toFixed(2)}
+                            <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">
+                                WILL AUTO-ADJUST
+                            </small>
+                        </span>
+                    </div>
+                `);
+            }
+            calculateBalance();
         }
+    });
+}
 
         if (!warehouseId || items.length === 0) {
             renderItemsTable();
@@ -3870,7 +3917,7 @@ $(document).ready(function() {
     $('#invoiceDate').on('change', updateDueDateFromTerms);
     $('#paymentTermsDays').on('change', updateDueDateFromTerms);
     $('#dueDate').on('change', updatePaymentTermsFromDueDate);
-    $('#amountPaid').on('input', calculateBalance);
+    $('#amountPaid').on('input', validateAndCalculateBalance);
 
     // Modal close handlers
     $('.modal-overlay').on('click', function() {

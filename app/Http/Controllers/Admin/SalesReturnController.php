@@ -477,10 +477,9 @@ public function complete($id)
         }
 
         $invoice = $return->invoice;
-        $party = Customer::find($return->party_id);
 
-        /* ================= STOCK RETURN (same rahega) ================= */
-           foreach ($return->items as $item) {
+        /* ================= STOCK RETURN ================= */
+        foreach ($return->items as $item) {
             $stock = WarehouseStock::where('warehouse_id', $return->warehouse_id)
                 ->where('product_id', $item->product_id)
                 ->where('product_type', $item->variant_id ? 'variant' : 'simple')
@@ -515,124 +514,56 @@ public function complete($id)
             ]);
         }
 
-        /* ================= ACCOUNTING LOGIC - YAHAN CHANGE HAI ================= */
+        /* ================= CREDIT NOTE CREATION ================= */
         $returnAmount = (float) $return->total_return_amount;
-        $invoiceBalance = (float) $invoice->balance_amount;
-        $grandTotal = (float) $invoice->grand_total;
+        $creditNote   = $this->createCreditNote($return, $returnAmount);
 
-        // IMPORTANT: Check for EXISTING ACTIVE CREDIT NOTES from SAME INVOICE
-        $existingCreditNotes = CreditNote::where('sales_invoice_id', $invoice->_id)
-            ->where('party_id', $party->_id)
-            ->where('status', 'active')
-            ->where('remaining_amount', '>', 0)
-            ->get();
+        /* ================= AUTO-ADJUST CREDIT NOTE AGAINST INVOICE ================= */
+        $invoice->refresh();
+        $currentBalance = (float) $invoice->balance_amount;
 
-        $totalExistingCredit = 0;
-        foreach ($existingCreditNotes as $cn) {
-            $totalExistingCredit += (float) $cn->remaining_amount;
-        }
+        if ($currentBalance > 0) {
+            // How much of the credit note can be applied right now?
+            $adjustAmount = min($returnAmount, $currentBalance);
 
-        // Ab total return amount = current return + existing credit notes
-        $totalReturnAmount = $returnAmount + $totalExistingCredit;
+            // Deduct from invoice balance
+            $newBalance = round($currentBalance - $adjustAmount, 2);
 
-        /* ---------- CASE 1: Invoice completely unpaid ---------- */
-        if ($invoiceBalance == $grandTotal) {
+            // Update the credit note's used / remaining amounts
+            $creditNote->used_amount      = $adjustAmount;
+            $creditNote->remaining_amount = round($returnAmount - $adjustAmount, 2);
 
-            if ($totalReturnAmount >= $invoiceBalance) {
-                // Poora invoice adjust ho jayega
-                $extra = $totalReturnAmount - $invoiceBalance;
-
-                $invoice->total_paid = $grandTotal;
-                $invoice->balance_amount = 0;
-                $invoice->payment_status = 'paid';
-                $invoice->save();
-
-                // Extra amount advance mein jayega
-                if ($extra > 0) {
-                    $party->advance_balance = (float)($party->advance_balance ?? 0) + $extra;
-                    $party->save();
-                }
-
-                // PURANE credit notes ko used mark karo
-                foreach ($existingCreditNotes as $cn) {
-                    $cn->status = 'used';
-                    $cn->used_amount = $cn->amount;
-                    $cn->remaining_amount = 0;
-                    $cn->save();
-                }
-
-                // NAYA credit note banao (advance_transferred agar extra hai)
-                $creditNote = $this->createCreditNote($return, $returnAmount,
-                    $invoiceBalance - $totalExistingCredit,
-                    $extra > 0 ? 'advance_transferred' : 'used');
-
+            // Credit note status
+            if ($creditNote->remaining_amount <= 0) {
+                $creditNote->status = 'settled';        // fully used up
             } else {
-                // Partial return - existing credit notes + current return
-                $creditAmount = $totalReturnAmount; // ye credit note mein jayega
+                $creditNote->status = 'partial'; // only part was enough to clear balance
             }
-        }
-        /* ---------- CASE 2: Invoice partial paid ---------- */
-        elseif ($invoiceBalance > 0) {
+            $creditNote->save();
 
-            if ($totalReturnAmount >= $invoiceBalance) {
-                // Invoice clear ho jayega
-                $extra = $totalReturnAmount - $invoiceBalance;
-
-                $invoice->total_paid = $grandTotal;
-                $invoice->balance_amount = 0;
-                $invoice->payment_status = 'paid';
-                $invoice->save();
-
-                if ($extra > 0) {
-                    $party->advance_balance = (float)($party->advance_balance ?? 0) + $extra;
-                    $party->save();
-                }
-
-                // PURANE credit notes ko used mark karo
-                foreach ($existingCreditNotes as $cn) {
-                    $cn->status = 'used';
-                    $cn->used_amount = $cn->amount;
-                    $cn->remaining_amount = 0;
-                    $cn->save();
-                }
-
-                // NAYA credit note
-                $creditNote = $this->createCreditNote($return, $returnAmount,
-                    $invoiceBalance - $totalExistingCredit,
-                    $extra > 0 ? 'advance_transferred' : 'used');
-
+            // Determine invoice payment_status
+            if ($newBalance <= 0) {
+                $newBalance       = 0;
+                $newPaymentStatus = 'cancelled';       // fully returned / settled via credit
             } else {
-                $creditAmount = $totalReturnAmount;
-            }
-        }
-        /* ---------- CASE 3: Invoice already paid ---------- */
-        else {
-            // Poora amount advance mein jayega
-            $party->advance_balance = (float)($party->advance_balance ?? 0) + $totalReturnAmount;
-            $party->save();
-
-            // PURANE credit notes ko used mark karo
-            foreach ($existingCreditNotes as $cn) {
-                $cn->status = 'used';
-                $cn->used_amount = $cn->amount;
-                $cn->remaining_amount = 0;
-                $cn->save();
+                $newPaymentStatus = 'unpaid';          // still some due remaining
             }
 
-            // NAYA credit note advance_transferred
-            $creditNote = $this->createCreditNote($return, $returnAmount, $returnAmount, 'advance_transferred');
-        }
+            $invoice->balance_amount  = $newBalance;
+            $invoice->payment_status  = $newPaymentStatus;
 
-        /* ---------- Create Credit Note if creditAmount > 0 ---------- */
-        if (isset($creditAmount) && $creditAmount > 0) {
-            $creditNote = $this->createCreditNote($return, $creditAmount, 0, 'active');
+        } else {
+            // Invoice already paid — credit note stays active for future use / refund
+            // No balance to deduct; credit note remains fully available
+            $creditNote->status = 'active';
+            $creditNote->save();
         }
 
         /* ================= MARK RETURN COMPLETED ================= */
         $return->status = 'completed';
         $return->save();
 
-           $invoice->refresh();
+        /* ================= UPDATE INVOICE STATUS (qty-based) ================= */
         $invoice->load('items');
         $totalSoldQty = $invoice->items->sum('quantity');
 
@@ -648,20 +579,30 @@ public function complete($id)
             }
         }
 
-        if ($totalReturnedQty == 0) {
-            $invoice->status = 'confirmed';
-        } elseif ($totalReturnedQty < $totalSoldQty) {
-            $invoice->status = 'partially_returned';
+        // Only change status if not already 'cancelled' (payment-based above takes priority)
+        if ($invoice->payment_status !== 'cancelled') {
+            if ($totalReturnedQty == 0) {
+                $invoice->status = 'confirmed';
+            } elseif ($totalReturnedQty < $totalSoldQty) {
+                $invoice->status = 'partially_returned';
+            } else {
+                $invoice->status = 'returned';
+            }
         } else {
+            // Fully settled via returns
             $invoice->status = 'returned';
         }
+
         $invoice->save();
 
         return response()->json([
-            'success' => true,
-            'return_id' => $return->_id,
-            'credit_note_id' => $creditNote ? (string)$creditNote->_id : null,
-            'message' => 'Sales return completed successfully.'
+            'success'          => true,
+            'return_id'        => (string) $return->_id,
+            'credit_note_id'   => (string) $creditNote->_id,
+            'new_balance'      => $invoice->balance_amount,
+            'payment_status'   => $invoice->payment_status,
+            'message'          => 'Sales return completed. Credit note created & auto-adjusted: '
+                                    . $creditNote->credit_note_number,
         ]);
 
     } catch (\Exception $e) {
@@ -671,11 +612,7 @@ public function complete($id)
         ], 500);
     }
 }
-
-/**
- * Helper function to create credit note
- */
-private function createCreditNote($return, $amount, $usedAmount, $status)
+private function createCreditNote($return, $amount)
 {
     $creditNote = CreditNote::create([
         'credit_note_number' => $this->generateCreditNoteNumber(),
@@ -687,10 +624,10 @@ private function createCreditNote($return, $amount, $usedAmount, $status)
         'tax_amount'         => $return->total_tax,
         'discount_amount'    => $return->discount_amount,
         'amount'             => $amount,
-        'used_amount'        => $usedAmount,
-        'remaining_amount'   => $amount - $usedAmount,
+        'used_amount'        => 0,
+        'remaining_amount'   => $amount,
         'reason'             => $return->reason ?? 'Sales Return',
-        'status'             => $status,
+        'status'             => 'active',   // always starts active
         'created_by'         => Auth::guard('admin')->id(),
     ]);
 
