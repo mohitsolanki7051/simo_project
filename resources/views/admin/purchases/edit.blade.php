@@ -1347,42 +1347,7 @@ function updatePaymentTermsFromDueDate() {
     $('#paymentTermsInput').val('Due in ' + diff + ' days');
 }
 
-// ===================== PRE-POPULATE EXISTING DISCOUNT/CHARGE =====================
-// function prePopulateDiscountCharge() {
-//     @php
-//         $discType   = $invoice->extra_discount_type ?? 'amount';
-//         $discValue  = (float)($invoice->extra_discount ?? 0);
-//         $extraCharge = (float)($invoice->extra_charge ?? 0);
-//         $chargeName  = $invoice->charge_name ?? '';
-//         $roundOff    = (float)($invoice->round_off ?? 0);
-//     @endphp
 
-//     const discType   = '{{ $discType }}';
-//     const discValue  = {{ $discValue }};
-//     const extraCharge = {{ $extraCharge }};
-//     const chargeName  = @json($chargeName);
-//     const roundOff   = {{ $roundOff }};
-
-//     if (discType === 'percent' && discValue > 0) {
-//         $('#extraDiscountTypeInput').val('percent');
-//         $('#extraDiscountPercentRow').show();
-//         $('#extraDiscountPercent').val(discValue);
-//     } else if (discValue > 0) {
-//         $('#extraDiscountTypeInput').val('amount');
-//         $('#extraDiscountRow').show();
-//         $('#extraDiscount').val(discValue);
-//     }
-
-//     if (extraCharge > 0 || chargeName) {
-//         $('#extraChargeRow').show();
-//         $('#extraCharge').val(extraCharge);
-//         $('#chargeName').val(chargeName);
-//     }
-
-//     if (roundOff !== 0) {
-//         $('#autoRoundOff').prop('checked', true);
-//     }
-// }
 
 // ===================== LOAD EXISTING PARTY =====================
 function loadExistingParty() {
