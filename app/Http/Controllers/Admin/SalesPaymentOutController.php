@@ -272,7 +272,7 @@ class SalesPaymentOutController extends Controller
     private function searchCreditRefundParties(string $search)
     {
         // Get all party_ids that have active credit notes with remaining amount > 0
-        $creditPartyIds = CreditNote::where('status', 'active')
+        $creditPartyIds = CreditNote::whereIn('status', ['active', 'partial'])
             ->where('remaining_amount', '>', 0)
             ->pluck('party_id')
             ->map(fn($id) => (string) $id)

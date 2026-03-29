@@ -544,7 +544,7 @@ public function complete($id)
             // Determine invoice payment_status
             if ($newBalance <= 0) {
                 $newBalance       = 0;
-                $newPaymentStatus = 'cancelled';       // fully returned / settled via credit
+                $newPaymentStatus = (float)$invoice->total_paid > 0 ? 'paid' : 'cancelled';      // fully returned / settled via credit
             } else {
                 $newPaymentStatus = 'unpaid';          // still some due remaining
             }

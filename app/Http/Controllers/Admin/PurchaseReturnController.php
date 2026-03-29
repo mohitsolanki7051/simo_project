@@ -583,7 +583,7 @@ public function complete($id)
             // Invoice payment_status determine karo
             if ($newBalance <= 0) {
                 $newBalance          = 0;
-                $newPaymentStatus    = 'cancelled';     // poora return se settle
+                $newPaymentStatus = (float)$invoice->total_paid > 0 ? 'paid' : 'cancelled';    // poora return se settle
             } else {
                 $newPaymentStatus    = 'unpaid';        // abhi bhi kuch baaki hai
             }
