@@ -290,14 +290,21 @@
                     {{ strtoupper(substr($settings->company_name ?? 'SIM', 0, 2)) }}
                 </div>
             @endif
+            @php
+                $companyName = $settings->company_name ?? 'SIMKO ENTERPRISES';
+                $companyAddress = $settings->company_address ?? 'Company Address';
+                $companyPhone = $settings->company_phone ?? 'N/A';
+                $companyEmail = $settings->company_email ?? 'N/A';
+                $companyGstin = $settings->gstin ?? null;
+            @endphp
             <div class="company-details">
-                <h2>{{ $settings->company_name ?? 'SIMKO ENTERPRISES' }}</h2>
-                <p>{{ $settings->company_address ?? 'Company Address' }}</p>
+                <h2>{{ $companyName }}</h2>
+                <p>{{ $companyAddress }}</p>
                 <div class="company-contact">
-                    <span>Phone: {{ $settings->company_phone ?? 'N/A' }}</span>
-                    <span>Email: {{ $settings->company_email ?? 'N/A' }}</span>
-                    @if($settings->gstin)
-                    <span>GSTIN: {{ $settings->gstin }}</span>
+                    <span>Phone: {{ $companyPhone }}</span>
+                    <span>Email: {{ $companyEmail }}</span>
+                    @if($companyGstin)
+                    <span>GSTIN: {{ $companyGstin }}</span>
                     @endif
                 </div>
             </div>
