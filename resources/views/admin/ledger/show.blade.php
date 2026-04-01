@@ -146,7 +146,9 @@
             <div class="ldg-search">
                 <input type="text" id="ledgerSearch" placeholder="Search voucher..." class="ldg-input">
             </div>
-            <button class="ldg-print-btn" onclick="window.print()">&#128424; Print</button>
+            <button class="ldg-print-btn" onclick="window.open('{{ route('admin.ledger.print', ['partyType' => $partyType, 'id' => $partyType === 'vendor' ? $party->id : $party->_id]) }}', '_blank')">
+                🖨️ Print Ledger
+            </button>
         </div>
 
         <div class="ldg-table-wrap" id="ledger-print-area">

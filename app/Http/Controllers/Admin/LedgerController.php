@@ -1059,4 +1059,23 @@ private function isLinkedToDebitNote($payment): bool
         try { return \Carbon\Carbon::parse($date)->format('d-m-Y'); }
         catch (\Exception $e) { return (string) $date; }
     }
+    public function print(Request $request, string $partyType, string $id)
+{
+    if ($partyType === 'vendor') {
+        $party = Vendor::with('addresses')->findOrFail($id);
+    } else {
+        $party = Customer::with('addresses')->findOrFail($id);
+    }
+
+    $ledger = $this->buildLedger($partyType, $id, $party);
+    $summary = $this->buildSummary($ledger);
+
+    // Date range (optional)
+    $fromDate = $request->get('from_date', 'Opening');
+    $toDate = $request->get('to_date', now()->format('d-m-Y'));
+
+    return view('admin.ledger.print', compact(
+        'party', 'partyType', 'ledger', 'summary', 'fromDate', 'toDate'
+    ));
+}
 }

@@ -451,6 +451,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledger/{partyType}/{id}', [LedgerController::class, 'show'])
             ->name('ledger.show')
             ->where('partyType', 'customer|dealer|distributor|vendor');
+        Route::get('/ledger/{partyType}/{id}/print', [LedgerController::class, 'print'])->name('ledger.print');
 
 
     });
