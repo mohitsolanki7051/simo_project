@@ -22,11 +22,11 @@ class PurchasePayment extends Model
         'status',
         'reference_no',
         'notes',
-        'created_by',
         'payment_type',      // Add this
         'payment_subtype',   // Add this (for purchase_payment or credit_refund)
         'allocations',       // Add this (for storing allocation details)
         'party_details',     // Optional: for caching party info
+        'created_by'
     ];
 
     protected $casts = [

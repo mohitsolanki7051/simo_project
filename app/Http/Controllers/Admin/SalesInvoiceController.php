@@ -889,182 +889,205 @@ public function cancel($id)
     /**
      * Generate invoice (confirm and deduct stock)
      */
+/**
+     * Generate invoice (confirm and deduct stock)
+     * PASTE THIS generate() method inside SalesInvoiceController
+     * replacing the existing generate() method
+     */
     public function generate($id)
-{
-    try {
-        $invoice = SalesInvoice::with(['items', 'party'])->findOrFail($id);
+    {
+        try {
+            $invoice = SalesInvoice::with(['items', 'party'])->findOrFail($id);
 
-        if ($invoice->status !== 'draft') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invoice is already generated or completed.'
-            ], 400);
-        }
-
-        // Check stock availability
-        foreach ($invoice->items as $item) {
-            $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
-                ->where('product_id', $item->product_id)
-                ->where('product_type', $item->variant_id ? 'variant' : 'simple')
-                ->when($item->variant_id, function ($q) use ($item) {
-                    return $q->where('variant_id', $item->variant_id);
-                })
-                ->first();
-
-            if (!$stock || $stock->quantity < $item->quantity) {
-                throw new \Exception("Insufficient stock for {$item->product_name}" . ($item->variant_name ? " - {$item->variant_name}" : ""));
+            if ($invoice->status !== 'draft') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice is already generated or completed.'
+                ], 400);
             }
-        }
 
-        // Deduct stock
-        foreach ($invoice->items as $item) {
-            $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
-                ->where('product_id', $item->product_id)
-                ->where('product_type', $item->variant_id ? 'variant' : 'simple')
-                ->when($item->variant_id, function ($q) use ($item) {
-                    return $q->where('variant_id', $item->variant_id);
-                })
-                ->first();
+            // Check stock availability
+            foreach ($invoice->items as $item) {
+                $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                    ->where('product_id', $item->product_id)
+                    ->where('product_type', $item->variant_id ? 'variant' : 'simple')
+                    ->when($item->variant_id, function ($q) use ($item) {
+                        return $q->where('variant_id', $item->variant_id);
+                    })
+                    ->first();
 
-            if ($stock) {
-                $stock->update(['quantity' => $stock->quantity - $item->quantity]);
+                if (!$stock || $stock->quantity < $item->quantity) {
+                    throw new \Exception("Insufficient stock for {$item->product_name}" . ($item->variant_name ? " - {$item->variant_name}" : ""));
+                }
+            }
 
-                WarehouseMovement::create([
-                    'warehouse_id' => $invoice->warehouse_id,
-                    'product_id' => $item->product_id,
-                    'product_type' => $item->variant_id ? 'variant' : 'simple',
-                    'variant_id' => $item->variant_id ?? null,
-                    'type' => WarehouseMovement::TYPE_SALE,
-                    'quantity' => -$item->quantity,
-                    'reference_id' => $invoice->_id,
-                    'remarks' => "Sales Invoice Generated: {$invoice->invoice_number}",
+            // Deduct stock
+            foreach ($invoice->items as $item) {
+                $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                    ->where('product_id', $item->product_id)
+                    ->where('product_type', $item->variant_id ? 'variant' : 'simple')
+                    ->when($item->variant_id, function ($q) use ($item) {
+                        return $q->where('variant_id', $item->variant_id);
+                    })
+                    ->first();
+
+                if ($stock) {
+                    $stock->update(['quantity' => $stock->quantity - $item->quantity]);
+
+                    WarehouseMovement::create([
+                        'warehouse_id' => $invoice->warehouse_id,
+                        'product_id'   => $item->product_id,
+                        'product_type' => $item->variant_id ? 'variant' : 'simple',
+                        'variant_id'   => $item->variant_id ?? null,
+                        'type'         => WarehouseMovement::TYPE_SALE,
+                        'quantity'     => -$item->quantity,
+                        'reference_id' => $invoice->_id,
+                        'remarks'      => "Sales Invoice Generated: {$invoice->invoice_number}",
+                    ]);
+                }
+            }
+
+            $cashPaid   = (float) ($invoice->total_paid ?? 0);
+            $grandTotal = (float) $invoice->grand_total;
+
+            /* ================= CREDIT NOTE AUTO-ADJUSTMENT ================= */
+            $activeCreditNotes = \App\Models\CreditNote::where('party_id', $invoice->party_id)
+                ->whereIn('status', ['active', 'partial'])
+                ->where('remaining_amount', '>', 0)
+                ->orderBy('credit_date', 'asc')
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            $totalCreditApplied = 0;
+            $appliedCNNumbers   = [];
+            $remainingToAdjust  = max(0, $grandTotal - $cashPaid);
+
+            foreach ($activeCreditNotes as $cn) {
+                if ($remainingToAdjust <= 0) break;
+
+                $cnRemaining = $cn->remaining_amount;
+                if ($cnRemaining instanceof \MongoDB\BSON\Decimal128) {
+                    $cnRemaining = (float) $cnRemaining->__toString();
+                } else {
+                    $cnRemaining = (float) $cnRemaining;
+                }
+
+                $applyAmount = min($cnRemaining, $remainingToAdjust);
+
+                $cn->used_amount      = (float) $cn->used_amount + $applyAmount;
+                $cn->remaining_amount = $cnRemaining - $applyAmount;
+
+                if ($cn->remaining_amount <= 0.001) {
+                    $cn->remaining_amount = 0;
+                    $cn->status           = 'settled';
+                } else {
+                    $cn->status = 'partial';
+                }
+                $cn->save();
+
+                $totalCreditApplied  += $applyAmount;
+                $remainingToAdjust   -= $applyAmount;
+                $appliedCNNumbers[]   = $cn->credit_note_number;
+            }
+
+            /* ================= PAYMENT CALCULATION ================= */
+            $amountPaid = $cashPaid + $totalCreditApplied;
+            if ($amountPaid > $grandTotal) $amountPaid = $grandTotal;
+
+            $balance = max(0, $grandTotal - $amountPaid);
+
+            if ($amountPaid <= 0) {
+                $paymentStatus = 'unpaid';
+            } elseif ($balance <= 0.01) {
+                $paymentStatus = 'paid';
+                $balance       = 0;
+            } else {
+                $paymentStatus = 'partial';
+            }
+
+            // Update invoice payment fields
+            $invoice->total_paid          = round($amountPaid, 2);
+            $invoice->balance_amount      = round($balance, 2);
+            $invoice->payment_status      = $paymentStatus;
+            $invoice->credit_note_applied = round($totalCreditApplied, 2);
+
+            if (!empty($appliedCNNumbers)) {
+                $invoice->credit_note_numbers = implode(', ', $appliedCNNumbers);
+            }
+            $invoice->save();
+
+            /* ================= CREATE PAYMENT RECORD ================= */
+            // ✅ FIX: payment_type, payment_subtype, allocations — sabhi fields set karo
+            // Taaki LedgerController sahi se match kar sake
+            if ($amountPaid > 0) {
+                $notes       = [];
+                $allocations = [];
+
+                // Cash paid allocation (invoice ke against)
+                if ($cashPaid > 0) {
+                    $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
+                    $allocations[] = [
+                        'type'           => 'invoice',
+                        'invoice_id'     => (string) $invoice->_id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'amount'         => round($cashPaid, 2),
+                        'description'    => 'Invoice payment at time of generation',
+                    ];
+                }
+
+                // Credit note allocation
+                if ($totalCreditApplied > 0) {
+                    $notes[] = "Credit note adjusted: ₹" . number_format($totalCreditApplied, 2)
+                             . " (" . implode(', ', $appliedCNNumbers) . ")";
+                    foreach ($appliedCNNumbers as $cnNum) {
+                        $allocations[] = [
+                            'type'               => 'credit_note',
+                            'credit_note_number' => $cnNum,
+                            'amount'             => round($totalCreditApplied / count($appliedCNNumbers), 2),
+                            'description'        => 'Credit Note Adjustment: ' . $cnNum,
+                        ];
+                    }
+                }
+
+                SalesPayment::create([
+                    'payment_number'   => null,              // invoice-time payment has no payment_number
+                    'sales_invoice_id' => $invoice->_id,
+                    'party_id'         => $invoice->party_id,
+                    'amount'           => round($amountPaid, 2),
+                    'payment_method'   => request()->payment_method ?? 'cash',
+                    'payment_date'     => now(),
+                    'status'           => 'completed',
+                    'notes'            => implode("\n", $notes),
+                    'payment_type'     => 'payment_in',      // ✅ FIXED
+                    'payment_subtype'  => 'sales_payment',   // ✅ FIXED
+                    'allocations'      => $allocations,      // ✅ FIXED
+                    'created_by'       => Auth::guard('admin')->id(),
                 ]);
             }
-        }
 
-        $cashPaid = (float) ($invoice->total_paid ?? 0);
-        $grandTotal = (float) $invoice->grand_total;
+            $invoice->update(['status' => 'confirmed']);
 
-        /* ================= CREDIT NOTE AUTO-ADJUSTMENT ================= */
-        // Party ke sare active ya partially_used credit notes (oldest first)
-        $activeCreditNotes = \App\Models\CreditNote::where('party_id', $invoice->party_id)
-            ->whereIn('status', ['active', 'partial'])
-            ->where('remaining_amount', '>', 0)
-            ->orderBy('credit_date', 'asc')
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        $totalCreditApplied = 0;
-        $appliedCNNumbers = [];
-
-        // Kitna adjust karna hai: grand_total - cashPaid (jo already pay hua)
-        $remainingToAdjust = max(0, $grandTotal - $cashPaid);
-
-        foreach ($activeCreditNotes as $cn) {
-            if ($remainingToAdjust <= 0) break;
-
-            // Convert Decimal128 to float
-            $cnRemaining = $cn->remaining_amount;
-            if ($cnRemaining instanceof \MongoDB\BSON\Decimal128) {
-                $cnRemaining = (float) $cnRemaining->__toString();
-            } else {
-                $cnRemaining = (float) $cnRemaining;
-            }
-
-            $applyAmount = min($cnRemaining, $remainingToAdjust);
-
-            // Credit note update karo
-            $cn->used_amount = (float) $cn->used_amount + $applyAmount;
-            $cn->remaining_amount = $cnRemaining - $applyAmount;
-
-            if ($cn->remaining_amount <= 0.001) {
-                $cn->remaining_amount = 0;
-                $cn->status = 'settled';
-            } else {
-                $cn->status = 'partial';
-            }
-            $cn->save();
-
-            $totalCreditApplied += $applyAmount;
-            $remainingToAdjust -= $applyAmount;
-            $appliedCNNumbers[] = $cn->credit_note_number;
-        }
-
-        /* ================= PAYMENT CALCULATION ================= */
-        $amountPaid = $cashPaid + $totalCreditApplied;
-
-        if ($amountPaid > $grandTotal) {
-            $amountPaid = $grandTotal;
-        }
-
-        $balance = max(0, $grandTotal - $amountPaid);
-
-        if ($amountPaid <= 0) {
-            $paymentStatus = 'unpaid';
-        } elseif ($balance <= 0.01) {
-            $paymentStatus = 'paid';
-            $balance = 0;
-        } else {
-            $paymentStatus = 'partial';
-        }
-
-        // Invoice payment fields update
-        $invoice->total_paid = round($amountPaid, 2);
-        $invoice->balance_amount = round($balance, 2);
-        $invoice->payment_status = $paymentStatus;
-        $invoice->credit_note_applied = round($totalCreditApplied, 2);
-
-        if (!empty($appliedCNNumbers)) {
-            $invoice->credit_note_numbers = implode(', ', $appliedCNNumbers);
-        }
-        $invoice->save();
-
-        // Create payment records
-        if ($amountPaid > 0) {
-            $notes = [];
+            $msg = 'Invoice generated successfully. Stock deducted from warehouse.';
             if ($totalCreditApplied > 0) {
-                $notes[] = "Credit note adjusted: ₹" . number_format($totalCreditApplied, 2)
-                         . " (" . implode(', ', $appliedCNNumbers) . ")";
-            }
-            if ($cashPaid > 0) {
-                $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
+                $msg .= ' Credit note adjusted: ₹' . number_format($totalCreditApplied, 2)
+                      . ' (' . implode(', ', $appliedCNNumbers) . ')';
             }
 
-            SalesPayment::create([
-                'sales_invoice_id' => $invoice->_id,
-                'party_id'         => $invoice->party_id,
-                'amount'           => round($amountPaid, 2),
-                'payment_method'   => request()->payment_method ?? 'cash',
-                'payment_date'     => now(),
-                'status'           => 'completed',
-                'notes'            => implode("\n", $notes),
-                'created_by'       => Auth::guard('admin')->id(),
+            return response()->json([
+                'success'              => true,
+                'invoice_id'           => $invoice->_id,
+                'message'              => $msg,
+                'credit_note_applied'  => $totalCreditApplied,
+                'credit_note_numbers'  => $appliedCNNumbers,
             ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        $invoice->update(['status' => 'confirmed']);
-
-        $msg = 'Invoice generated successfully. Stock deducted from warehouse.';
-        if ($totalCreditApplied > 0) {
-            $msg .= ' Credit note adjusted: ₹' . number_format($totalCreditApplied, 2)
-                  . ' (' . implode(', ', $appliedCNNumbers) . ')';
-        }
-
-        return response()->json([
-            'success' => true,
-            'invoice_id' => $invoice->_id,
-            'message' => $msg,
-            'credit_note_applied' => $totalCreditApplied,
-            'credit_note_numbers' => $appliedCNNumbers,
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage()
-        ], 500);
     }
-}
     /**
      * Calculate dynamic opening balance (original opening minus payments allocated to opening balance)
      */

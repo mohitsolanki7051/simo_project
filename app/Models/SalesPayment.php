@@ -22,7 +22,9 @@ class SalesPayment extends Model
         'reference_no',
         'notes',
         'payment_type',
-        'allocations'
+        'payment_subtype',
+        'allocations',
+        'created_by'
     ];
 
     protected $casts = [

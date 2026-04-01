@@ -54,7 +54,7 @@
     </div>
 
     {{-- ══════════════════════════════════════════════
-         TAB 1 — TRANSACTIONS
+         TAB 1 — TRANSACTIONS (flat table, grouped by invoice)
     ══════════════════════════════════════════════ --}}
     <div class="ldg-panel active" id="tab-transactions">
         <div class="ldg-toolbar">
@@ -77,35 +77,61 @@
                 <thead>
                     <tr>
                         <th style="width:100px">Date</th>
-                        <th style="width:150px">Type</th>
+                        <th style="width:160px">Type</th>
                         <th>Number</th>
                         <th class="ta-r" style="width:130px">Amount (₹)</th>
                         <th style="width:70px">Flow</th>
                         <th style="width:90px">Status</th>
+                        @if(in_array($partyType, ['customer','dealer','distributor']))
+                        <th class="ta-r" style="width:110px">Balance (₹)</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($transactions as $txn)
-                    <tr data-type="{{ $txn['type_badge'] }}">
+                    <tr data-type="{{ $txn['type_badge'] }}"
+                        class="{{ $txn['is_parent'] ?? false ? 'ldg-parent-row' : '' }}
+                               {{ $txn['is_child']  ?? false ? 'ldg-child-row-tr' : '' }}">
+
                         <td class="ldg-date">{{ $txn['date'] }}</td>
+
                         <td>
                             <span class="ldg-chip chip-{{ $txn['type_badge'] }}">{{ $txn['type'] }}</span>
                         </td>
+
                         <td class="ldg-mono">{{ $txn['number'] }}</td>
+
                         <td class="ta-r fw6 {{ $txn['amount_type'] === 'debit' ? 'ldg-dr' : 'ldg-cr' }}">
                             ₹{{ number_format($txn['amount'], 2) }}
                         </td>
+
                         <td>
                             <span class="ldg-flow flow-{{ $txn['amount_type'] }}">
                                 {{ strtoupper($txn['amount_type']) }}
                             </span>
                         </td>
+
                         <td>
-                            <span class="ldg-st st-{{ $txn['status'] }}">{{ ucfirst($txn['status']) }}</span>
+                            <span class="ldg-st st-{{ $txn['status'] }}">{{ ucfirst($txn['status'] ?? '') }}</span>
                         </td>
+
+                        @if(in_array($partyType, ['customer','dealer','distributor']))
+                        <td class="ta-r">
+                            @if(($txn['is_parent'] ?? false) && isset($txn['balance']))
+                                <span class="fw6 {{ $txn['balance'] > 0 ? 'ldg-dr' : ($txn['balance'] < 0 ? 'ldg-cr' : 'ldg-muted') }}">
+                                    ₹{{ number_format(abs($txn['balance']), 2) }}
+                                    @if($txn['balance'] != 0)
+                                        <span class="ldg-drcr">{{ $txn['balance'] > 0 ? 'Dr' : 'Cr' }}</span>
+                                    @endif
+                                </span>
+                            @else
+                                <span class="ldg-muted">—</span>
+                            @endif
+                        </td>
+                        @endif
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="ldg-empty">No transactions found.</td></tr>
+                    <tr><td colspan="7" class="ldg-empty">No transactions found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -134,51 +160,61 @@
                 <thead>
                     <tr>
                         <th style="width:90px">Date</th>
-                        <th style="width:150px">Voucher Type</th>
+                        <th style="width:160px">Voucher Type</th>
                         <th>Voucher No.</th>
                         <th class="ta-r" style="width:110px">Debit (₹)</th>
                         <th class="ta-r" style="width:110px">Credit (₹)</th>
                         <th class="ta-r" style="width:100px">TDS Party</th>
                         <th class="ta-r" style="width:100px">TDS Self</th>
-                        <th class="ta-r" style="width:120px">Balance (₹)</th>
+                        <th class="ta-r" style="width:130px">Balance (₹)</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach($ledger as $entry)
-                    <tr class="{{ $entry['is_opening'] ? 'ldg-opening-row' : '' }}">
-                        <td class="ldg-date">{{ $entry['is_opening'] ? 'Opening' : $entry['date'] }}</td>
-                        <td>
-                            <span class="ldg-vtype vt-{{ Str::slug($entry['voucher_type']) }}">
-                                {{ $entry['voucher_type'] }}
-                            </span>
-                        </td>
-                        <td class="ldg-mono">{{ $entry['voucher_no'] }}</td>
-                        <td class="ta-r {{ $entry['debit'] > 0 ? 'ldg-dr fw6' : 'ldg-muted' }}">
-                            {{ $entry['debit'] > 0 ? number_format($entry['debit'], 2) : '—' }}
-                        </td>
-                        <td class="ta-r {{ $entry['credit'] > 0 ? 'ldg-cr fw6' : 'ldg-muted' }}">
-                            {{ $entry['credit'] > 0 ? number_format($entry['credit'], 2) : '—' }}
-                        </td>
-                        <td class="ta-r ldg-muted">
-                            {{ ($entry['tds_by_party'] ?? 0) > 0 ? number_format($entry['tds_by_party'], 2) : '—' }}
-                        </td>
-                        <td class="ta-r ldg-muted">
-                            {{ ($entry['tds_by_self'] ?? 0) > 0 ? number_format($entry['tds_by_self'], 2) : '—' }}
-                        </td>
-                        <td class="ta-r fw6 ldg-bal-cell {{ $entry['balance'] > 0 ? 'ldg-dr' : ($entry['balance'] < 0 ? 'ldg-cr' : 'ldg-muted') }}">
-                            {{ number_format(abs($entry['balance']), 2) }}
-                            @if(!$entry['is_opening'])
-                                <span class="ldg-drcr">{{ $entry['balance'] >= 0 ? 'Dr' : 'Cr' }}</span>
-                            @endif
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
+<tbody>
+    @foreach($ledger as $entry)
+    <tr class="{{ $entry['is_opening'] ? 'ldg-opening-row' : '' }}
+               {{ ($entry['is_parent'] ?? false) ? 'ldg-parent-row' : '' }}
+               {{ ($entry['is_child'] ?? false) ? 'ldg-child-row-tr' : '' }}">
+        <td class="ldg-date">{{ $entry['is_opening'] ? 'Opening' : $entry['date'] }}</td>
+        <td>
+            @if($entry['is_child'] ?? false)
+                <span class="ldg-child-prefix" style="display:none;"></span> {{-- Hidden but kept for spacing --}}
+            @endif
+            <span class="ldg-vtype vt-{{ Str::slug($entry['voucher_type']) }}">
+                {{ $entry['voucher_type'] }}
+            </span>
+        </td>
+        <td class="ldg-mono">{{ $entry['voucher_no'] }}</td>
+        <td class="ta-r {{ $entry['debit'] > 0 ? 'ldg-dr fw6' : 'ldg-muted' }}">
+            {{ $entry['debit'] > 0 ? number_format($entry['debit'], 2) : '—' }}
+        </td>
+        <td class="ta-r {{ $entry['credit'] > 0 ? 'ldg-cr fw6' : 'ldg-muted' }}">
+            {{ $entry['credit'] > 0 ? number_format($entry['credit'], 2) : '—' }}
+        </td>
+        <td class="ta-r ldg-muted">
+            {{ ($entry['tds_by_party'] ?? 0) > 0 ? number_format($entry['tds_by_party'], 2) : '—' }}
+        </td>
+        <td class="ta-r ldg-muted">
+            {{ ($entry['tds_by_self'] ?? 0) > 0 ? number_format($entry['tds_by_self'], 2) : '—' }}
+        </td>
+        <td class="ta-r fw6 ldg-bal-cell
+            {{ $entry['balance'] > 0 ? 'ldg-dr' : ($entry['balance'] < 0 ? 'ldg-cr' : 'ldg-muted') }}">
+            {{ number_format(abs($entry['balance']), 2) }}
+            @if(!$entry['is_opening'])
+                <span class="ldg-drcr">{{ $entry['balance'] >= 0 ? 'Dr' : 'Cr' }}</span>
+            @endif
+        </td>
+    </tr>
+    @endforeach
+</tbody>
                 <tfoot>
                     <tr class="ldg-tfoot">
                         <td colspan="3" class="fw6">Total</td>
-                        <td class="ta-r fw6 ldg-dr">{{ number_format($ledger->where('is_opening', false)->sum('debit'), 2) }}</td>
-                        <td class="ta-r fw6 ldg-cr">{{ number_format($ledger->where('is_opening', false)->sum('credit'), 2) }}</td>
+                        <td class="ta-r fw6 ldg-dr">
+                            {{ number_format($ledger->where('is_opening', false)->sum('debit'), 2) }}
+                        </td>
+                        <td class="ta-r fw6 ldg-cr">
+                            {{ number_format($ledger->where('is_opening', false)->sum('credit'), 2) }}
+                        </td>
                         <td colspan="2"></td>
                         <td class="ta-r fw6 {{ $summary['closing_balance'] >= 0 ? 'ldg-dr' : 'ldg-cr' }}">
                             {{ number_format(abs($summary['closing_balance']), 2) }}
@@ -199,7 +235,6 @@
                 <input type="text" id="itemSearch" placeholder="Search item..." class="ldg-input">
             </div>
         </div>
-
         <div class="ldg-table-wrap">
             <table class="ldg-table" id="itemTable">
                 <thead>
@@ -210,11 +245,11 @@
                         <th style="width:90px">HSN / SAC</th>
                         @if(in_array($partyType, ['customer','dealer','distributor']))
                         <th class="ta-r" style="width:90px">Sale Qty</th>
-                        <th class="ta-r" style="width:120px">Sale Amount (₹)</th>
+                        <th class="ta-r" style="width:130px">Sale Amount (₹)</th>
                         @endif
                         @if(in_array($partyType, ['vendor','dealer','distributor']))
                         <th class="ta-r" style="width:90px">Purch. Qty</th>
-                        <th class="ta-r" style="width:130px">Purch. Amount (₹)</th>
+                        <th class="ta-r" style="width:140px">Purch. Amount (₹)</th>
                         @endif
                     </tr>
                 </thead>
@@ -266,15 +301,9 @@
             <div class="ldg-pcard">
                 <div class="ldg-pcard-title">Basic Information</div>
                 <table class="ldg-pinfo">
-                    <tr>
-                        <td class="ldg-pk">Name</td>
-                        <td class="fw6">{{ $profile['name'] }}</td>
-                    </tr>
+                    <tr><td class="ldg-pk">Name</td><td class="fw6">{{ $profile['name'] }}</td></tr>
                     @if($profile['contact_person'])
-                    <tr>
-                        <td class="ldg-pk">Contact Person</td>
-                        <td>{{ $profile['contact_person'] }}</td>
-                    </tr>
+                    <tr><td class="ldg-pk">Contact Person</td><td>{{ $profile['contact_person'] }}</td></tr>
                     @endif
                     <tr>
                         <td class="ldg-pk">Type</td>
@@ -284,27 +313,12 @@
                         <td class="ldg-pk">Status</td>
                         <td><span class="ldg-status ldg-status-{{ $profile['status'] }}">{{ ucfirst($profile['status']) }}</span></td>
                     </tr>
-                    <tr>
-                        <td class="ldg-pk">Phone</td>
-                        <td>{{ $profile['phone'] ?? '—' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="ldg-pk">Email</td>
-                        <td>{{ $profile['email'] ?? '—' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="ldg-pk">GST Number</td>
-                        <td class="ldg-mono">{{ $profile['gst_number'] ?? '—' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="ldg-pk">PAN Number</td>
-                        <td class="ldg-mono">{{ $profile['pan_number'] ?? '—' }}</td>
-                    </tr>
+                    <tr><td class="ldg-pk">Phone</td><td>{{ $profile['phone'] ?? '—' }}</td></tr>
+                    <tr><td class="ldg-pk">Email</td><td>{{ $profile['email'] ?? '—' }}</td></tr>
+                    <tr><td class="ldg-pk">GST Number</td><td class="ldg-mono">{{ $profile['gst_number'] ?? '—' }}</td></tr>
+                    <tr><td class="ldg-pk">PAN Number</td><td class="ldg-mono">{{ $profile['pan_number'] ?? '—' }}</td></tr>
                     @if($profile['notes'])
-                    <tr>
-                        <td class="ldg-pk">Notes</td>
-                        <td class="ldg-muted">{{ $profile['notes'] }}</td>
-                    </tr>
+                    <tr><td class="ldg-pk">Notes</td><td class="ldg-muted">{{ $profile['notes'] }}</td></tr>
                     @endif
                 </table>
             </div>
@@ -312,22 +326,13 @@
             <div class="ldg-pcard">
                 <div class="ldg-pcard-title">Financial Details</div>
                 <table class="ldg-pinfo">
-                    <tr>
-                        <td class="ldg-pk">Opening Balance</td>
-                        <td class="fw6">₹{{ number_format($profile['opening_balance'], 2) }}</td>
-                    </tr>
+                    <tr><td class="ldg-pk">Opening Balance</td><td class="fw6">₹{{ number_format($profile['opening_balance'], 2) }}</td></tr>
                     <tr>
                         <td class="ldg-pk">Credit Limit</td>
                         <td class="fw6">{{ $profile['credit_limit'] > 0 ? '₹'.number_format($profile['credit_limit'],2) : '—' }}</td>
                     </tr>
-                    <tr>
-                        <td class="ldg-pk">Total Debit</td>
-                        <td class="fw6 ldg-dr">₹{{ number_format($summary['total_debit'], 2) }}</td>
-                    </tr>
-                    <tr>
-                        <td class="ldg-pk">Total Credit</td>
-                        <td class="fw6 ldg-cr">₹{{ number_format($summary['total_credit'], 2) }}</td>
-                    </tr>
+                    <tr><td class="ldg-pk">Total Debit</td><td class="fw6 ldg-dr">₹{{ number_format($summary['total_debit'], 2) }}</td></tr>
+                    <tr><td class="ldg-pk">Total Credit</td><td class="fw6 ldg-cr">₹{{ number_format($summary['total_credit'], 2) }}</td></tr>
                     <tr>
                         <td class="ldg-pk">Closing Balance</td>
                         <td class="fw6 {{ $summary['closing_balance'] > 0 ? 'ldg-dr' : 'ldg-cr' }}">
@@ -337,18 +342,9 @@
                     </tr>
                     @if($profile['bank_name'])
                     <tr><td colspan="2" class="ldg-pk" style="padding-top:14px;border-top:1px solid #f0f0f0">Bank Details</td></tr>
-                    <tr>
-                        <td class="ldg-pk">Bank Name</td>
-                        <td>{{ $profile['bank_name'] }}</td>
-                    </tr>
-                    <tr>
-                        <td class="ldg-pk">Account No.</td>
-                        <td class="ldg-mono">{{ $profile['account_number'] ?? '—' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="ldg-pk">IFSC Code</td>
-                        <td class="ldg-mono">{{ $profile['ifsc_code'] ?? '—' }}</td>
-                    </tr>
+                    <tr><td class="ldg-pk">Bank Name</td><td>{{ $profile['bank_name'] }}</td></tr>
+                    <tr><td class="ldg-pk">Account No.</td><td class="ldg-mono">{{ $profile['account_number'] ?? '—' }}</td></tr>
+                    <tr><td class="ldg-pk">IFSC Code</td><td class="ldg-mono">{{ $profile['ifsc_code'] ?? '—' }}</td></tr>
                     @endif
                 </table>
             </div>
@@ -374,390 +370,159 @@
 
 @push('styles')
 <style>
-/* ─── RESET & BASE ──────────────────────────────────────────── */
 .ldg * { box-sizing: border-box; }
 .ldg {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 12px;
-    color: #1f2937;
-    line-height: 1.5;
+    font-size: 12px; color: #1f2937; line-height: 1.5;
 }
 
-/* ─── TOP BAR ───────────────────────────────────────────────── */
-.ldg-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 12px;
-    margin-bottom: 14px;
-    border-bottom: 1px solid #e5e7eb;
-}
-.ldg-topbar-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.ldg-back {
-    font-size: 11px;
-    color: #6b7280;
-    text-decoration: none;
-    font-weight: 500;
-}
-.ldg-back:hover { color: #374151; }
-.ldg-divider { color: #d1d5db; }
-.ldg-party-type {
-    font-size: 10px;
-    font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    background: #f3f4f6;
-    padding: 2px 8px;
-    border-radius: 3px;
-}
-.ldg-party-name {
-    font-size: 15px;
-    font-weight: 700;
-    color: #111827;
-}
-.ldg-status {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 3px;
-    text-transform: capitalize;
-}
-.ldg-status-active   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-.ldg-status-inactive { background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; }
+/* TOP BAR */
+.ldg-topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid #e5e7eb; }
+.ldg-topbar-left { display:flex; align-items:center; gap:10px; }
+.ldg-back { font-size:11px; color:#6b7280; text-decoration:none; font-weight:500; }
+.ldg-back:hover { color:#374151; }
+.ldg-divider { color:#d1d5db; }
+.ldg-party-type { font-size:10px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.5px; background:#f3f4f6; padding:2px 8px; border-radius:3px; }
+.ldg-party-name { font-size:15px; font-weight:700; color:#111827; }
+.ldg-status { font-size:10px; font-weight:600; padding:3px 10px; border-radius:3px; text-transform:capitalize; }
+.ldg-status-active   { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+.ldg-status-inactive { background:#f9fafb; color:#6b7280; border:1px solid #e5e7eb; }
 
-/* ─── SUMMARY STRIP ─────────────────────────────────────────── */
-.ldg-summary {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    overflow: hidden;
-}
-.ldg-sum-item {
-    flex: 1;
-    padding: 12px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.ldg-sum-sep {
-    width: 1px;
-    height: 36px;
-    background: #e5e7eb;
-    flex-shrink: 0;
-}
-.ldg-sum-label {
-    font-size: 10px;
-    color: #9ca3af;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-}
-.ldg-sum-val {
-    font-size: 13px;
-    font-weight: 700;
-    color: #111827;
-}
+/* SUMMARY */
+.ldg-summary { display:flex; align-items:center; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; margin-bottom:16px; overflow:hidden; }
+.ldg-sum-item { flex:1; padding:12px 18px; display:flex; flex-direction:column; gap:3px; }
+.ldg-sum-sep  { width:1px; height:36px; background:#e5e7eb; flex-shrink:0; }
+.ldg-sum-label { font-size:10px; color:#9ca3af; font-weight:500; text-transform:uppercase; letter-spacing:.4px; }
+.ldg-sum-val   { font-size:13px; font-weight:700; color:#111827; }
 
-/* ─── TABS ──────────────────────────────────────────────────── */
-.ldg-tabs {
-    display: flex;
-    border-bottom: 1px solid #e5e7eb;
-    margin-bottom: 14px;
-}
-.ldg-tab {
-    padding: 8px 18px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #6b7280;
-    cursor: pointer;
-    transition: color .15s, border-color .15s;
-}
-.ldg-tab:hover { color: #374151; }
-.ldg-tab.active { color: #fa8427; border-bottom-color: #fa8427; }
+/* TABS */
+.ldg-tabs { display:flex; border-bottom:1px solid #e5e7eb; margin-bottom:14px; }
+.ldg-tab { padding:8px 18px; background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-1px; font-size:12px; font-weight:500; color:#6b7280; cursor:pointer; transition:color .15s,border-color .15s; }
+.ldg-tab:hover { color:#374151; }
+.ldg-tab.active { color:#fa8427; border-bottom-color:#fa8427; }
 
-/* ─── PANELS ────────────────────────────────────────────────── */
-.ldg-panel { display: none; }
-.ldg-panel.active { display: block; }
+/* PANELS */
+.ldg-panel { display:none; }
+.ldg-panel.active { display:block; }
 
-/* ─── TOOLBAR ───────────────────────────────────────────────── */
-.ldg-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-}
-.ldg-search { position: relative; }
-.ldg-input {
-    width: 200px;
-    padding: 5px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    font-size: 11px;
-    background: #fff;
-    color: #374151;
-    outline: none;
-    transition: border-color .15s;
-}
-.ldg-input:focus { border-color: #9ca3af; }
+/* TOOLBAR */
+.ldg-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.ldg-search { position:relative; }
+.ldg-input { width:220px; padding:5px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; background:#fff; color:#374151; outline:none; transition:border-color .15s; }
+.ldg-input:focus { border-color:#9ca3af; }
+.ldg-pills { display:flex; gap:4px; flex-wrap:wrap; }
+.ldg-pill { padding:4px 10px; border:1px solid #e5e7eb; border-radius:3px; background:#fff; font-size:10px; font-weight:500; color:#6b7280; cursor:pointer; transition:all .12s; }
+.ldg-pill:hover { border-color:#9ca3af; color:#374151; }
+.ldg-pill.active { background:#1f2937; border-color:#1f2937; color:#fff; }
+.ldg-print-btn { margin-left:auto; padding:5px 12px; border:1px solid #e5e7eb; border-radius:4px; background:#fff; font-size:11px; font-weight:500; color:#374151; cursor:pointer; }
+.ldg-print-btn:hover { background:#f3f4f6; }
 
-.ldg-pills {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-}
-.ldg-pill {
-    padding: 4px 10px;
-    border: 1px solid #e5e7eb;
-    border-radius: 3px;
-    background: #fff;
-    font-size: 10px;
-    font-weight: 500;
-    color: #6b7280;
-    cursor: pointer;
-    transition: all .12s;
-}
-.ldg-pill:hover { border-color: #9ca3af; color: #374151; }
-.ldg-pill.active { background: #1f2937; border-color: #1f2937; color: #fff; }
+/* TABLE */
+.ldg-table-wrap { border:1px solid #e5e7eb; border-radius:6px; overflow-x:auto; background:#fff; }
+.ldg-table { width:100%; border-collapse:collapse; font-size:12px; }
+.ldg-table thead th { background:#f9fafb; padding:8px 12px; text-align:left; font-weight:600; font-size:10px; color:#6b7280; border-bottom:1px solid #e5e7eb; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+.ldg-table tbody td { padding:8px 12px; border-bottom:1px solid #f3f4f6; vertical-align:middle; white-space:nowrap; }
+.ldg-table tbody tr:last-child td { border-bottom:none; }
+.ldg-table tbody tr:hover { background:#fafafa; }
 
-.ldg-print-btn {
-    margin-left: auto;
-    padding: 5px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    background: #fff;
-    font-size: 11px;
-    font-weight: 500;
-    color: #374151;
-    cursor: pointer;
-    transition: background .12s;
-}
-.ldg-print-btn:hover { background: #f3f4f6; }
+/* Parent invoice row — slightly highlighted */
+.ldg-parent-row { background:#fafbff !important; }
+.ldg-parent-row:hover { background:#f0f4ff !important; }
+.ldg-parent-row td { font-weight:500; }
+.ldg-parent-row td:first-child { border-left:3px solid #6366f1; }
 
-/* ─── TABLE ─────────────────────────────────────────────────── */
-.ldg-table-wrap {
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    overflow-x: auto;
-    background: #fff;
-}
-.ldg-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-.ldg-table thead th {
-    background: #f9fafb;
-    padding: 8px 12px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 10px;
-    color: #6b7280;
-    border-bottom: 1px solid #e5e7eb;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-    white-space: nowrap;
-}
-.ldg-table tbody td {
-    padding: 8px 12px;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
-    white-space: nowrap;
-}
-.ldg-table tbody tr:last-child td { border-bottom: none; }
-.ldg-table tbody tr:hover { background: #fafafa; }
+/* Child rows — slightly indented feel */
+.ldg-child-row-tr td { background:#fff; color:#374151; }
+.ldg-child-row-tr td:first-child {border-left:3px solid #e5e7eb; }
+.ldg-child-row-tr:hover td { background:#f9fafb !important; }
 
-/* Opening balance row */
-.ldg-opening-row { background: #fffdf5 !important; }
-.ldg-opening-row td { font-style: italic; color: #78716c; }
+.ldg-child-prefix { color:#d1d5db; margin-right:4px; font-size:11px; }
 
-/* Footer row */
-.ldg-tfoot td {
-    padding: 8px 12px;
-    background: #f9fafb;
-    border-top: 1px solid #e5e7eb;
-    font-size: 11px;
-}
+/* Ledger rows */
+.ldg-opening-row { background:#fffdf5 !important; }
+.ldg-opening-row td { font-style:italic; color:#78716c; }
+.ldg-tfoot td { padding:8px 12px; background:#f9fafb; border-top:1px solid #e5e7eb; font-size:11px; }
 
-/* ─── TYPE CHIPS ────────────────────────────────────────────── */
-.ldg-chip {
-    display: inline-block;
-    padding: 2px 7px;
-    border-radius: 3px;
-    font-size: 10px;
-    font-weight: 500;
-    white-space: nowrap;
-}
-.chip-sale        { background: #eff6ff; color: #1e40af; }
-.chip-purchase    { background: #f5f3ff; color: #5b21b6; }
-.chip-payment_in  { background: #f0fdf4; color: #166534; }
-.chip-payment_out { background: #fef2f2; color: #991b1b; }
-.chip-credit_note { background: #fffbeb; color: #92400e; }
-.chip-debit_note  { background: #eef2ff; color: #3730a3; }
+/* TYPE CHIPS */
+.ldg-chip { display:inline-block; padding:2px 7px; border-radius:3px; font-size:10px; font-weight:500; white-space:nowrap; }
+.chip-sale        { background:#eff6ff; color:#1e40af; }
+.chip-purchase    { background:#f5f3ff; color:#5b21b6; }
+.chip-payment_in  { background:#f0fdf4; color:#166534; }
+.chip-payment_out { background:#fef2f2; color:#991b1b; }
+.chip-credit_note { background:#fffbeb; color:#92400e; }
+.chip-debit_note  { background:#eef2ff; color:#3730a3; }
 
-/* ─── VOUCHER TYPE ──────────────────────────────────────────── */
-.ldg-vtype {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 500;
-    padding: 1px 6px;
-    border-radius: 3px;
-}
-.vt-opening-balance   { background: #fffbeb; color: #92400e; }
-.vt-sale-invoice      { background: #eff6ff; color: #1e40af; }
-.vt-purchase-invoice  { background: #f5f3ff; color: #5b21b6; }
-.vt-payment-in        { background: #f0fdf4; color: #166534; }
-.vt-payment-out       { background: #fef2f2; color: #991b1b; }
-.vt-credit-note       { background: #fffbeb; color: #92400e; }
-.vt-debit-note        { background: #eef2ff; color: #3730a3; }
-.vt-debit-refund-recv { background: #f0fdf4; color: #166534; }
-.vt-credit-refund-out { background: #fef2f2; color: #991b1b; }
+/* VOUCHER TYPE */
+.ldg-vtype { display:inline-block; font-size:10px; font-weight:500; padding:1px 6px; border-radius:3px; }
+.vt-opening-balance   { background:#fffbeb; color:#92400e; }
+.vt-sale-invoice      { background:#eff6ff; color:#1e40af; }
+.vt-purchase-invoice  { background:#f5f3ff; color:#5b21b6; }
+.vt-payment-in        { background:#f0fdf4; color:#166534; }
+.vt-payment-out       { background:#fef2f2; color:#991b1b; }
+.vt-credit-note       { background:#fffbeb; color:#92400e; }
+.vt-debit-note        { background:#eef2ff; color:#3730a3; }
+.vt-debit-refund-recv { background:#f0fdf4; color:#166534; }
+.vt-credit-refund-out { background:#fef2f2; color:#991b1b; }
+.vt-debit-note-refund { background:#f0fdf4; color:#166534; }
 
-/* ─── FLOW BADGE ────────────────────────────────────────────── */
-.ldg-flow {
-    display: inline-block;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 2px;
-    letter-spacing: .4px;
-}
-.flow-debit  { background: #fef2f2; color: #b91c1c; }
-.flow-credit { background: #f0fdf4; color: #15803d; }
+/* FLOW BADGE */
+.ldg-flow { display:inline-block; font-size:9px; font-weight:700; padding:2px 6px; border-radius:2px; letter-spacing:.4px; }
+.flow-debit  { background:#fef2f2; color:#b91c1c; }
+.flow-credit { background:#f0fdf4; color:#15803d; }
 
-/* ─── STATUS CHIP ───────────────────────────────────────────── */
-.ldg-st {
-    display: inline-block;
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 3px;
-    font-weight: 500;
-    text-transform: capitalize;
-}
-.st-paid      { background: #f0fdf4; color: #15803d; }
-.st-unpaid    { background: #fef2f2; color: #b91c1c; }
-.st-partial   { background: #fffbeb; color: #92400e; }
-.st-active    { background: #eff6ff; color: #1d4ed8; }
-.st-settled   { background: #f3f4f6; color: #374151; }
-.st-cancelled { background: #f9fafb; color: #9ca3af; }
-.st-completed { background: #f0fdf4; color: #15803d; }
-.st-confirmed { background: #f0fdf4; color: #15803d; }
-.st-draft     { background: #fffbeb; color: #92400e; }
+/* STATUS */
+.ldg-st { display:inline-block; font-size:10px; padding:2px 7px; border-radius:3px; font-weight:500; text-transform:capitalize; }
+.st-paid      { background:#f0fdf4; color:#15803d; }
+.st-unpaid    { background:#fef2f2; color:#b91c1c; }
+.st-partial   { background:#fffbeb; color:#92400e; }
+.st-active    { background:#eff6ff; color:#1d4ed8; }
+.st-settled   { background:#f3f4f6; color:#374151; }
+.st-cancelled { background:#f9fafb; color:#9ca3af; }
+.st-completed { background:#f0fdf4; color:#15803d; }
+.st-confirmed { background:#f0fdf4; color:#15803d; }
+.st-draft     { background:#fffbeb; color:#92400e; }
 
-/* ─── BALANCE ───────────────────────────────────────────────── */
-.ldg-bal-cell { white-space: nowrap; }
-.ldg-drcr {
-    font-size: 9px;
-    font-weight: 700;
-    margin-left: 3px;
-    opacity: .65;
-}
+/* BALANCE */
+.ldg-bal-cell { white-space:nowrap; }
+.ldg-drcr { font-size:9px; font-weight:700; margin-left:3px; opacity:.65; }
 
-/* ─── UTILITY ───────────────────────────────────────────────── */
-.ldg-dr    { color: #b91c1c; }
-.ldg-cr    { color: #15803d; }
-.ldg-muted { color: #9ca3af; }
-.ldg-bold  { font-weight: 700; }
-.ldg-mono  { font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 11px; }
-.ldg-date  { color: #6b7280; font-size: 11px; }
-/* .ta-r      { text-align: right; } */
-.ta-c      { text-align: center; }
-.fw6       { font-weight: 600; }
-.ldg-empty { padding: 32px; text-align: center; color: #9ca3af; font-style: italic; }
+/* UTILITY */
+.ldg-dr    { color:#b91c1c; }
+.ldg-cr    { color:#15803d; }
+.ldg-muted { color:#9ca3af; }
+.ldg-bold  { font-weight:700; }
+.ldg-mono  { font-family:'SFMono-Regular','Consolas',monospace; font-size:11px; }
+.ldg-date  { color:#6b7280; font-size:11px; }
 
-/* ─── PROFILE ───────────────────────────────────────────────── */
-.ldg-profile-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-}
-.ldg-pcard {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    overflow: hidden;
-}
-.ldg-pcard-title {
-    padding: 9px 14px;
-    background: #f9fafb;
-    border-bottom: 1px solid #e5e7eb;
-    font-size: 11px;
-    font-weight: 600;
-    color: #374151;
-}
-.ldg-pinfo {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-.ldg-pinfo td {
-    padding: 7px 14px;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
-}
-.ldg-pinfo tr:last-child td { border-bottom: none; }
-.ldg-pk {
-    width: 110px;
-    font-size: 10px;
-    font-weight: 500;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-    white-space: nowrap;
-}
-.ldg-pt-badge {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 3px;
-    text-transform: capitalize;
-}
-.pt-customer    { background: #eff6ff; color: #1e40af; }
-.pt-dealer      { background: #fffbeb; color: #92400e; }
-.pt-distributor { background: #f5f3ff; color: #5b21b6; }
-.pt-vendor      { background: #f0fdf4; color: #15803d; }
+.ta-c      { text-align:center; }
+.fw6       { font-weight:600; }
+.ldg-empty { padding:32px; text-align:center; color:#9ca3af; font-style:italic; }
 
-/* ─── PRINT HEADER ──────────────────────────────────────────── */
-.ldg-print-header {
-    display: none;
-    padding: 10px 12px;
-    font-size: 12px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f9fafb;
-    color: #374151;
-}
+/* PROFILE */
+.ldg-profile-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+.ldg-pcard { background:#fff; border:1px solid #e5e7eb; border-radius:6px; overflow:hidden; }
+.ldg-pcard-title { padding:9px 14px; background:#f9fafb; border-bottom:1px solid #e5e7eb; font-size:11px; font-weight:600; color:#374151; }
+.ldg-pinfo { width:100%; border-collapse:collapse; font-size:12px; }
+.ldg-pinfo td { padding:7px 14px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+.ldg-pinfo tr:last-child td { border-bottom:none; }
+.ldg-pk { width:110px; font-size:10px; font-weight:500; color:#9ca3af; text-transform:uppercase; letter-spacing:.3px; white-space:nowrap; }
+.ldg-pt-badge { font-size:10px; font-weight:600; padding:2px 8px; border-radius:3px; }
+.pt-customer    { background:#eff6ff; color:#1e40af; }
+.pt-dealer      { background:#fffbeb; color:#92400e; }
+.pt-distributor { background:#f5f3ff; color:#5b21b6; }
+.pt-vendor      { background:#f0fdf4; color:#15803d; }
 
-/* ─── RESPONSIVE ────────────────────────────────────────────── */
-@media (max-width: 1100px) {
-    .ldg-profile-grid { grid-template-columns: 1fr 1fr; }
-    .ldg-summary { flex-wrap: wrap; }
-}
-@media (max-width: 768px) {
-    .ldg-profile-grid { grid-template-columns: 1fr; }
-    .ldg-topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
-    .ldg-tabs { overflow-x: auto; }
-}
+/* PRINT */
+.ldg-print-header { display:none; padding:10px 12px; font-size:12px; border-bottom:1px solid #e5e7eb; background:#f9fafb; color:#374151; }
 
-/* ─── PRINT ─────────────────────────────────────────────────── */
+@media (max-width:1100px) { .ldg-profile-grid { grid-template-columns:1fr 1fr; } }
+@media (max-width:768px)  { .ldg-profile-grid { grid-template-columns:1fr; } .ldg-topbar { flex-direction:column; align-items:flex-start; gap:8px; } .ldg-tabs { overflow-x:auto; } .ldg-summary { flex-wrap:wrap; } }
 @media print {
-    .ldg-tabs, .ldg-toolbar, .ldg-topbar-right, .ldg-back, .ldg-print-btn { display: none !important; }
-    .ldg-panel { display: block !important; }
-    .ldg-print-header { display: block !important; }
-    .ldg-table-wrap { border: none; }
-    .ldg-summary { background: none; border: none; }
+    .ldg-tabs,.ldg-toolbar,.ldg-topbar-right,.ldg-back,.ldg-print-btn { display:none !important; }
+    .ldg-panel { display:block !important; }
+    .ldg-print-header { display:block !important; }
+    .ldg-table-wrap { border:none; }
+    .ldg-summary { background:none; border:none; }
 }
 </style>
 @endpush
@@ -768,7 +533,7 @@
 document.querySelectorAll('.ldg-tab').forEach(function(btn) {
     btn.addEventListener('click', function() {
         var target = this.dataset.tab;
-        document.querySelectorAll('.ldg-tab').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.ldg-tab').forEach(function(b)  { b.classList.remove('active'); });
         document.querySelectorAll('.ldg-panel').forEach(function(p) { p.classList.remove('active'); });
         this.classList.add('active');
         document.getElementById('tab-' + target).classList.add('active');
@@ -801,19 +566,50 @@ if (itemSearchEl) {
     itemSearchEl.addEventListener('input', function() { filterTable('itemTable', this.value); });
 }
 
-// Transaction type filter pills
+// Type filter pills
 document.querySelectorAll('#txnFilters .ldg-pill').forEach(function(pill) {
     pill.addEventListener('click', function() {
         document.querySelectorAll('#txnFilters .ldg-pill').forEach(function(p) { p.classList.remove('active'); });
         this.classList.add('active');
 
         var type   = this.dataset.type;
-        var search = document.getElementById('txnSearch').value.toLowerCase();
+        var search = (document.getElementById('txnSearch').value || '').toLowerCase();
+        var activeParentVisible = false;
+        var lastParentRow = null;
 
         document.querySelectorAll('#txnTable tbody tr').forEach(function(row) {
-            var matchType = type === 'all' || row.dataset.type === type;
-            var matchText = row.textContent.toLowerCase().indexOf(search) > -1;
-            row.style.display = (matchType && matchText) ? '' : 'none';
+            var rowType  = row.dataset.type || '';
+            var rowText  = row.textContent.toLowerCase();
+            var isChild  = row.classList.contains('ldg-child-row-tr');
+            var isParent = row.classList.contains('ldg-parent-row');
+
+            if (isParent) {
+                // Show parent if type=all or type matches parent
+                var matchType = type === 'all' || rowType === type;
+                var matchText = !search || rowText.indexOf(search) > -1;
+                row.style.display = (matchType && matchText) ? '' : 'none';
+                lastParentRow = row;
+                activeParentVisible = row.style.display !== 'none';
+            } else if (isChild) {
+                if (type === 'all') {
+                    var matchText = !search || rowText.indexOf(search) > -1;
+                    row.style.display = matchText ? '' : 'none';
+                } else if (rowType === type) {
+                    // Show this child + ensure its parent is visible
+                    var matchText = !search || rowText.indexOf(search) > -1;
+                    row.style.display = matchText ? '' : 'none';
+                    if (matchText && lastParentRow) {
+                        lastParentRow.style.display = '';
+                    }
+                } else {
+                    row.style.display = 'none';
+                }
+            } else {
+                // Standalone rows
+                var matchType = type === 'all' || rowType === type;
+                var matchText = !search || rowText.indexOf(search) > -1;
+                row.style.display = (matchType && matchText) ? '' : 'none';
+            }
         });
     });
 });

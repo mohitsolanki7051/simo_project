@@ -833,11 +833,12 @@ public function getPartyDetails($id, Request $request)
         }
     }
 
-    // =========================================================
-    //  GENERATE  (draft → confirmed + stock in)
-    // =========================================================
-
-public function generate($id)
+/**
+     * Generate invoice (draft → confirmed + stock in)
+     * PASTE THIS generate() method inside PurchaseInvoiceController
+     * replacing the existing generate() method
+     */
+    public function generate($id)
     {
         try {
             $invoice = PurchaseInvoice::with('items')->findOrFail($id);
@@ -853,27 +854,23 @@ public function generate($id)
             $grandTotal = (float) $invoice->grand_total;
 
             /* ================= DEBIT NOTE AUTO-ADJUSTMENT ================= */
-            // Party ke sare active ya partially_used debit notes (oldest first)
             $activeDebitNotes = \App\Models\DebitNote::where('party_id', $invoice->party_id)
                 ->whereIn('status', ['active', 'partial'])
                 ->where('remaining_amount', '>', 0)
-                ->orderBy('debit_date', 'asc')   // oldest first
+                ->orderBy('debit_date', 'asc')
                 ->orderBy('created_at', 'asc')
                 ->get();
 
             $totalDebitApplied = 0;
             $appliedDNNumbers  = [];
-
-            // Kitna adjust karna hai: grand_total - cashPaid (jo already pay hua)
             $remainingToAdjust = max(0, $grandTotal - $cashPaid);
 
             foreach ($activeDebitNotes as $dn) {
                 if ($remainingToAdjust <= 0) break;
 
-                $dnRemaining   = (float) $dn->remaining_amount;
-                $applyAmount   = min($dnRemaining, $remainingToAdjust);
+                $dnRemaining = (float) $dn->remaining_amount;
+                $applyAmount = min($dnRemaining, $remainingToAdjust);
 
-                // Debit note update karo
                 $dn->used_amount      = (float) $dn->used_amount + $applyAmount;
                 $dn->remaining_amount = $dnRemaining - $applyAmount;
 
@@ -892,15 +889,10 @@ public function generate($id)
 
             /* ================= PAYMENT CALCULATION ================= */
             $amountPaid = $cashPaid + $totalDebitApplied;
-
-            // Overpaid guard (shouldn't happen but safety)
-            if ($amountPaid > $grandTotal) {
-                $amountPaid = $grandTotal;
-            }
+            if ($amountPaid > $grandTotal) $amountPaid = $grandTotal;
 
             $balance = max(0, $grandTotal - $amountPaid);
 
-            // Payment status
             if ($amountPaid <= 0) {
                 $paymentStatus = 'unpaid';
             } elseif ($balance <= 0.01) {
@@ -910,12 +902,12 @@ public function generate($id)
                 $paymentStatus = 'partial';
             }
 
-            // Invoice payment fields update
-            $invoice->total_paid          = round($amountPaid, 2);
-            $invoice->balance_amount      = round($balance, 2);
-            $invoice->payment_status      = $paymentStatus;
-            $invoice->debit_note_applied  = round($totalDebitApplied, 2);   // renamed from advance_used
-            // Store which debit notes were applied (for display in index/show)
+            // Update invoice payment fields
+            $invoice->total_paid         = round($amountPaid, 2);
+            $invoice->balance_amount     = round($balance, 2);
+            $invoice->payment_status     = $paymentStatus;
+            $invoice->debit_note_applied = round($totalDebitApplied, 2);
+
             if (!empty($appliedDNNumbers)) {
                 $invoice->debit_note_numbers = implode(', ', $appliedDNNumbers);
             }
@@ -960,18 +952,40 @@ public function generate($id)
             /* ================= INVOICE STATUS ================= */
             $invoice->update(['status' => 'confirmed']);
 
-            /* ================= PAYMENT RECORD ================= */
+            /* ================= CREATE PAYMENT RECORD ================= */
+            // ✅ FIX: payment_type, payment_subtype, allocations — sabhi fields set karo
             if ($amountPaid > 0) {
-                $notes = [];
+                $notes       = [];
+                $allocations = [];
+
+                // Cash paid allocation (invoice ke against)
+                if ($cashPaid > 0) {
+                    $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
+                    $allocations[] = [
+                        'type'           => 'invoice',
+                        'invoice_id'     => (string) $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'amount'         => round($cashPaid, 2),
+                        'description'    => 'Invoice payment at time of generation',
+                    ];
+                }
+
+                // Debit note allocation
                 if ($totalDebitApplied > 0) {
                     $notes[] = "Debit note adjusted: ₹" . number_format($totalDebitApplied, 2)
                              . " (" . implode(', ', $appliedDNNumbers) . ")";
-                }
-                if ($cashPaid > 0) {
-                    $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
+                    foreach ($appliedDNNumbers as $dnNum) {
+                        $allocations[] = [
+                            'type'              => 'debit_note',
+                            'debit_note_number' => $dnNum,
+                            'amount'            => round($totalDebitApplied / count($appliedDNNumbers), 2),
+                            'description'       => 'Debit Note Adjustment: ' . $dnNum,
+                        ];
+                    }
                 }
 
                 PurchasePayment::create([
+                    'payment_number'      => null,               // invoice-time payment has no payment_number
                     'purchase_invoice_id' => $invoice->id,
                     'party_id'            => $invoice->party_id,
                     'amount'              => round($amountPaid, 2),
@@ -979,11 +993,13 @@ public function generate($id)
                     'payment_date'        => $invoice->invoice_date,
                     'status'              => 'completed',
                     'notes'               => implode("\n", $notes),
+                    'payment_type'        => 'payment_out',      // ✅ FIXED
+                    'payment_subtype'     => 'purchase_payment', // ✅ FIXED
+                    'allocations'         => $allocations,       // ✅ FIXED
                     'created_by'          => Auth::guard('admin')->id(),
                 ]);
             }
 
-            // Response message
             $msg = 'Invoice generated successfully. Stock added to warehouse.';
             if ($totalDebitApplied > 0) {
                 $msg .= ' Debit note adjusted: ₹' . number_format($totalDebitApplied, 2)
@@ -991,10 +1007,10 @@ public function generate($id)
             }
 
             return response()->json([
-                'success'              => true,
-                'message'              => $msg,
-                'debit_note_applied'   => $totalDebitApplied,
-                'debit_note_numbers'   => $appliedDNNumbers,
+                'success'            => true,
+                'message'            => $msg,
+                'debit_note_applied' => $totalDebitApplied,
+                'debit_note_numbers' => $appliedDNNumbers,
             ]);
 
         } catch (\Exception $e) {
