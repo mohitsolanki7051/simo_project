@@ -185,6 +185,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->name('get-party-details');
         Route::post('/create-party', [SalesInvoiceController::class, 'storePartyAjax'])
             ->name('create-party');
+        Route::get('/party-credit-status/{partyId}', [SalesInvoiceController::class, 'getPartyCreditStatus'])->name('credit-status');
+        Route::get('/next-invoice-number', [SalesInvoiceController::class, 'getNextInvoiceNumber'])
+            ->name('get-next-invoice-number');
 
         // Dynamic routes with {id} parameter (these go LAST)
         Route::get('/{id}', [SalesInvoiceController::class, 'show'])->name('show');
@@ -195,7 +198,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/{id}', [SalesInvoiceController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/cancel', [SalesInvoiceController::class, 'cancel'])->name('cancel');
 
-        Route::get('/party-credit-status/{partyId}', [SalesInvoiceController::class, 'getPartyCreditStatus'])->name('credit-status');
+
     });
 
 
@@ -410,6 +413,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             // *** NEW: Quick Add Product from inside Purchase Invoice modal ***
             Route::post('/quick-add-product', [PurchaseInvoiceController::class, 'quickAddSimpleProduct'])->name('quick-add-product');
+            Route::get('/next-invoice-number', [PurchaseInvoiceController::class, 'getNextInvoiceNumber'])->name('get-next-invoice-number');
 
             // Invoice actions
             Route::get('/{id}', [PurchaseInvoiceController::class, 'show'])->name('show');

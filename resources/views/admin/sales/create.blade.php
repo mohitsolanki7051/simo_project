@@ -139,8 +139,7 @@
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">Sales Invoice No.</label>
-                                            <input type="text" class="form-control" value="{{ $invoiceNumber }}" readonly tabindex="-1">
-                                        </div>
+                                        <input type="text" id="invoiceNumberDisplay" class="form-control" value="{{ $invoiceNumber }}" readonly tabindex="-1">                                        </div>
 
                                         <div class="form-group col-6">
                                             <label class="form-label required">Invoice Date</label>
@@ -2572,7 +2571,12 @@ let currentInvoiceType = 'gst'; // Default to GST Invoice
 function handleInvoiceTypeChange() {
     const invoiceType = $('#invoiceType').val();
     currentInvoiceType = invoiceType;
-
+     $.get('{{ route('admin.sales.get-next-invoice-number') }}', { invoice_type: invoiceType }, function(res) {
+        if (res.invoice_number) {
+            $('input[name="invoice_number"]').val(res.invoice_number);
+             $('#invoiceNumberDisplay').val(res.invoice_number); 
+        }
+    });
     // Update hint text
     const helpElement = $('#invoiceTypeHelp');
     if (invoiceType === 'gst') {

@@ -101,7 +101,7 @@
                                     <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">Purchase Invoice No.</label>
-                                            <input type="text" class="form-control" value="{{ $invoiceNumber }}" readonly tabindex="-1">
+                                            <input type="text" id="invoiceNumberDisplay" class="form-control" value="{{ $invoiceNumber }}" readonly tabindex="-1">
                                         </div>
                                         <div class="form-group col-6">
                                             <label class="form-label required">Invoice Date</label>
@@ -798,6 +798,12 @@ function openProductPageInNewTab() {
 // ===================== INVOICE TYPE =====================
 function handleInvoiceTypeChange() {
     currentInvType = $('#invoiceType').val();
+    $.get('{{ route('admin.purchases.get-next-invoice-number') }}', { invoice_type: currentInvType }, function(res) {
+        if (res.invoice_number) {
+            $('input[name="invoice_number"]').val(res.invoice_number);
+            $('#invoiceNumberDisplay').val(res.invoice_number);
+        }
+    });
     if (currentInvType === 'gst') {
         $('#taxBreakupContainer, #totalTaxRow').show();
         $('#modalTaxHeader').show();

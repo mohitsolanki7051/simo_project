@@ -95,18 +95,23 @@ class PurchaseInvoiceController extends Controller
         }
     }
 
-    private function generateInvoiceNumber(): string
-    {
-        $fy   = $this->getFinancialYear();
-        $last = PurchaseInvoice::where('invoice_number','regex',"/^SIM\/PI\/{$fy}\/\d+$/")
-                    ->orderBy('invoice_number','desc')->first();
+private function generateInvoiceNumber(string $invoiceType = 'gst'): string
+{
+    $fy     = $this->getFinancialYear();
+    $prefix = $invoiceType === 'cash' ? 'SIM/PICM' : 'SIM/PI';
 
-        $next = $last
-            ? str_pad((int) preg_replace('/.*\/(\d+)$/', '$1', $last->invoice_number) + 1, 6, '0', STR_PAD_LEFT)
-            : '000001';
+    $escapedPrefix = str_replace('/', '\/', $prefix);
 
-        return "SIM/PI/{$fy}/{$next}";
-    }
+    $last = PurchaseInvoice::where('invoice_number', 'regex', "/^{$escapedPrefix}\/{$fy}\/\d+$/")
+                ->orderBy('invoice_number', 'desc')
+                ->first();
+
+    $next = $last
+        ? str_pad((int) preg_replace('/.*\/(\d+)$/', '$1', $last->invoice_number) + 1, 6, '0', STR_PAD_LEFT)
+        : '000001';
+
+    return "{$prefix}/{$fy}/{$next}";
+}
 
     private function getFinancialYear(): string
     {
@@ -235,7 +240,7 @@ class PurchaseInvoiceController extends Controller
 
     public function create()
     {
-        $invoiceNumber = $this->generateInvoiceNumber();
+        $invoiceNumber = $this->generateInvoiceNumber('gst');
 
         $vendors = Vendor::with(['addresses' => fn($q) => $q->where('is_default',true)])
                     ->where('status','active')->orderBy('company_name')->get();
@@ -734,7 +739,7 @@ public function getPartyDetails($id, Request $request)
                 $partyName = $partyModel->name;
             }
             $invoice = PurchaseInvoice::create([
-                'invoice_number'        => $request->invoice_number ?? $this->generateInvoiceNumber(),
+                'invoice_number' => $this->generateInvoiceNumber($request->invoice_type ?? 'gst'),
                 'public_token'          => Str::random(40),
                 'invoice_type'          => $request->invoice_type,
                 'invoice_date'          => $request->invoice_date,
@@ -1370,5 +1375,12 @@ public function getPartyDetails($id, Request $request)
             return (float) $value->__toString();
         }
         return (float) $value;
+    }
+    public function getNextInvoiceNumber(Request $request)
+    {
+        $type = $request->invoice_type ?? 'gst';
+        return response()->json([
+            'invoice_number' => $this->generateInvoiceNumber($type)
+        ]);
     }
 }

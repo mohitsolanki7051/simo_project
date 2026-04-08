@@ -24,30 +24,31 @@ use MongoDB\BSON\Regex;
 
 class SalesInvoiceController extends Controller
 {
-    /**
-     * Generate invoice number with format: SIM/SI/24-25/000001
-     */
-    private function generateInvoiceNumber()
-    {
-        // Get current financial year
-        $financialYear = $this->getFinancialYear();
+// In SalesInvoiceController.php
 
-        // Get the last invoice for this financial year
-        $lastInvoice = SalesInvoice::where('invoice_number', 'regex', "/^SIM\/SI\/{$financialYear}\/\d+$/")
-            ->orderBy('invoice_number', 'desc')
-            ->first();
+// ① Replace generateInvoiceNumber() — accept $invoiceType param
+private function generateInvoiceNumber(string $invoiceType = 'gst'): string
+{
+    $financialYear = $this->getFinancialYear();
 
-        if ($lastInvoice) {
-            // Extract the last number from invoice number
-            preg_match('/(\d+)$/', $lastInvoice->invoice_number, $matches);
-            $lastNumber = isset($matches[1]) ? (int)$matches[1] : 0;
-            $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
-        } else {
-            $newNumber = '000001';
-        }
+    // GST Invoice → SIM/SI/26-27/000001
+    // Cash Memo   → SIM/SICM/26-27/000001
+    $prefix = $invoiceType === 'cash' ? 'SIM/SICM' : 'SIM/SI';
 
-        return "SIM/SI/{$financialYear}/{$newNumber}";
+    $lastInvoice = SalesInvoice::where('invoice_number', 'regex', "/^\Q{$prefix}\E\/{$financialYear}\/\d+$/")
+        ->orderBy('invoice_number', 'desc')
+        ->first();
+
+    if ($lastInvoice) {
+        preg_match('/(\d+)$/', $lastInvoice->invoice_number, $matches);
+        $lastNumber = isset($matches[1]) ? (int)$matches[1] : 0;
+        $newNumber  = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
+    } else {
+        $newNumber = '000001';
     }
+
+    return "{$prefix}/{$financialYear}/{$newNumber}";
+}
 
     /**
      * Get current financial year (e.g., 24-25)
@@ -158,7 +159,7 @@ class SalesInvoiceController extends Controller
     public function create()
     {
         // Generate invoice number with prefix
-        $invoiceNumber = $this->generateInvoiceNumber();
+        $invoiceNumber = $this->generateInvoiceNumber('gst');
 
         // Get all active parties (customers, dealers, distributors)
         $parties = Customer::with(['addresses' => function($query) {
@@ -429,7 +430,7 @@ public function cancel($id)
                 $paymentStatus = 'partial';
             }
 
-            $invoiceNumber = $request->invoice_number ?? $this->generateInvoiceNumber();
+            $invoiceNumber = $this->generateInvoiceNumber($request->invoice_type ?? 'gst');
 
             $invoice = SalesInvoice::create([
                 'invoice_number'      => $invoiceNumber,
@@ -1590,11 +1591,18 @@ return response()->json([
 /**
  * Helper to determine warning level based on usage percentage
  */
-private function getWarningLevel($percent)
-{
-    if ($percent >= 100) return 'danger';
-    if ($percent >= 80) return 'warning';
-    if ($percent > 0) return 'info';
-    return 'safe';
-}
+    private function getWarningLevel($percent)
+    {
+        if ($percent >= 100) return 'danger';
+        if ($percent >= 80) return 'warning';
+        if ($percent > 0) return 'info';
+        return 'safe';
+    }
+    public function getNextInvoiceNumber(Request $request)
+    {
+        $type = $request->invoice_type ?? 'gst';
+        return response()->json([
+            'invoice_number' => $this->generateInvoiceNumber($type)
+        ]);
+    }
 }
