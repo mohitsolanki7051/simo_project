@@ -238,7 +238,7 @@ class ProductController extends Controller
             'barcode_symbology' => 'required|in:CODE128',
 
             // Images
-            'base_image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'base_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
 
             // Description
@@ -271,8 +271,11 @@ class ProductController extends Controller
             /* ==========================
             IMAGE UPLOAD
             ========================== */
-            $baseImagePath = $request->file('base_image')
-                ->store('simple_products', 'public');
+            $baseImagePath = null;
+            if ($request->hasFile('base_image')) {
+                $baseImagePath = $request->file('base_image')
+                    ->store('simple_products', 'public');
+            }
 
             $galleryPaths = [];
             if ($request->hasFile('gallery_images')) {
@@ -389,7 +392,7 @@ class ProductController extends Controller
             'gst' => 'required|numeric|min:0|max:100',
 
             // Images
-            'base_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'base_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'gallery_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
 
             // Description
@@ -424,8 +427,11 @@ class ProductController extends Controller
             /* =========================
             MAIN PRODUCT IMAGES
             ========================= */
-            $baseImagePath = $request->file('base_image')
-                ->store('variant_products', 'public');
+           $baseImagePath = null;
+            if ($request->hasFile('base_image')) {
+                $baseImagePath = $request->file('base_image')
+                    ->store('variant_products', 'public');
+            }
 
             $galleryPaths = [];
             if ($request->hasFile('gallery_images')) {

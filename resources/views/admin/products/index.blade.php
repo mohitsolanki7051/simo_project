@@ -117,9 +117,9 @@
                     <td>{{ $products->firstItem() + $index }}</td>
                     <td>
                         <div class="product-img">
-                            <img src="{{ $product->base_image ? asset('storage/' . $product->base_image) : 'https://via.placeholder.com/40x40/667eea/ffffff?text=No+Image' }}"
-                                 alt="{{ $product->name }}"
-                                 onerror="this.src='https://via.placeholder.com/40x40/667eea/ffffff?text=IMG'">
+                            <img src="{{ $product->base_image ? asset('storage/' . $product->base_image) : '' }}"
+                                alt="{{ $product->name }}"
+                                onerror="this.onerror=null; this.src=''; this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:40px;height:40px;background:#e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;\'>📦</div>';">
                         </div>
                     </td>
                     <td>

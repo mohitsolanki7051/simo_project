@@ -168,9 +168,9 @@
 
                     <div class="form-grid">
                         <div class="form-group full-width">
-                            <label class="form-label">Main Image <span class="required">*</span></label>
+                            <label class="form-label">Main Image</label>
                             <div class="image-upload-wrapper">
-                                <input type="file" class="form-input-file" id="base_image" name="base_image" accept="image/*" onchange="previewBaseImage(event)" required hidden>
+                                <input type="file" class="form-input-file" id="base_image" name="base_image" accept="image/*" onchange="previewBaseImage(event)" hidden>
                                 <label for="base_image" class="upload-label">
                                     <div class="upload-icon">📸</div>
                                     <div class="upload-text">Upload Main Image</div>

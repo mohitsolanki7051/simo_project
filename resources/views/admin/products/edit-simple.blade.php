@@ -272,7 +272,7 @@
                     <div class="form-grid">
                         <!-- Main Image Section -->
                         <div class="form-group full-width">
-                            <label class="form-label">Main Image <span class="required">*</span></label>
+                            <label class="form-label">Main Image</label>
 
                             <!-- Current Image -->
                             @if($simpleProduct->base_image)
