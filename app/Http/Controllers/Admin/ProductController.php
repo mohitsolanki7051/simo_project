@@ -229,7 +229,7 @@ class ProductController extends Controller
             'category_id' => 'nullable|exists:categories,id',
             'brand' => 'required|string|max:100',
             'body_type' => 'required|string|max:100',
-            'warranty_duration' => 'nullable|integer|min:1',
+            'warranty_duration' => 'nullable|integer',
             'warranty_unit' => 'nullable|in:year,month',
             'status' => 'required|in:active,inactive',
 
@@ -384,7 +384,7 @@ class ProductController extends Controller
             // Basic
             'name' => 'required|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
-            'warranty_duration' => 'nullable|integer|min:1',
+            'warranty_duration' => 'nullable|integer',
             'warranty_unit' => 'nullable|in:year,month',
             'status' => 'required|in:active,inactive',
             // Tax
@@ -708,7 +708,7 @@ class ProductController extends Controller
             'category_id' => 'nullable|exists:categories,id',
             'brand' => 'required|string|max:100',
             'body_type' => 'required|string|max:100',
-            'warranty_duration' => 'nullable|integer|min:1',
+            'warranty_duration' => 'nullable|integer',
             'warranty_unit' => 'nullable|in:year,month',
             'status' => 'required|in:active,inactive',
             'sku_code' => 'required|string|max:16|unique:simple_products,sku_code,' . $product->id,
@@ -850,7 +850,7 @@ public function updateprice(Request $request)
             // Basic Information
             'name' => 'required|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
-            'warranty_duration' => 'nullable|integer|min:1',
+            'warranty_duration' => 'nullable|integer',
             'warranty_unit' => 'nullable|in:year,month',
             'status' => 'required|in:active,inactive',
 

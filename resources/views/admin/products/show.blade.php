@@ -21,10 +21,10 @@
             <div class="section-card">
                 <div class="section-header">Base Image</div>
                 <div class="image-preview">
-                    <img src="{{ asset('storage/' . $product->base_image) }}"
-                         alt="{{ $product->name }}"
-                         id="mainImage"
-                         onerror="this.src='https://via.placeholder.com/200x200/e5e7eb/9ca3af?text=No+Image'">
+                    <img src="{{ $product->base_image ? asset('storage/' . $product->base_image) : '' }}"
+                        alt="{{ $product->name }}"
+                        id="mainImage"
+                        onerror="this.onerror=null; this.src=''; this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:200px;height:200px;background:#e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:48px;\'>📦</div>';">
                 </div>
             </div>
 

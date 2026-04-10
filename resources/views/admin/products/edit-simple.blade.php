@@ -96,7 +96,7 @@
 
                         <div class="form-group">
                             <label class="form-label">Warranty Duration</label>
-                            <input type="number" class="form-input" name="warranty_duration" value="{{ old('warranty_duration', $simpleProduct->warranty_duration) }}" placeholder="e.g., 12" min="1">
+                            <input type="number" class="form-input" name="warranty_duration" value="{{ old('warranty_duration', $simpleProduct->warranty_duration) }}" placeholder="e.g., 12">
                             @error('warranty_duration')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
