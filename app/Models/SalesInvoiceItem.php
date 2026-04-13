@@ -46,7 +46,7 @@ class SalesInvoiceItem extends Model
     protected $casts = [
         'quantity'        => 'decimal:2',
         'price'           => 'decimal:2',
-        'sale_price_incl' => 'decimal:2',
+        'sale_price_incl' => 'float',
         'gst_inclusive'   => 'boolean',
         'discount'        => 'decimal:2',
         'tax_percent'     => 'decimal:2',
