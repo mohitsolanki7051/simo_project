@@ -15,6 +15,7 @@ class SalesInvoice extends Model
         'invoice_number',
         'public_token',
         'invoice_type', // New field: 'gst' or 'cash'
+        'gst_mode',  
         'invoice_date',
         'party_id',
         'salesman_id',

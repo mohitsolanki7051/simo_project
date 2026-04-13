@@ -20,16 +20,18 @@ class SalesInvoiceItem extends Model
         'variant_name',
         'sku',
         'barcode',
-        'hsn_sac', // Will be empty/null for cash memo
+        'hsn_sac',
 
         'quantity',
         'unit',
 
         'mrp_price',
-        'price',
+        'price',            // always stored ex-GST (base price)
+        'sale_price_incl',  // original inclusive price (only set when gst_inclusive=true)
+        'gst_inclusive',    // boolean: was this item added in inclusive mode?
         'discount',
-        'tax_percent', // Will be 0 for cash memo
-        'tax_amount', // Will be 0 for cash memo
+        'tax_percent',
+        'tax_amount',
         'cgst_amount',
         'sgst_amount',
         'igst_amount',
@@ -42,15 +44,17 @@ class SalesInvoiceItem extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
-        'price' => 'decimal:2',
-        'discount' => 'decimal:2',
-        'tax_percent' => 'decimal:2',
-        'tax_amount' => 'decimal:2',
-        'cgst_amount' => 'decimal:2',
-        'sgst_amount' => 'decimal:2',
-        'igst_amount' => 'decimal:2',
-        'total' => 'decimal:2',
+        'quantity'        => 'decimal:2',
+        'price'           => 'decimal:2',
+        'sale_price_incl' => 'decimal:2',
+        'gst_inclusive'   => 'boolean',
+        'discount'        => 'decimal:2',
+        'tax_percent'     => 'decimal:2',
+        'tax_amount'      => 'decimal:2',
+        'cgst_amount'     => 'decimal:2',
+        'sgst_amount'     => 'decimal:2',
+        'igst_amount'     => 'decimal:2',
+        'total'           => 'decimal:2',
         'warranty_period' => 'integer',
         'warranty_start'  => 'date',
         'warranty_end'    => 'date',
@@ -70,7 +74,6 @@ class SalesInvoiceItem extends Model
         return $this->belongsTo(SimpleProduct::class, 'product_id');
     }
 
-    // Helper to check tax type for this item
     public function hasIgst()
     {
         return $this->igst_amount > 0;

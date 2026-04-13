@@ -275,7 +275,7 @@ public function cancel($id)
         ], 500);
     }
 }
-    public function store(Request $request)
+public function store(Request $request)
     {
         if ($request->has('items') && is_string($request->items)) {
             $request->merge(['items' => json_decode($request->items, true)]);
@@ -303,7 +303,7 @@ public function cancel($id)
 
         try {
             $party          = Customer::with(['addresses', 'salesman'])->findOrFail($request->party_id);
-             $openingBalance = $this->getDynamicOpeningBalance($request->party_id);
+            $openingBalance = $this->getDynamicOpeningBalance($request->party_id);
 
             $unpaidInvoicesBalance = SalesInvoice::where('party_id', $request->party_id)
                 ->where('status', '!=', 'draft')
@@ -356,49 +356,71 @@ public function cancel($id)
 
             $totalMRP            = 0;
             $totalDiscountAmount = 0;
-            $subtotal            = 0;
+            $subtotal            = 0;   // always ex-GST subtotal
             $taxTotal            = 0;
             $cgstTotal           = 0;
             $sgstTotal           = 0;
             $igstTotal           = 0;
             $itemsData           = [];
 
+            // ── ITEM TOTALS LOOP ──────────────────────────────────────────────
             foreach ($request->items as $item) {
-                $qty             = (float) $item['quantity'];
-                $mrpPrice        = (float) $item['mrp_price'];
-                $salePrice       = (float) $item['price'];
-                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
-                $itemMRPTotal    = $qty * $mrpPrice;
-                $totalMRP       += $itemMRPTotal;
-                $itemDiscountAmt = ($mrpPrice - $salePrice) * $qty;
+                $qty        = (float) $item['quantity'];
+                $mrpPrice   = (float) $item['mrp_price'];
+                $salePrice  = (float) $item['price'];       // inclusive: gross price per unit; exclusive: ex-GST price
+                $taxPercent = (float) ($item['tax_percent'] ?? 0);
+                $isIncl     = !empty($item['gst_inclusive']); // true = inclusive mode
+
+                $totalMRP += $qty * $mrpPrice;
+
+                if ($isIncl && $taxPercent > 0) {
+                    // ── INCLUSIVE: reverse-extract base price and GST ─────────
+                    // salePrice is the GST-inclusive price per unit
+                    // base = price × 100 / (100 + gst%)
+                    $basePricePerUnit = $salePrice * 100 / (100 + $taxPercent);
+                    $itemBaseTotal    = $qty * $basePricePerUnit;
+                    $grossTotal       = $qty * $salePrice;
+                    $itemTax          = $grossTotal - $itemBaseTotal;
+                    $itemDiscountAmt  = ($mrpPrice - $salePrice) * $qty; // discount vs MRP (using inclusive price)
+                } else {
+                    // ── EXCLUSIVE: current logic, unchanged ───────────────────
+                    $basePricePerUnit = $salePrice;
+                    $itemBaseTotal    = $qty * $salePrice;
+                    $itemTax          = ($itemBaseTotal * $taxPercent) / 100;
+                    $itemDiscountAmt  = ($mrpPrice - $salePrice) * $qty;
+                }
+
                 $totalDiscountAmount += $itemDiscountAmt;
-                $itemSaleTotal   = $qty * $salePrice;
-                $subtotal       += $itemSaleTotal;
-                $itemTax         = ($itemSaleTotal * $taxPercent) / 100;
-                $taxTotal       += $itemTax;
+                $subtotal            += $itemBaseTotal;    // always ex-GST
+                $taxTotal            += $itemTax;
 
                 if ($isIntraState) {
-                    $halfTax            = $itemTax / 2;
-                    $cgstTotal         += $halfTax;
-                    $sgstTotal         += $halfTax;
+                    $halfTax             = $itemTax / 2;
+                    $cgstTotal          += $halfTax;
+                    $sgstTotal          += $halfTax;
                     $item['cgst_amount'] = $halfTax;
                     $item['sgst_amount'] = $halfTax;
                     $item['igst_amount'] = 0;
                 } else {
-                    $igstTotal          += $itemTax;
+                    $igstTotal           += $itemTax;
                     $item['igst_amount']  = $itemTax;
                     $item['cgst_amount']  = 0;
                     $item['sgst_amount']  = 0;
                 }
-                $itemsData[] = $item;
+
+                // carry calculated values to the save loop below
+                $item['_base_price'] = $basePricePerUnit;
+                $item['_is_incl']    = $isIncl;
+                $itemsData[]         = $item;
             }
+            // ── END ITEM TOTALS LOOP ──────────────────────────────────────────
 
             $extraDiscountValue  = 0;
             $extraDiscountAmount = 0;
             $extraDiscountType   = $request->extra_discount_type ?? 'amount';
 
             if ($request->filled('extra_discount') && (float)$request->extra_discount > 0) {
-                $extraDiscountValue = (float)$request->extra_discount;
+                $extraDiscountValue  = (float)$request->extra_discount;
                 $extraDiscountAmount = $extraDiscountType === 'percent'
                     ? ($subtotal * $extraDiscountValue) / 100
                     : $extraDiscountValue;
@@ -415,11 +437,9 @@ public function cancel($id)
                 $grandTotal = $rounded;
             }
 
-            /* ================= PAYMENT + ADVANCE BALANCE ================= */
-            $amountPaid     = (float) ($request->amount_paid ?? 0);
-            $advanceUsed    = 0;
-
-            $balance = $grandTotal - $amountPaid;
+            $amountPaid  = (float) ($request->amount_paid ?? 0);
+            $advanceUsed = 0;
+            $balance     = $grandTotal - $amountPaid;
 
             if ($amountPaid <= 0) {
                 $paymentStatus = 'unpaid';
@@ -436,6 +456,7 @@ public function cancel($id)
                 'invoice_number'      => $invoiceNumber,
                 'public_token'        => \Illuminate\Support\Str::random(40),
                 'invoice_type'        => $request->invoice_type,
+                 'gst_mode'            => $request->gst_mode ?? 'exclusive',
                 'invoice_date'        => $request->invoice_date,
                 'party_id'            => $request->party_id,
                 'salesman_id'         => $party->salesman_id,
@@ -468,15 +489,18 @@ public function cancel($id)
                 'created_by'          => Auth::guard('admin')->id(),
             ]);
 
+            // ── ITEM SAVE LOOP ────────────────────────────────────────────────
             foreach ($request->items as $index => $item) {
-                $qty             = (float) $item['quantity'];
-                $mrpPrice        = (float) $item['mrp_price'];
-                $salePrice       = (float) $item['price'];
-                $discountPercent = (float) ($item['discount'] ?? 0);
-                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
-                $cgstAmount      = $itemsData[$index]['cgst_amount'] ?? 0;
-                $sgstAmount      = $itemsData[$index]['sgst_amount'] ?? 0;
-                $igstAmount      = $itemsData[$index]['igst_amount'] ?? 0;
+                $qty              = (float) $item['quantity'];
+                $mrpPrice         = (float) $item['mrp_price'];
+                $salePrice        = (float) $item['price'];         // gross if inclusive
+                $discountPercent  = (float) ($item['discount'] ?? 0);
+                $taxPercent       = (float) ($item['tax_percent'] ?? 0);
+                $cgstAmount       = $itemsData[$index]['cgst_amount'] ?? 0;
+                $sgstAmount       = $itemsData[$index]['sgst_amount'] ?? 0;
+                $igstAmount       = $itemsData[$index]['igst_amount'] ?? 0;
+                $isIncl           = !empty($itemsData[$index]['_is_incl']);
+                $basePricePerUnit = (float) ($itemsData[$index]['_base_price'] ?? $salePrice);
 
                 if ($item['product_type'] === 'simple') {
                     $product     = SimpleProduct::find($item['product_id']);
@@ -500,9 +524,12 @@ public function cancel($id)
                     $unit        = $variant['unit'] ?? 'PCS';
                 }
 
-                $itemSaleTotal = $qty * $salePrice;
-                $itemTax       = ($itemSaleTotal * $taxPercent) / 100;
-                $itemFinal     = $itemSaleTotal + $itemTax;
+                $itemBaseTotal = $qty * $basePricePerUnit;
+                $itemTax       = $cgstAmount + $sgstAmount + $igstAmount;
+
+                // inclusive: final total = gross (price already includes tax)
+                // exclusive: final total = base + tax
+                $itemFinal = $isIncl ? ($qty * $salePrice) : ($itemBaseTotal + $itemTax);
 
                 $warrantyType   = $item['warranty_type'] ?? 'none';
                 $warrantyPeriod = (int) ($item['warranty_period'] ?? 0);
@@ -526,7 +553,9 @@ public function cancel($id)
                     'quantity'         => $qty,
                     'unit'             => $unit,
                     'mrp_price'        => round($mrpPrice, 2),
-                    'price'            => round($salePrice, 2),
+                    'price'            => round($basePricePerUnit, 2),          // ALWAYS ex-GST base price
+                    'sale_price_incl'  => $isIncl ? round($salePrice, 2) : null, // original inclusive price
+                    'gst_inclusive'    => $isIncl,
                     'discount'         => round($discountPercent, 2),
                     'tax_percent'      => round($taxPercent, 2),
                     'tax_amount'       => round($itemTax, 2),
@@ -540,6 +569,7 @@ public function cancel($id)
                     'warranty_end'     => $warrantyEnd,
                 ]);
             }
+            // ── END ITEM SAVE LOOP ────────────────────────────────────────────
 
             return response()->json([
                 'success'    => true,
@@ -598,9 +628,6 @@ public function cancel($id)
         return view('admin.sales.edit', compact('invoice', 'parties', 'salesmen', 'warehouses', 'mainWarehouse', 'invoiceSetting'));
     }
 
-    /**
-     * Update the specified invoice.
-     */
     public function update(Request $request, $id)
     {
         $invoice = SalesInvoice::findOrFail($id);
@@ -696,17 +723,32 @@ public function cancel($id)
             $igstTotal           = 0;
             $itemsData           = [];
 
+            // ── ITEM TOTALS LOOP ──────────────────────────────────────────────
             foreach ($request->items as $item) {
-                $qty             = (float) $item['quantity'];
-                $mrpPrice        = (float) $item['mrp_price'];
-                $salePrice       = (float) $item['price'];
-                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
-                $totalMRP       += $qty * $mrpPrice;
-                $totalDiscountAmount += ($mrpPrice - $salePrice) * $qty;
-                $itemSaleTotal   = $qty * $salePrice;
-                $subtotal       += $itemSaleTotal;
-                $itemTax         = ($itemSaleTotal * $taxPercent) / 100;
-                $taxTotal       += $itemTax;
+                $qty        = (float) $item['quantity'];
+                $mrpPrice   = (float) $item['mrp_price'];
+                $salePrice  = (float) $item['price'];
+                $taxPercent = (float) ($item['tax_percent'] ?? 0);
+                $isIncl     = !empty($item['gst_inclusive']);
+
+                $totalMRP += $qty * $mrpPrice;
+
+                if ($isIncl && $taxPercent > 0) {
+                    $basePricePerUnit = $salePrice * 100 / (100 + $taxPercent);
+                    $itemBaseTotal    = $qty * $basePricePerUnit;
+                    $grossTotal       = $qty * $salePrice;
+                    $itemTax          = $grossTotal - $itemBaseTotal;
+                    $itemDiscountAmt  = ($mrpPrice - $salePrice) * $qty;
+                } else {
+                    $basePricePerUnit = $salePrice;
+                    $itemBaseTotal    = $qty * $salePrice;
+                    $itemTax          = ($itemBaseTotal * $taxPercent) / 100;
+                    $itemDiscountAmt  = ($mrpPrice - $salePrice) * $qty;
+                }
+
+                $totalDiscountAmount += $itemDiscountAmt;
+                $subtotal            += $itemBaseTotal;
+                $taxTotal            += $itemTax;
 
                 if ($isIntraState) {
                     $halfTax             = $itemTax / 2;
@@ -721,8 +763,12 @@ public function cancel($id)
                     $item['cgst_amount']  = 0;
                     $item['sgst_amount']  = 0;
                 }
-                $itemsData[] = $item;
+
+                $item['_base_price'] = $basePricePerUnit;
+                $item['_is_incl']    = $isIncl;
+                $itemsData[]         = $item;
             }
+            // ── END ITEM TOTALS LOOP ──────────────────────────────────────────
 
             $extraDiscountValue  = 0;
             $extraDiscountAmount = 0;
@@ -746,7 +792,6 @@ public function cancel($id)
                 $grandTotal = $rounded;
             }
 
-            /* ================= PAYMENT + ADVANCE BALANCE ================= */
             // Agar is invoice mein pehle se advance_used tha to wapas karo
             $previousAdvanceUsed = (float) ($invoice->advance_used ?? 0);
             if ($previousAdvanceUsed > 0) {
@@ -754,11 +799,9 @@ public function cancel($id)
                 $party->save();
             }
 
-            $amountPaid     = (float) ($request->amount_paid ?? 0);
-            $advanceUsed    = 0;
-
-
-            $balance = $grandTotal - $amountPaid;
+            $amountPaid  = (float) ($request->amount_paid ?? 0);
+            $advanceUsed = 0;
+            $balance     = $grandTotal - $amountPaid;
 
             if ($amountPaid <= 0) {
                 $paymentStatus = 'unpaid';
@@ -771,6 +814,7 @@ public function cancel($id)
 
             $invoice->update([
                 'invoice_type'        => $request->invoice_type,
+                'gst_mode'            => $request->gst_mode ?? 'exclusive',
                 'invoice_date'        => $request->invoice_date,
                 'party_id'            => $request->party_id,
                 'salesman_id'         => $party->salesman_id,
@@ -803,15 +847,18 @@ public function cancel($id)
 
             SalesInvoiceItem::where('sales_invoice_id', $invoice->_id)->delete();
 
+            // ── ITEM SAVE LOOP ────────────────────────────────────────────────
             foreach ($request->items as $index => $item) {
-                $qty             = (float) $item['quantity'];
-                $mrpPrice        = (float) $item['mrp_price'];
-                $salePrice       = (float) $item['price'];
-                $discountPercent = (float) ($item['discount'] ?? 0);
-                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
-                $cgstAmount      = $itemsData[$index]['cgst_amount'] ?? 0;
-                $sgstAmount      = $itemsData[$index]['sgst_amount'] ?? 0;
-                $igstAmount      = $itemsData[$index]['igst_amount'] ?? 0;
+                $qty              = (float) $item['quantity'];
+                $mrpPrice         = (float) $item['mrp_price'];
+                $salePrice        = (float) $item['price'];
+                $discountPercent  = (float) ($item['discount'] ?? 0);
+                $taxPercent       = (float) ($item['tax_percent'] ?? 0);
+                $cgstAmount       = $itemsData[$index]['cgst_amount'] ?? 0;
+                $sgstAmount       = $itemsData[$index]['sgst_amount'] ?? 0;
+                $igstAmount       = $itemsData[$index]['igst_amount'] ?? 0;
+                $isIncl           = !empty($itemsData[$index]['_is_incl']);
+                $basePricePerUnit = (float) ($itemsData[$index]['_base_price'] ?? $salePrice);
 
                 if ($item['product_type'] === 'simple') {
                     $product     = SimpleProduct::find($item['product_id']);
@@ -835,9 +882,9 @@ public function cancel($id)
                     $unit        = $variant['unit'] ?? 'PCS';
                 }
 
-                $itemSaleTotal = $qty * $salePrice;
-                $itemTax       = ($itemSaleTotal * $taxPercent) / 100;
-                $itemFinal     = $itemSaleTotal + $itemTax;
+                $itemBaseTotal = $qty * $basePricePerUnit;
+                $itemTax       = $cgstAmount + $sgstAmount + $igstAmount;
+                $itemFinal     = $isIncl ? ($qty * $salePrice) : ($itemBaseTotal + $itemTax);
 
                 $warrantyType   = $item['warranty_type'] ?? 'none';
                 $warrantyPeriod = (int) ($item['warranty_period'] ?? 0);
@@ -861,7 +908,9 @@ public function cancel($id)
                     'quantity'         => $qty,
                     'unit'             => $unit,
                     'mrp_price'        => round($mrpPrice, 2),
-                    'price'            => round($salePrice, 2),
+                    'price'            => round($basePricePerUnit, 2),           // ALWAYS ex-GST base price
+                    'sale_price_incl'  => $isIncl ? round($salePrice, 2) : null, // original inclusive price
+                    'gst_inclusive'    => $isIncl,
                     'discount'         => round($discountPercent, 2),
                     'tax_percent'      => round($taxPercent, 2),
                     'tax_amount'       => round($itemTax, 2),
@@ -875,6 +924,7 @@ public function cancel($id)
                     'warranty_end'     => $warrantyEnd,
                 ]);
             }
+            // ── END ITEM SAVE LOOP ────────────────────────────────────────────
 
             return response()->json([
                 'success'    => true,
@@ -886,6 +936,7 @@ public function cancel($id)
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
 
     /**
      * Generate invoice (confirm and deduct stock)
