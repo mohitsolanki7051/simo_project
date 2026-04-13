@@ -62,7 +62,31 @@
     $is = $invoiceStatusColors[$invoice->status] ?? $invoiceStatusColors['draft'];
 
     $showGST = $invoice->invoice_type !== 'cash';
+     $openingPaid = \App\Models\SalesPayment::where('party_id', (string)$invoice->party_id)
+        ->where('payment_type', 'payment_in')
+        ->get()
+        ->sum(function($payment) {
+            return collect($payment->allocations ?? [])
+                ->where('type', 'opening_balance')
+                ->sum('amount');
+        });
+    $dynamicOpeningBalance = max(0, (float)($party->opening_balance ?? 0) - $openingPaid);
 
+    $unpaidInvoices = \App\Models\SalesInvoice::where('party_id', $invoice->party_id)
+        ->where('status', '!=', 'draft')
+        ->where('status', '!=', 'cancelled')
+        ->where('payment_status', '!=', 'paid')
+        ->where('_id', '!=', (string)$invoice->_id)
+        ->get();
+
+    $previousPendingBalance = 0;
+    foreach ($unpaidInvoices as $inv) {
+        $bal = $inv->balance_amount;
+        if ($bal instanceof \MongoDB\BSON\Decimal128) $bal = (float) $bal->__toString();
+        $previousPendingBalance += (float) $bal;
+    }
+
+    $totalOutstanding = $dynamicOpeningBalance + $previousPendingBalance + (float)($invoice->balance_amount ?? 0);
     // Calculate total items quantity
     $totalQuantity = $invoice->items->sum('quantity');
 
@@ -825,14 +849,17 @@
         </div>
 
         <!-- Bottom Sections - Notes, Bank, Summary -->
-        <div class="iv-bottom-grid">
-            <!-- Left: Notes & Bank Details -->
+  <div class="iv-bottom-grid">
+            <!-- Left: Notes, Bank Details, Signature & Stamp -->
             <div class="iv-left-panel">
+
+                {{-- NOTES --}}
                 @if($invoice->notes)
                 <div class="iv-panel-title">Notes</div>
                 <div class="iv-notes">{{ $invoice->notes }}</div>
                 @endif
 
+                {{-- BANK DETAILS --}}
                 @if($settings && ($settings->bank_name || $settings->account_number))
                 <div class="iv-panel-title" style="margin-top: {{ $invoice->notes ? '15px' : '0' }};">Bank Details</div>
                 <div class="iv-bank-details">
@@ -840,6 +867,12 @@
                     <div class="iv-bank-row">
                         <span class="iv-bank-label">Bank:</span>
                         <span class="iv-bank-value">{{ $settings->bank_name }}</span>
+                    </div>
+                    @endif
+                    @if($settings->account_name)
+                    <div class="iv-bank-row">
+                        <span class="iv-bank-label">A/c Name:</span>
+                        <span class="iv-bank-value">{{ $settings->account_name }}</span>
                     </div>
                     @endif
                     @if($settings->account_number)
@@ -854,19 +887,54 @@
                         <span class="iv-bank-value">{{ $settings->ifsc_code }}</span>
                     </div>
                     @endif
-                    @if($settings->account_name)
+                    @if($settings->branch)
                     <div class="iv-bank-row">
-                        <span class="iv-bank-label">A/c Name:</span>
-                        <span class="iv-bank-value">{{ $settings->account_name }}</span>
+                        <span class="iv-bank-label">Branch:</span>
+                        <span class="iv-bank-value">{{ $settings->branch }}</span>
                     </div>
                     @endif
                 </div>
                 @endif
 
+                {{-- TERMS --}}
                 @if($settings?->terms_and_conditions)
-                <div class="iv-panel-title" style="margin-top: 15px;">Terms</div>
+                <div class="iv-panel-title" style="margin-top: 15px;">Terms & Conditions</div>
                 <div class="iv-notes">{{ $settings->terms_and_conditions }}</div>
                 @endif
+
+                {{-- SIGNATURE & STAMP --}}
+                @if($settings?->signature_path || $settings?->stamp_path)
+                <div style="margin-top: 20px; display: flex; gap: 20px; align-items: flex-end;">
+                    @if($settings->stamp_path)
+                    <div style="text-align: center;">
+                        <img src="{{ asset('storage/' . $settings->stamp_path) }}"
+                             alt="Stamp"
+                             style="max-height: 70px; max-width: 100px; object-fit: contain; opacity: 0.85;">
+                        <div style="font-size: 9px; color: #6b7280; margin-top: 4px;">Stamp</div>
+                    </div>
+                    @endif
+
+                    @if($settings->signature_path)
+                    <div style="text-align: center;">
+                        <img src="{{ asset('storage/' . $settings->signature_path) }}"
+                             alt="Authorized Signature"
+                             style="max-height: 55px; max-width: 120px; object-fit: contain;">
+                        <div style="font-size: 9px; color: #6b7280; margin-top: 4px; border-top: 1px solid #d1d5db; padding-top: 4px;">
+                            Authorized Signature
+                        </div>
+                    </div>
+                    @endif
+                </div>
+                @else
+                {{-- No image uploaded — show placeholder signature line --}}
+                <div style="margin-top: 30px;">
+                    <div style="border-top: 1px solid #374151; width: 160px; padding-top: 5px;">
+                        <div style="font-size: 10px; color: #374151; font-weight: 500;">Authorized Signature</div>
+                        <div style="font-size: 9px; color: #6b7280; margin-top: 2px;">{{ $settings->company_name ?? '' }}</div>
+                    </div>
+                </div>
+                @endif
+
             </div>
 
             <!-- Right: Amount Summary -->
@@ -878,28 +946,48 @@
                     <span>₹ {{ number_format($invoice->subtotal, 2) }}</span>
                 </div>
 
-
-
-                {{-- FIX 2: EXTRA DISCOUNT WITH TYPE CHECK --}}
                 @if($invoice->extra_discount > 0)
                 <div class="iv-total-row">
                     <span>
                         Extra Discount
-
+                        @if($invoice->extra_discount_type === 'percent')
+                            ({{ number_format($invoice->extra_discount, 1) }}%)
+                        @endif
                     </span>
-                    <span> @if($invoice->extra_discount_type === 'percent')
-                             {{ number_format($invoice->extra_discount, 1) }}%
+                    <span>
+                        @if($invoice->extra_discount_type === 'percent')
+                            - ₹ {{ number_format($invoice->subtotal * $invoice->extra_discount / 100, 2) }}
                         @else
                             - ₹ {{ number_format($invoice->extra_discount, 2) }}
-                        @endif</span>
+                        @endif
+                    </span>
                 </div>
                 @endif
+
                 @if($showGST)
                 <div class="iv-total-row">
                     <span>Tax</span>
                     <span>+ ₹ {{ number_format($invoice->tax_total, 2) }}</span>
                 </div>
+
+                {{-- GST Breakup --}}
+                @if($invoice->tax_type === 'intra' && $invoice->cgst_total > 0)
+                <div class="iv-total-row" style="font-size: 10px; color: #6b7280; padding-left: 10px;">
+                    <span>CGST</span>
+                    <span>₹ {{ number_format($invoice->cgst_total, 2) }}</span>
+                </div>
+                <div class="iv-total-row" style="font-size: 10px; color: #6b7280; padding-left: 10px;">
+                    <span>SGST</span>
+                    <span>₹ {{ number_format($invoice->sgst_total, 2) }}</span>
+                </div>
+                @elseif($invoice->tax_type === 'inter' && $invoice->igst_total > 0)
+                <div class="iv-total-row" style="font-size: 10px; color: #6b7280; padding-left: 10px;">
+                    <span>IGST</span>
+                    <span>₹ {{ number_format($invoice->igst_total, 2) }}</span>
+                </div>
                 @endif
+                @endif
+
                 @if($invoice->extra_charge > 0)
                 <div class="iv-total-row">
                     <span>{{ $invoice->charge_name ?? 'Extra Charge' }}</span>
@@ -916,10 +1004,41 @@
 
                 <div class="iv-total-row grand">
                     <span>Grand Total</span>
-                    <span>₹ {{ number_format($invoice->grand_total, 2) }}</span>
+                    <span class="iv-total-value">₹ {{ number_format($invoice->grand_total, 2) }}</span>
                 </div>
 
+                {{-- PREVIOUS OUTSTANDING BALANCE --}}
+                @if($dynamicOpeningBalance > 0 || $previousPendingBalance > 0)
+                <div style="margin-top:12px;padding:10px 12px;background:#fff8f0;border:1px solid #fed7aa;border-radius:6px;border-left:3px solid #f97316;">
+                    <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:8px;">⚠️ Previous Outstanding</div>
 
+                    @if($dynamicOpeningBalance > 0)
+                    <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px dotted #fed7aa;">
+                        <span style="color:#78350f;">Opening Balance</span>
+                        <span style="font-weight:600;color:#c2410c;">₹ {{ number_format($dynamicOpeningBalance, 2) }}</span>
+                    </div>
+                    @endif
+
+                    @if($previousPendingBalance > 0)
+                    <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px dotted #fed7aa;">
+                        <span style="color:#78350f;">Other Unpaid Invoices ({{ count($unpaidInvoices) }})</span>
+                        <span style="font-weight:600;color:#c2410c;">₹ {{ number_format($previousPendingBalance, 2) }}</span>
+                    </div>
+                    @endif
+
+                    <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px dotted #fed7aa;">
+                        <span style="color:#78350f;">This Invoice Balance</span>
+                        <span style="font-weight:600;color:#c2410c;">₹ {{ number_format($invoice->balance_amount ?? 0, 2) }}</span>
+                    </div>
+
+                    <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0 0 0;margin-top:4px;">
+                        <span style="font-weight:700;color:#92400e;">Total Outstanding</span>
+                        <span style="font-weight:700;color:#dc2626;font-size:13px;">₹ {{ number_format($totalOutstanding, 2) }}</span>
+                    </div>
+                </div>
+                @endif
+
+                {{-- PAYMENT STATUS --}}
                 <div style="margin-top: 15px;">
                     <div class="iv-total-row">
                         <span>Total Paid</span>
@@ -930,7 +1049,6 @@
                         <span>₹ {{ number_format($invoice->balance_amount ?? 0, 2) }}</span>
                     </div>
                 </div>
-
 
                 <!-- Amount in Words -->
                 <div class="iv-amount-words">
