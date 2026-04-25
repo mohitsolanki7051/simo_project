@@ -622,8 +622,8 @@
     /* PRINT STYLES */
     @media print {
         body * { visibility: hidden !important; }
-        #invoiceToPrint, #invoiceToPrint * { visibility: visible !important; }
-        #invoiceToPrint {
+        #printWrapper, #printWrapper * { visibility: visible !important; }
+        #printWrapper {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
@@ -637,6 +637,12 @@
             background: #f97316 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+        }
+        .page-break {
+            page-break-before: always !important;
+        }
+        .copy-label {
+            display: block !important;
         }
     }
 </style>
@@ -1079,7 +1085,60 @@ function showAlert(message, type = 'success') {
 
 function printInvoice() {
     document.title = '{{ $invoice->invoice_number }}';
+
+    // Cleanup old wrapper
+    const old = document.getElementById('printWrapper');
+    if (old) old.remove();
+
+    // Original invoice element
+    const original = document.getElementById('invoiceToPrint');
+
+    // Create main wrapper
+    const wrapper = document.createElement('div');
+    wrapper.id = 'printWrapper';
+
+    // --- COPY 1: ORIGINAL ---
+    const wrap1 = document.createElement('div');
+    wrap1.style.position = 'relative';
+
+    const label1 = document.createElement('div');
+    label1.className = 'copy-label';
+    label1.style.cssText = 'display:none; position:absolute; top:15px; right:25px; background:#1e40af; color:white; padding:5px 14px; border-radius:4px; font-size:12px; font-weight:700; z-index:99; letter-spacing:0.5px;';
+    label1.textContent = 'ORIGINAL FOR RECIPIENT';
+
+    wrap1.appendChild(label1);
+    wrap1.appendChild(original.cloneNode(true));
+
+    // --- PAGE BREAK ---
+    const pageBreak = document.createElement('div');
+    pageBreak.className = 'page-break';
+
+    // --- COPY 2: DUPLICATE ---
+    const wrap2 = document.createElement('div');
+    wrap2.style.position = 'relative';
+
+    const label2 = document.createElement('div');
+    label2.className = 'copy-label';
+    label2.style.cssText = 'display:none; position:absolute; top:15px; right:25px; background:#dc2626; color:white; padding:5px 14px; border-radius:4px; font-size:12px; font-weight:700; z-index:99; letter-spacing:0.5px;';
+    label2.textContent = 'DUPLICATE FOR TRANSPORTER';
+
+    wrap2.appendChild(label2);
+    wrap2.appendChild(original.cloneNode(true));
+
+    // Append all to wrapper
+    wrapper.appendChild(wrap1);
+    wrapper.appendChild(pageBreak);
+    wrapper.appendChild(wrap2);
+    document.body.appendChild(wrapper);
+
+    // Print
     window.print();
+
+    // Cleanup after print
+    setTimeout(() => {
+        const pw = document.getElementById('printWrapper');
+        if (pw) pw.remove();
+    }, 1500);
 }
 
 function downloadPDF() {

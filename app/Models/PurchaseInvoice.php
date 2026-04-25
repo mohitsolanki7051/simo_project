@@ -16,6 +16,7 @@ class PurchaseInvoice extends Model
         'public_token',
         'invoice_type',
         'invoice_date',
+        'gst_mode',
         'party_id',
         'party_type',
         'party_name',

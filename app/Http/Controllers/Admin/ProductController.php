@@ -876,8 +876,8 @@ public function updateprice(Request $request)
             'variants.*.sku_code' => 'required|string|max:16',
             'variants.*.barcode_symbology' => 'required|in:CODE128',
             'variants.*.cost_price' => 'required|numeric|min:0',
-            'variants.*.sale_price' => 'required|numeric|min:0|gt:variants.*.cost_price',
-            'variants.*.mrp_price' => 'required|numeric|min:0|gt:variants.*.sale_price',
+            'variants.*.sale_price' => 'required|numeric|min:0|gte:variants.*.cost_price',
+            'variants.*.mrp_price'  => 'required|numeric|min:0|gte:variants.*.sale_price',
             'variants.*.opening_stock' => 'required|integer|min:0',
             'variants.*.min_stock_alert' => 'required|integer|min:0',
             'variants.*.base_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -1824,8 +1824,8 @@ public function updateprice(Request $request)
             // Process simple products
             $lowStockProducts = [];
             foreach ($simpleProducts as $product) {
-                $stock = $product->current_stock ?? 0;
-                $minAlert = $product->min_stock_alert ?? 5;
+               $stock = $product->total_stock ?? 0;
+                $minAlert = $product->main_warehouse_min_stock_alert ?? 5;
 
                 if ($stock <= 0) {
                     $outOfStockCount++;
@@ -1862,8 +1862,13 @@ public function updateprice(Request $request)
             foreach ($variantProducts as $product) {
                 if ($product->variants && is_array($product->variants)) {
                     foreach ($product->variants as $index => $variant) {
-                        $stock = $variant['current_stock'] ?? 0;
-                        $minAlert = $variant['min_stock_alert'] ?? 5;
+                        $variantIdVal = $variant['_id'] ?? null;
+                        $variantStock = WarehouseStock::where('product_id', $product->_id)
+                            ->where('product_type', 'variant')
+                            ->where('variant_id', (string) $variantIdVal)
+                            ->first();
+                        $stock = $variantStock ? $variantStock->quantity : 0;
+                        $minAlert = $variantStock ? $variantStock->min_stock_alert : 5;
 
                         if ($stock <= 0) {
                             $outOfStockCount++;

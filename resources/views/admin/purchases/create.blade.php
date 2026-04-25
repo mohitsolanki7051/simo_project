@@ -29,6 +29,7 @@
             <input type="hidden" name="billing_address"       id="billingAddressInput">
             <input type="hidden" name="shipping_address"      id="shippingAddressInput">
             <input type="hidden" name="extra_discount_type"   id="extraDiscountTypeInput" value="amount">
+            <input type="hidden" name="gst_mode"              id="gstModeInput" value="exclusive">
 
             <div class="form-row">
                 <div class="form-col-main">
@@ -66,7 +67,6 @@
                                                 <div class="info-row"><span class="info-label">Opening Bal:</span><span id="partyOpeningBalance" class="info-value">-</span></div>
                                             </div>
                                         </div>
-
                                         <div class="address-section">
                                             <div class="address-header"><h5>Address Details</h5></div>
                                             <div class="address-grid">
@@ -141,6 +141,24 @@
                                             </select>
                                             <small style="font-size:10px;margin-top:3px;color:#666;">GST Invoice includes HSN code and tax calculations</small>
                                         </div>
+                                        <!-- GST MODE TOGGLE -->
+                                        <div class="form-group col-6" id="gstModeGroup">
+                                            <label class="form-label">GST Mode</label>
+                                            <div class="gst-mode-toggle">
+                                                <button type="button" class="gst-mode-btn active" data-mode="exclusive" onclick="setGstMode('exclusive')">
+                                                    <span>📤</span>
+                                                    <span class="gst-mode-label">Exclusive</span>
+                                                    <span class="gst-mode-sub">GST added on top</span>
+                                                </button>
+                                                <button type="button" class="gst-mode-btn" data-mode="inclusive" onclick="setGstMode('inclusive')">
+                                                    <span>📥</span>
+                                                    <span class="gst-mode-label">Inclusive</span>
+                                                    <span class="gst-mode-sub">GST within price</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
                                         <div class="form-group col-6">
                                             <label class="form-label">Warehouse</label>
                                             <input type="text" class="form-control" value="{{ ($mainWarehouse->name ?? 'Main Warehouse') . ' (Main)' }}" readonly style="background:#f0f8ff;color:#0066cc;">
@@ -171,7 +189,7 @@
                                             <th class="th-unit">Unit</th>
                                             <th class="th-qtys">Qty</th>
                                             <th class="th-mrp">MRP (₹)</th>
-                                            <th class="th-sale-price">Purchase Price (₹)</th>
+                                            <th class="th-sale-price" id="purchasePriceHeader">Purchase Price (₹)</th>
                                             <th class="th-tax col-tax" id="taxHeader">Tax %</th>
                                             <th class="th-amount">Total (₹)</th>
                                             <th class="th-action">Action</th>
@@ -300,6 +318,7 @@
     </div>
 </div>
 
+{{-- MODALS same as original - copy from your existing create.blade.php --}}
 {{-- SELECT PARTY MODAL --}}
 <div class="modal" id="selectPartyModal">
     <div class="modal-overlay" onclick="closeSelectPartyModal()"></div>
@@ -492,7 +511,7 @@
                     <thead>
                         <tr>
                             <th>Item Name</th><th>SKU</th><th>MRP (₹)</th>
-                            <th>Purchase Price (₹)</th><th>Unit</th>
+                            <th id="modalPurchasePriceHeader">Purchase Price (₹)</th><th>Unit</th>
                             <th id="modalTaxHeader">Tax %</th>
                             <th>Quantity</th><th>Select</th>
                         </tr>
@@ -573,6 +592,18 @@
 
 @push('styles')
 <style>
+/* GST MODE TOGGLE */
+.gst-mode-toggle { display:flex; gap:6px; }
+.gst-mode-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 8px; background:#f8f9fa; border:1.5px solid #dee2e6; border-radius:5px; cursor:pointer; transition:all .18s; font-size:10px; line-height:1.3; }
+.gst-mode-btn:hover { border-color:#fa8725; background:#fff8f2; }
+.gst-mode-btn.active { background:#fff3e6; border-color:#fa8725; }
+.gst-mode-btn.active .gst-mode-label { color:#c05e00; font-weight:700; }
+.gst-mode-label { font-weight:600; font-size:10px; color:#333; }
+.gst-mode-sub { font-size:9px; color:#888; }
+.items-table tr.row-inclusive { background:#fffbf5 !important; }
+.incl-badge { display:inline-block; font-size:8px; background:#fff3e6; color:#c05e00; border:1px solid #fa8725; border-radius:3px; padding:1px 4px; margin-left:4px; vertical-align:middle; font-weight:600; }
+
+/* ---- rest of existing CSS from your create.blade.php ---- */
 .products-container { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:11px; line-height:1.3; color:#333; }
 #alertContainer { position:fixed; top:15px; right:15px; z-index:9999; }
 .alert { padding:10px 14px; margin-bottom:8px; border-radius:4px; font-size:10px; font-weight:500; animation:slideInRight .3s ease; box-shadow:0 2px 8px rgba(0,0,0,.1); }
@@ -580,7 +611,6 @@
 .alert-error   { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
 .alert-info    { background:#d1ecf1; color:#0c5460; border:1px solid #bee5eb; }
 @keyframes slideInRight { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
-
 .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; border-bottom:1px solid #ddd; }
 .header-left .page-title { font-size:15px; font-weight:600; color:#333; margin:0 0 3px; }
 .btn-small { padding:5px 10px; background:white; color:#fa8128; border:1px solid #dee2e6; border-radius:4px; font-size:14px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:3px; text-decoration:none; }
@@ -630,17 +660,11 @@
 .payment-terms-days span { font-size:10px; color:#666; white-space:nowrap; }
 .btn-add-item { padding:6px 12px; background:#555; color:white; border:none; border-radius:3px; font-size:10px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
 .btn-add-item:hover { background:#444; }
-
-/* ── Items Table ── */
 .items-table-container { overflow-x:auto; width:100%; margin-top:10px; border-radius:4px; border:1px solid #ddd; }
 .items-table-container.gst-mode .items-table { min-width:900px; }
 .items-table-container.cash-mode .items-table { min-width:unset; width:100%; table-layout:fixed; }
-
-/* KEY FIX: Cash mode mein col-hsn aur col-tax hide ho jaye CSS se */
 .items-table-container.cash-mode .col-hsn,
 .items-table-container.cash-mode .col-tax { display:none; }
-
-/* Cash mode mein Item column zyada space le */
 .items-table-container.cash-mode .th-item { width:35%; }
 .items-table-container.cash-mode .th-sku  { width:15%; }
 .items-table-container.cash-mode .th-unit { width:8%; }
@@ -649,7 +673,6 @@
 .items-table-container.cash-mode .th-sale-price { width:12%; }
 .items-table-container.cash-mode .th-amount     { width:12%; }
 .items-table-container.cash-mode .th-action     { width:8%; }
-
 .items-table { width:100%; border-collapse:collapse; font-size:10px; }
 .items-table th { background:#f8f9fa; padding:10px 8px; text-align:center; font-weight:600; color:#333; border-bottom:2px solid #ddd; white-space:nowrap; font-size:11px; }
 .items-table td { padding:8px; border-bottom:1px solid #eee; vertical-align:middle; text-align:center; font-size:10px; }
@@ -775,6 +798,7 @@ let igstTotal        = 0;
 let currentTaxType   = 'intra';
 let isSubmitting     = false;
 let currentInvType   = 'gst';
+let currentGstMode   = 'exclusive';   // NEW
 let allProducts      = [];
 let partiesXhr       = null;
 let searchTimer      = null;
@@ -795,6 +819,25 @@ function openProductPageInNewTab() {
     window.open('{{ route("admin.products.index") }}?open_modal=1', '_blank');
 }
 
+// ===================== GST MODE =====================
+function setGstMode(mode) {
+    if (items.length > 0) {
+        if (!confirm('Changing GST mode will clear all current items. Continue?')) return;
+        items = [];
+    }
+    currentGstMode = mode;
+    $('#gstModeInput').val(mode);
+    $('.gst-mode-btn').removeClass('active');
+    $(`.gst-mode-btn[data-mode="${mode}"]`).addClass('active');
+    // Update column header
+    const label = (currentInvType === 'gst' && mode === 'inclusive')
+        ? 'Purchase Price (₹) [Incl. GST]'
+        : 'Purchase Price (₹) [Excl. GST]';
+    $('#purchasePriceHeader').text(label);
+    $('#modalPurchasePriceHeader').text(label);
+    renderItemsTable();
+}
+
 // ===================== INVOICE TYPE =====================
 function handleInvoiceTypeChange() {
     currentInvType = $('#invoiceType').val();
@@ -808,10 +851,12 @@ function handleInvoiceTypeChange() {
         $('#taxBreakupContainer, #totalTaxRow').show();
         $('#modalTaxHeader').show();
         $('.items-table-container').removeClass('cash-mode').addClass('gst-mode');
+        $('#gstModeGroup').show();
     } else {
         $('#taxBreakupContainer, #totalTaxRow').hide();
         $('#modalTaxHeader').hide();
         $('.items-table-container').removeClass('gst-mode').addClass('cash-mode');
+        $('#gstModeGroup').hide();
         cgstTotal = sgstTotal = igstTotal = 0;
     }
     items = [];
@@ -824,187 +869,113 @@ function openSelectPartyModal() {
     $('#searchParty').val('');
     loadParties();
 }
-
 function closeSelectPartyModal() {
     $('#selectPartyModal').hide();
     if (partiesXhr) { partiesXhr.abort(); partiesXhr = null; }
     $('#searchParty').val('');
 }
-
-function openCreatePartyModal() {
-    closeSelectPartyModal();
-    $('#createPartyModal').css('display', 'flex');
-}
-
+function openCreatePartyModal() { closeSelectPartyModal(); $('#createPartyModal').css('display', 'flex'); }
 function closeCreatePartyModal() {
     $('#createPartyModal').hide();
     $('#createPartyForm')[0].reset();
     $('#sameBillingShipping').prop('checked', false);
     onCreatePartyTypeChange('vendor');
 }
-
-function onCreatePartyTypeChange(type) {
-    $('#cpVendorPeField').toggle(type === 'vendor');
-}
+function onCreatePartyTypeChange(type) { $('#cpVendorPeField').toggle(type === 'vendor'); }
 
 function loadParties() {
     const search = $('#searchParty').val().trim();
     if (partiesXhr) { partiesXhr.abort(); partiesXhr = null; }
     const tbody = $('#partiesTableBody');
-    tbody.html(`
-        <tr>
-            <td colspan="6" class="loading-state" style="text-align:center;padding:30px;">
-                <div class="loading-spinner"></div>
-                <p>Loading...</p>
-            </td>
-        </tr>
-    `);
+    tbody.html(`<tr><td colspan="6" class="loading-state" style="text-align:center;padding:30px;"><div class="loading-spinner"></div><p>Loading...</p></td></tr>`);
     partiesXhr = $.get('{{ route("admin.purchases.parties.list") }}', {
-        search:     search,
-        party_type: currentPartyTab !== 'all' ? currentPartyTab : null
-    })
-    .done(function(response) {
+        search: search, party_type: currentPartyTab !== 'all' ? currentPartyTab : null
+    }).done(function(response) {
         partiesXhr = null;
         if (!response.parties || response.parties.length === 0) {
-            tbody.html(`
-                <tr>
-                    <td colspan="6" class="no-data-state" style="text-align:center;padding:30px;">
-                        <div class="no-data-icon">👤</div>
-                        <p>${search ? 'No parties found for "' + $('<div>').text(search).html() + '"' : 'No parties found'}</p>
-                        <button type="button" class="btn-create-first-party" onclick="openCreatePartyModal()">+ Create New Party</button>
-                    </td>
-                </tr>
-            `);
+            tbody.html(`<tr><td colspan="6" class="no-data-state" style="text-align:center;padding:30px;"><div class="no-data-icon">👤</div><p>${search ? 'No parties found for "' + $('<div>').text(search).html() + '"' : 'No parties found'}</p><button type="button" class="btn-create-first-party" onclick="openCreatePartyModal()">+ Create New Party</button></td></tr>`);
             return;
         }
         tbody.html(response.parties.map(function(p) {
-            // Show opening balance only for vendors
-            const openingBalHtml = p.opening_balance !== undefined
-                ? (p.opening_balance > 0 ? '₹' + parseFloat(p.opening_balance).toFixed(2) : '—')
-                : '—';
-            return `
-                <tr>
-                    <td><strong>${p.name}</strong></td>
-                    <td><span class="party-type-badge ${p.party_type}">${p.party_type_text}</span></td>
-                    <td>${p.phone || '-'}</td>
-                    <td>${p.email || '-'}</td>
-                    <td>${openingBalHtml}</td>
-                    <td>
-                        <button type="button" class="btn-select-party-row"
-                            onclick="selectParty('${p.id}','${p.party_type}')">
-                            Select
-                        </button>
-                    </td>
-                </tr>
-            `;
+            const ob = p.opening_balance !== undefined ? (p.opening_balance > 0 ? '₹' + parseFloat(p.opening_balance).toFixed(2) : '—') : '—';
+            return `<tr><td><strong>${p.name}</strong></td><td><span class="party-type-badge ${p.party_type}">${p.party_type_text}</span></td><td>${p.phone || '-'}</td><td>${p.email || '-'}</td><td>${ob}</td><td><button type="button" class="btn-select-party-row" onclick="selectParty('${p.id}','${p.party_type}')">Select</button></td></tr>`;
         }).join(''));
-    })
-    .fail(function(xhr) {
+    }).fail(function(xhr) {
         if (xhr.statusText === 'abort') return;
         partiesXhr = null;
         tbody.html(`<tr><td colspan="6" style="text-align:center;padding:20px;color:#c33;">Failed to load parties. Please try again.</td></tr>`);
     });
 }
+
 function selectParty(partyId, partyType) {
-    $('#vendorIdInput').val('');
-    $('#dealerIdInput').val('');
-    $('#distributorIdInput').val('');
+    $('#vendorIdInput').val(''); $('#dealerIdInput').val(''); $('#distributorIdInput').val('');
     $('#partyTypeInput').val(partyType);
     if      (partyType === 'vendor')      $('#vendorIdInput').val(partyId);
     else if (partyType === 'dealer')      $('#dealerIdInput').val(partyId);
     else                                  $('#distributorIdInput').val(partyId);
 
-    $.get(
-        '{{ route("admin.purchases.party-details", ":id") }}'.replace(':id', partyId) + '?type=' + partyType,
-        function(res) {
-            if (!res.success) { showAlert('Failed to load party details', 'error'); return; }
-            const p = res.party;
-            $('#selectPartyBtn').hide();
-            $('#selectedPartyDetails').show();
-            $('#partyNameDisplay').text(p.name);
-            $('#partyTypeBadge').text(p.party_type_text).attr('class', 'party-type-badge ' + p.party_type);
-            $('#partyPhone').text(p.phone || '-');
-            $('#partyEmail').text(p.email || '-');
-            $('#partyGst').text(p.gst_number || '-');
+    $.get('{{ route("admin.purchases.party-details", ":id") }}'.replace(':id', partyId) + '?type=' + partyType, function(res) {
+        if (!res.success) { showAlert('Failed to load party details', 'error'); return; }
+        const p = res.party;
+        $('#selectPartyBtn').hide();
+        $('#selectedPartyDetails').show();
+        $('#partyNameDisplay').text(p.name);
+        $('#partyTypeBadge').text(p.party_type_text).attr('class', 'party-type-badge ' + p.party_type);
+        $('#partyPhone').text(p.phone || '-');
+        $('#partyEmail').text(p.email || '-');
+        $('#partyGst').text(p.gst_number || '-');
 
-            // Opening balance for vendors only
-            if (partyType === 'vendor') {
-                $('#partyOpeningBalance').text('₹ ' + parseFloat(p.opening_balance || 0).toFixed(2));
-                $('#partyOpeningBalance').closest('.info-row').show();
-
-                $('#purchaseExecutiveIdInput').val(p.purchase_executive_id || '');
-                $('#peDisplay').text(p.purchase_executive_name ? '👤 ' + p.purchase_executive_name : '—');
-            } else {
-                $('#partyOpeningBalance').closest('.info-row').hide();
-                $('#purchaseExecutiveIdInput').val('');
-                $('#peDisplay').text('—');
-            }
-
-            // ✅ SHOW DEBIT NOTE REMAINING AMOUNT
-            const debitRemaining = parseFloat(p.debit_notes_remaining || 0);
-
-            // Remove existing debit note row if any
-            $('#debitNoteRemainingRow').remove();
-
-            if (debitRemaining > 0) {
-                // Add debit note row after opening balance
-                $('.info-column').first().append(`
-                    <div class="info-row" id="debitNoteRemainingRow">
-                        <span class="info-label">DN Balance:</span>
-                        <span class="info-value" style="color:#047857;font-weight:600;">
-                            ₹ ${debitRemaining.toFixed(2)}
-                            <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">
-                                WILL AUTO-ADJUST
-                            </small>
-                        </span>
-                    </div>
-                `);
-            }
-
-            $('#billingAddressText').text(p.billing_address || 'No billing address');
-            $('#shippingAddressText').text(p.shipping_address || p.billing_address || 'No shipping address');
-            $('#billingAddressInput').val(p.billing_address || '');
-            $('#shippingAddressInput').val(p.shipping_address || p.billing_address || '');
-
-            const wState = '{{ $mainWarehouse->state ?? "" }}'.trim().toLowerCase();
-            const pState = (p.billing_state || '').trim().toLowerCase();
-            if (wState && pState && wState === pState) { showIntraStateTax(); } else { showInterStateTax(); }
-
-            items = [];
-            renderItemsTable();
-            closeSelectPartyModal();
-            showAlert('Party selected: ' + p.name, 'success');
+        if (partyType === 'vendor') {
+            $('#partyOpeningBalance').text('₹ ' + parseFloat(p.opening_balance || 0).toFixed(2));
+            $('#partyOpeningBalance').closest('.info-row').show();
+            $('#purchaseExecutiveIdInput').val(p.purchase_executive_id || '');
+            $('#peDisplay').text(p.purchase_executive_name ? '👤 ' + p.purchase_executive_name : '—');
+        } else {
+            $('#partyOpeningBalance').closest('.info-row').hide();
+            $('#purchaseExecutiveIdInput').val('');
+            $('#peDisplay').text('—');
         }
-    );
-}
-function onPeChange() {
-    const val  = $('#manualPeSelect').val();
-    const name = $('#manualPeSelect option:selected').text();
-    $('#purchaseExecutiveIdInput').val(val);
-    $('#peDisplay').text(val ? '👤 ' + name : '— Select PE —');
+
+        $('#debitNoteRemainingRow').remove();
+        const debitRemaining = parseFloat(p.debit_notes_remaining || 0);
+        if (debitRemaining > 0) {
+            $('.info-column').first().append(`<div class="info-row" id="debitNoteRemainingRow"><span class="info-label">DN Balance:</span><span class="info-value" style="color:#047857;font-weight:600;">₹ ${debitRemaining.toFixed(2)} <small style="background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;">WILL AUTO-ADJUST</small></span></div>`);
+        }
+
+        $('#billingAddressText').text(p.billing_address || 'No billing address');
+        $('#shippingAddressText').text(p.shipping_address || p.billing_address || 'No shipping address');
+        $('#billingAddressInput').val(p.billing_address || '');
+        $('#shippingAddressInput').val(p.shipping_address || p.billing_address || '');
+
+        const wState = '{{ $mainWarehouse->state ?? "" }}'.trim().toLowerCase();
+        const pState = (p.billing_state || '').trim().toLowerCase();
+        if (wState && pState && wState === pState) { showIntraStateTax(); } else { showInterStateTax(); }
+
+        items = [];
+        renderItemsTable();
+        closeSelectPartyModal();
+        showAlert('Party selected: ' + p.name, 'success');
+        calculateBalance();
+    });
 }
 
 // ===================== TAX FUNCTIONS =====================
-function showIntraStateTax() {
-    $('#intraStateTax').show(); $('#interStateTax').hide();
-    currentTaxType = 'intra';
-    calculateTaxBreakup();
-}
-function showInterStateTax() {
-    $('#intraStateTax').hide(); $('#interStateTax').show();
-    currentTaxType = 'inter';
-    calculateTaxBreakup();
-}
+function showIntraStateTax() { $('#intraStateTax').show(); $('#interStateTax').hide(); currentTaxType = 'intra'; calculateTaxBreakup(); }
+function showInterStateTax() { $('#intraStateTax').hide(); $('#interStateTax').show(); currentTaxType = 'inter'; calculateTaxBreakup(); }
+
 function calculateTaxBreakup() {
-    if (currentInvType !== 'gst') {
-        cgstTotal = sgstTotal = igstTotal = 0;
-        $('#cgstTotal, #sgstTotal, #igstTotal, #totalTax').text('0.00');
-        return;
-    }
+    if (currentInvType !== 'gst') { cgstTotal = sgstTotal = igstTotal = 0; $('#cgstTotal,#sgstTotal,#igstTotal,#totalTax').text('0.00'); return; }
     cgstTotal = sgstTotal = igstTotal = 0;
     items.forEach(function(item) {
-        const base = item.quantity * item.purchase_price;
-        const tax  = base * (parseFloat(item.tax_percent) || 0) / 100;
+        const taxPercent = parseFloat(item.tax_percent) || 0;
+        const isIncl     = item.gst_inclusive;
+        let tax;
+        if (isIncl && taxPercent > 0) {
+            const gross = item.quantity * item.purchase_price;
+            tax = gross - (gross * 100 / (100 + taxPercent));
+        } else {
+            tax = (item.quantity * item.purchase_price * taxPercent) / 100;
+        }
         if (currentTaxType === 'intra') { cgstTotal += tax / 2; sgstTotal += tax / 2; }
         else igstTotal += tax;
     });
@@ -1021,14 +992,11 @@ function openAddItemModal() {
     $('#addItemModal').css('display', 'flex');
     if (allProducts.length === 0) loadProducts();
 }
-function closeAddItemModal() {
-    $('#addItemModal').hide();
-    $('#searchProduct').val('');
-}
+function closeAddItemModal() { $('#addItemModal').hide(); $('#searchProduct').val(''); }
+
 function loadProducts() {
     const tbody = $('#productsTableBody');
-    $('#productsLoading').show();
-    tbody.empty();
+    $('#productsLoading').show(); tbody.empty();
     $.get('{{ route("admin.purchases.get-warehouse-products") }}', function(res) {
         $('#productsLoading').hide();
         allProducts = res.products || [];
@@ -1038,42 +1006,37 @@ function loadProducts() {
         tbody.html('<tr><td colspan="8" style="text-align:center;padding:30px;color:#c33;">Failed to load products</td></tr>');
     });
 }
+
 function renderProductTable(products) {
     const tbody   = $('#productsTableBody');
     const showTax = currentInvType === 'gst';
-    if (!products.length) {
-        tbody.html('<tr><td colspan="8" style="text-align:center;padding:30px;color:#999;">No products found</td></tr>');
-        return;
-    }
+    if (!products.length) { tbody.html('<tr><td colspan="8" style="text-align:center;padding:30px;color:#999;">No products found</td></tr>'); return; }
     tbody.html(products.map(function(p) {
-        return `
-            <tr>
-                <td>${p.name}</td>
-                <td>${p.sku || '—'}</td>
-                <td>₹${parseFloat(p.mrp_price).toFixed(2)}</td>
-                <td>₹${parseFloat(p.purchase_price).toFixed(2)}</td>
-                <td>${p.unit}</td>
-                <td ${showTax ? '' : 'style="display:none"'}>${p.tax_percent}%</td>
-                <td><input type="number" class="qty-input" min="1" step="1" value="1" style="width:60px;padding:3px;border:1px solid #ccc;border-radius:2px;text-align:center;font-size:10px;"></td>
-                <td>
-                    <input type="checkbox" class="select-product"
-                        data-id="${p.id}" data-type="${p.product_type}"
-                        data-variant="${p.variant_id || ''}"
-                        data-name="${p.name}" data-sku="${p.sku || ''}"
-                        data-hsn="${p.hsn_code || ''}" data-unit="${p.unit}"
-                        data-mrp="${p.mrp_price}" data-purchase="${p.purchase_price}"
-                        data-tax="${p.tax_percent}">
-                </td>
-            </tr>
-        `;
+        return `<tr>
+            <td>${p.name}</td><td>${p.sku || '—'}</td>
+            <td>₹${parseFloat(p.mrp_price).toFixed(2)}</td>
+            <td>₹${parseFloat(p.purchase_price).toFixed(2)}</td>
+            <td>${p.unit}</td>
+            <td ${showTax ? '' : 'style="display:none"'}>${p.tax_percent}%</td>
+            <td><input type="number" class="qty-input" min="1" step="1" value="1" style="width:60px;padding:3px;border:1px solid #ccc;border-radius:2px;text-align:center;font-size:10px;"></td>
+            <td><input type="checkbox" class="select-product"
+                data-id="${p.id}" data-type="${p.product_type}"
+                data-variant="${p.variant_id || ''}"
+                data-name="${p.name}" data-sku="${p.sku || ''}"
+                data-hsn="${p.hsn_code || ''}" data-unit="${p.unit}"
+                data-mrp="${p.mrp_price}" data-purchase="${p.purchase_price}"
+                data-tax="${p.tax_percent}"></td>
+        </tr>`;
     }).join(''));
 }
+
 function addSelectedProducts() {
     const checked = $('#productsTableBody .select-product:checked');
     if (!checked.length) { closeAddItemModal(); return; }
     checked.each(function() {
-        const chk = $(this);
-         let qty = Math.max(1, Math.round(parseFloat(chk.closest('tr').find('.qty-input').val()) || 0));
+        const chk  = $(this);
+        const qty  = Math.max(1, Math.round(parseFloat(chk.closest('tr').find('.qty-input').val()) || 0));
+        const isIncl = currentInvType === 'gst' && currentGstMode === 'inclusive';
         const item = {
             product_id:     chk.data('id'),
             product_type:   chk.data('type'),
@@ -1086,10 +1049,9 @@ function addSelectedProducts() {
             purchase_price: parseFloat(chk.data('purchase')),
             quantity:       qty,
             tax_percent:    currentInvType === 'gst' ? parseFloat(chk.data('tax') || 0) : 0,
+            gst_inclusive:  isIncl,
         };
-        const existIdx = items.findIndex(function(i) {
-            return i.product_id === item.product_id && i.variant_id === item.variant_id;
-        });
+        const existIdx = items.findIndex(function(i) { return i.product_id === item.product_id && i.variant_id === item.variant_id; });
         if (existIdx > -1) items[existIdx].quantity += qty;
         else items.push(item);
     });
@@ -1111,12 +1073,14 @@ $('#quickAddForm').on('submit', function(e) {
             if (res.success) {
                 const p = res.product;
                 allProducts.push(p);
+                const isIncl = currentInvType === 'gst' && currentGstMode === 'inclusive';
                 items.push({
                     product_id: p.id, product_type: 'simple', variant_id: null,
                     product_name: p.name, sku: p.sku,
                     hsn_sac: currentInvType === 'gst' ? p.hsn_code : '',
                     unit: p.unit, mrp_price: p.mrp_price, purchase_price: p.purchase_price,
                     quantity: 1, tax_percent: currentInvType === 'gst' ? p.tax_percent : 0,
+                    gst_inclusive: isIncl,
                 });
                 closeQuickAddModal();
                 renderItemsTable();
@@ -1142,14 +1106,7 @@ function renderItemsTable() {
     enableExtraFields();
 
     if (items.length === 0) {
-        tbody.html(`
-            <tr class="empty-row"><td colspan="10">
-                <div class="empty-items">
-                    <div class="empty-icon">📦</div>
-                    <p>No items added yet</p>
-                    <button type="button" class="btn-add-first-item" onclick="openAddItemModal()">+ Add First Item</button>
-                </div>
-            </td></tr>`);
+        tbody.html(`<tr class="empty-row"><td colspan="10"><div class="empty-items"><div class="empty-icon">📦</div><p>No items added yet</p><button type="button" class="btn-add-first-item" onclick="openAddItemModal()">+ Add First Item</button></div></td></tr>`);
         footer.hide();
         resetSummary();
         return;
@@ -1158,17 +1115,32 @@ function renderItemsTable() {
     footer.show();
     let ftMRP = 0, ftPurchase = 0, ftTax = 0, ftTotal = 0;
 
-    // KEY FIX: col-hsn aur col-tax hamesha render hote hain
-    // CSS (.cash-mode .col-hsn / .cash-mode .col-tax) se hide hote hain
     tbody.html(items.map(function(item, idx) {
-        const mrpTotal      = item.quantity * (item.mrp_price || 0);
-        const purchaseTotal = item.quantity * item.purchase_price;
-        const taxAmt        = showTax ? purchaseTotal * (item.tax_percent || 0) / 100 : 0;
-        const rowTotal      = purchaseTotal + taxAmt;
-        ftMRP += mrpTotal; ftPurchase += purchaseTotal; ftTax += taxAmt; ftTotal += rowTotal;
+        const mrpTotal   = item.quantity * (item.mrp_price || 0);
+        const isIncl     = item.gst_inclusive && showTax;
+        const taxPercent = parseFloat(item.tax_percent) || 0;
 
-        return `<tr>
-            <td class="item-name">${item.product_name}</td>
+        let baseTotal, taxAmt, rowTotal;
+        if (isIncl && taxPercent > 0) {
+            const gross = item.quantity * item.purchase_price;
+            baseTotal   = gross * 100 / (100 + taxPercent);
+            taxAmt      = gross - baseTotal;
+            rowTotal    = gross;
+        } else {
+            baseTotal = item.quantity * item.purchase_price;
+            taxAmt    = showTax ? baseTotal * taxPercent / 100 : 0;
+            rowTotal  = baseTotal + taxAmt;
+        }
+
+        ftMRP      += mrpTotal;
+        ftPurchase += baseTotal;
+        ftTax      += taxAmt;
+        ftTotal    += rowTotal;
+
+        const inclBadge = isIncl ? `<span class="incl-badge">INCL</span>` : '';
+
+        return `<tr class="${isIncl ? 'row-inclusive' : ''}">
+            <td class="item-name">${item.product_name}${inclBadge}</td>
             <td>${item.sku || '—'}</td>
             <td class="col-hsn">${item.hsn_sac || '—'}</td>
             <td>${item.unit || 'PCS'}</td>
@@ -1179,7 +1151,7 @@ function renderItemsTable() {
             <td><input type="number" min="0" step="0.01" value="${item.purchase_price.toFixed(2)}"
                 onchange="updateItem(${idx},'purchase_price',this.value)"
                 style="width:80px;padding:3px;border:1px solid #ccc;border-radius:2px;font-size:10px;text-align:right;"></td>
-            <td class="col-tax">${item.tax_percent || 0}%</td>
+            <td class="col-tax">${taxPercent}%</td>
             <td>₹${rowTotal.toFixed(2)}</td>
             <td><button type="button" class="btn-delete" onclick="removeItem(${idx})">✕</button></td>
         </tr>`;
@@ -1196,137 +1168,77 @@ function renderItemsTable() {
 
 function updateItem(idx, field, val) {
     if (items[idx]) {
-        if (field === 'quantity') {
-            // Round to integer and ensure at least 1
-            let newQty = Math.max(1, Math.round(parseFloat(val) || 0));
-            items[idx][field] = newQty;
-        } else {
-            items[idx][field] = parseFloat(val) || 0;
-        }
+        if (field === 'quantity') items[idx][field] = Math.max(1, Math.round(parseFloat(val) || 0));
+        else items[idx][field] = parseFloat(val) || 0;
         renderItemsTable();
     }
 }
-function removeItem(idx) {
-    items.splice(idx, 1);
-    renderItemsTable();
-}
-function resetSummary() {
-    $('#totalMRP,#subtotal,#cgstTotal,#sgstTotal,#igstTotal,#totalTax,#grandTotal').text('0.00');
-    $('#balanceAmount').text('0.00');
-}
+function removeItem(idx) { items.splice(idx, 1); renderItemsTable(); }
+function resetSummary() { $('#totalMRP,#subtotal,#cgstTotal,#sgstTotal,#igstTotal,#totalTax,#grandTotal').text('0.00'); $('#balanceAmount').text('0.00'); }
 
 // ===================== CALCULATIONS =====================
 function calculateInvoiceSummary(totalMRP, subtotal, totalTax) {
     const discType = $('#extraDiscountTypeInput').val();
     let discount = 0;
-    if (discType === 'percent') {
-        const pct = parseFloat($('#extraDiscountPercent').val()) || 0;
-        if (pct > 0) discount = subtotal * pct / 100;
-    } else {
-        discount = parseFloat($('#extraDiscount').val()) || 0;
-    }
+    if (discType === 'percent') { const pct = parseFloat($('#extraDiscountPercent').val()) || 0; if (pct > 0) discount = subtotal * pct / 100; }
+    else discount = parseFloat($('#extraDiscount').val()) || 0;
     const extraCharge = parseFloat($('#extraCharge').val()) || 0;
     let grand = (subtotal - discount) + (currentInvType === 'gst' ? totalTax : 0) + extraCharge;
     if ($('#autoRoundOff').is(':checked')) grand = Math.round(grand);
     $('#totalMRP').text(totalMRP.toFixed(2));
     $('#subtotal').text(subtotal.toFixed(2));
     $('#grandTotal').text(grand.toFixed(2));
-
-     clampAmountPaid();
+    clampAmountPaid();
 }
 function calculateTotals() { renderItemsTable(); }
+
 function calculateBalance() {
     const grandTotal = parseFloat($('#grandTotal').text()) || 0;
     const amountPaid = parseFloat($('#amountPaid').val()) || 0;
-
-    // Get debit note remaining amount from the displayed value
     let debitRemaining = 0;
     const debitRowText = $('#debitNoteRemainingRow .info-value').text();
-    if (debitRowText) {
-        const match = debitRowText.match(/₹\s*([\d,]+\.?\d*)/);
-        if (match) debitRemaining = parseFloat(match[1].replace(/,/g, '')) || 0;
-    }
-
-    // Calculate how much debit note will be used
+    if (debitRowText) { const match = debitRowText.match(/₹\s*([\d,]+\.?\d*)/); if (match) debitRemaining = parseFloat(match[1].replace(/,/g, '')) || 0; }
     const remainingAfterCash = Math.max(0, grandTotal - amountPaid);
     const debitWillUse = Math.min(debitRemaining, remainingAfterCash);
     const finalBalance = Math.max(0, grandTotal - (amountPaid + debitWillUse));
-
     $('#balanceAmount').text(finalBalance.toFixed(2));
-
-    // Remove existing adjustment info
     $('#debitAdjustmentInfo').remove();
-
-    // Show adjustment preview if debit note will be used
     if (debitWillUse > 0) {
         const cashRequired = Math.max(0, grandTotal - debitWillUse);
-        $('#amountPaid').closest('.payment-section-container').append(`
-            <div id="debitAdjustmentInfo" style="margin-top:8px;padding:8px 10px;background:#d1fae5;border-radius:5px;font-size:11px;color:#065f46;border:1px solid #6ee7b7;">
-                ✓ Debit Note ₹${debitWillUse.toFixed(2)} will be auto-adjusted on generate
-                <br>
-                <span style="font-size:10px;color:#047857;">
-                    You need to pay only ₹${cashRequired.toFixed(2)} (Cash + Debit Note)
-                </span>
-            </div>
-        `);
+        $('#amountPaid').closest('.payment-section-container').append(`<div id="debitAdjustmentInfo" style="margin-top:8px;padding:8px 10px;background:#d1fae5;border-radius:5px;font-size:11px;color:#065f46;border:1px solid #6ee7b7;">✓ Debit Note ₹${debitWillUse.toFixed(2)} will be auto-adjusted on generate<br><span style="font-size:10px;color:#047857;">You need to pay only ₹${cashRequired.toFixed(2)} (Cash + Debit Note)</span></div>`);
     }
 }
 function validateAndCalculateBalance() {
-    const grand = parseFloat($('#grandTotal').text()) || 0;
-    const paid  = parseFloat($('#amountPaid').val())  || 0;
-    // Type karte waqt grand total se zyada ho to red border dikhao
-    if (paid > grand) {
-        $('#amountPaid').css('border-color', '#dc3545');
-    } else {
-        $('#amountPaid').css('border-color', '#ccc');
-    }
+    const grand = parseFloat($('#grandTotal').text()) || 0, paid = parseFloat($('#amountPaid').val()) || 0;
+    $('#amountPaid').css('border-color', paid > grand ? '#dc3545' : '#ccc');
     calculateBalance();
 }
-
 function clampAmountPaid() {
     const grand = parseFloat($('#grandTotal').text()) || 0;
     let paid    = parseFloat($('#amountPaid').val())  || 0;
-    // Field se focus hatne par forcefully clamp karo
-    if (paid > grand) {
-        paid = grand;
-        $('#amountPaid').val(paid.toFixed(2));
-        $('#amountPaid').css('border-color', '#ccc');
-        showAlert('Amount paid cannot exceed grand total', 'error');
-    }
+    if (paid > grand) { paid = grand; $('#amountPaid').val(paid.toFixed(2)); $('#amountPaid').css('border-color','#ccc'); showAlert('Amount paid cannot exceed grand total', 'error'); }
     calculateBalance();
 }
+function markFullyPaid() { $('#amountPaid').val((parseFloat($('#grandTotal').text()) || 0).toFixed(2)); calculateBalance(); }
 
-// Modified markFullyPaid function
-function markFullyPaid() {
-    $('#amountPaid').val((parseFloat($('#grandTotal').text()) || 0).toFixed(2));
-    calculateBalance();
-}
 // ===================== EXTRA DISCOUNT / CHARGE =====================
 function enableExtraFields() {
     const has = items.length > 0;
-    if (has) {
-        $('#addDiscountLink,#addDiscountPercentLink,#addChargeLink').removeClass('disabled-link');
-    } else {
-        $('#addDiscountLink,#addDiscountPercentLink,#addChargeLink').addClass('disabled-link');
-        $('#extraDiscountRow,#extraDiscountPercentRow,#extraChargeRow').hide();
-        $('#extraDiscount,#extraDiscountPercent,#extraCharge,#chargeName').val('');
-        $('#extraDiscountTypeInput').val('amount');
-    }
+    if (has) { $('#addDiscountLink,#addDiscountPercentLink,#addChargeLink').removeClass('disabled-link'); }
+    else { $('#addDiscountLink,#addDiscountPercentLink,#addChargeLink').addClass('disabled-link'); $('#extraDiscountRow,#extraDiscountPercentRow,#extraChargeRow').hide(); $('#extraDiscount,#extraDiscountPercent,#extraCharge,#chargeName').val(''); $('#extraDiscountTypeInput').val('amount'); }
 }
 function toggleExtraDiscount() {
     if (!items.length) { showAlert('Add items first', 'error'); return; }
     $('#extraDiscountPercentRow').hide(); $('#extraDiscountPercent').val('');
     $('#extraDiscountRow').toggle();
-    if ($('#extraDiscountRow').is(':visible')) { $('#extraDiscountTypeInput').val('amount'); $('#extraDiscount').focus(); }
-    else $('#extraDiscount').val('');
+    if ($('#extraDiscountRow').is(':visible')) { $('#extraDiscountTypeInput').val('amount'); $('#extraDiscount').focus(); } else $('#extraDiscount').val('');
     calculateTotals();
 }
 function toggleExtraDiscountPercent() {
     if (!items.length) { showAlert('Add items first', 'error'); return; }
     $('#extraDiscountRow').hide(); $('#extraDiscount').val('');
     $('#extraDiscountPercentRow').toggle();
-    if ($('#extraDiscountPercentRow').is(':visible')) { $('#extraDiscountTypeInput').val('percent'); $('#extraDiscountPercent').focus(); }
-    else $('#extraDiscountPercent').val('');
+    if ($('#extraDiscountPercentRow').is(':visible')) { $('#extraDiscountTypeInput').val('percent'); $('#extraDiscountPercent').focus(); } else $('#extraDiscountPercent').val('');
     calculateTotals();
 }
 function toggleExtraCharge() {
@@ -1337,48 +1249,36 @@ function toggleExtraCharge() {
 
 // ===================== PAYMENT TERMS =====================
 function updateDueDateFromTerms() {
-    const invDate = $('#invoiceDate').val();
-    const days    = parseInt($('#paymentTermsDays').val()) || 0;
+    const invDate = $('#invoiceDate').val(), days = parseInt($('#paymentTermsDays').val()) || 0;
     if (!invDate || days <= 0) return;
-    const d = new Date(invDate);
-    d.setDate(d.getDate() + days);
+    const d = new Date(invDate); d.setDate(d.getDate() + days);
     $('#dueDate').val(d.toISOString().split('T')[0]);
     $('#paymentTermsInput').val('Due in ' + days + ' days');
 }
 function updatePaymentTermsFromDueDate() {
-    const inv = $('#invoiceDate').val();
-    const due = $('#dueDate').val();
+    const inv = $('#invoiceDate').val(), due = $('#dueDate').val();
     if (!inv || !due) return;
     const diff = Math.ceil((new Date(due) - new Date(inv)) / 86400000);
-    $('#paymentTermsDays').val(diff);
-    $('#paymentTermsInput').val('Due in ' + diff + ' days');
+    $('#paymentTermsDays').val(diff); $('#paymentTermsInput').val('Due in ' + diff + ' days');
 }
 
 // ===================== DOCUMENT READY =====================
 $(document).ready(function() {
     currentInvType = 'gst';
+    currentGstMode = 'exclusive';
     handleInvoiceTypeChange();
     showIntraStateTax();
     enableExtraFields();
     onCreatePartyTypeChange('vendor');
 
     $('.party-type-tab').on('click', function() {
-        $('.party-type-tab').removeClass('active');
-        $(this).addClass('active');
-        currentPartyTab = $(this).data('type');
-        loadParties();
+        $('.party-type-tab').removeClass('active'); $(this).addClass('active');
+        currentPartyTab = $(this).data('type'); loadParties();
     });
-
-    $('#searchParty').on('input', function() {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(function() { loadParties(); }, 300);
-    });
-
+    $('#searchParty').on('input', function() { clearTimeout(searchTimer); searchTimer = setTimeout(function() { loadParties(); }, 300); });
     $('#searchProduct').on('input', function() {
         const s = $(this).val().toLowerCase();
-        const filtered = allProducts.filter(function(p) {
-            return p.name.toLowerCase().includes(s) || (p.sku || '').toLowerCase().includes(s);
-        });
+        const filtered = allProducts.filter(function(p) { return p.name.toLowerCase().includes(s) || (p.sku || '').toLowerCase().includes(s); });
         renderProductTable(filtered);
     });
 
@@ -1395,34 +1295,21 @@ $(document).ready(function() {
     $('#createPartyForm').on('submit', function(e) {
         e.preventDefault();
         const phone = $('input[name="phone"]').val();
-        if (!/^[6-9]\d{9}$/.test(phone)) {
-            showAlert('Please enter a valid 10-digit phone number', 'error');
-            return;
-        }
+        if (!/^[6-9]\d{9}$/.test(phone)) { showAlert('Please enter a valid 10-digit phone number', 'error'); return; }
         const formData = $(this).serializeArray();
         formData.push({ name: 'same_billing_shipping', value: $('#sameBillingShipping').is(':checked') ? '1' : '0' });
         $.ajax({
-            url: '{{ route("admin.purchases.create-party") }}',
-            type: 'POST',
-            data: $.param(formData),
+            url: '{{ route("admin.purchases.create-party") }}', type: 'POST', data: $.param(formData),
             success: function(res) {
-                if (res.success) {
-                    showAlert('Party created!', 'success');
-                    closeCreatePartyModal();
-                    selectParty(res.party_id, res.party_type);
-                } else {
-                    showAlert('Error: ' + res.message, 'error');
-                }
+                if (res.success) { showAlert('Party created!', 'success'); closeCreatePartyModal(); selectParty(res.party_id, res.party_type); }
+                else showAlert('Error: ' + res.message, 'error');
             },
-            error: function(xhr) {
-                showAlert(xhr.responseJSON?.message || 'Failed to create party', 'error');
-            }
+            error: function(xhr) { showAlert(xhr.responseJSON?.message || 'Failed to create party', 'error'); }
         });
     });
 
     $('.modal-overlay').on('click', function() { $(this).closest('.modal').hide(); });
     $(document).on('keydown', function(e) { if (e.key === 'Escape') $('.modal').hide(); });
-
     $('#extraDiscount,#extraDiscountPercent,#extraCharge').on('input', calculateTotals);
     $('#amountPaid').on('input', calculateBalance);
     $('#autoRoundOff').on('change', calculateTotals);
@@ -1431,13 +1318,12 @@ $(document).ready(function() {
         e.preventDefault();
         if (isSubmitting) { showAlert('Please wait...', 'info'); return; }
         const partyType = $('#partyTypeInput').val();
-        if (!partyType)   { showAlert('Please select a party', 'error'); return; }
+        if (!partyType)    { showAlert('Please select a party', 'error'); return; }
         if (!$('#invoiceType').val()) { showAlert('Please select invoice type', 'error'); return; }
-        if (!items.length)            { showAlert('Please add at least one item', 'error'); return; }
+        if (!items.length) { showAlert('Please add at least one item', 'error'); return; }
 
         isSubmitting = true;
-        const $btn  = $('#submitBtn');
-        const orig  = $btn.html();
+        const $btn = $('#submitBtn'), orig = $btn.html();
         $btn.prop('disabled', true).html('<span class="spinner"></span> Creating...');
 
         const fd = new FormData();
@@ -1445,49 +1331,32 @@ $(document).ready(function() {
         fd.append('items',          JSON.stringify(items));
         fd.append('grand_total',    $('#grandTotal').text());
         fd.append('auto_round_off', $('#autoRoundOff').is(':checked') ? 1 : 0);
+        fd.append('gst_mode',       currentGstMode);
 
         const discType = $('#extraDiscountTypeInput').val();
         fd.append('extra_discount_type', discType);
-        fd.append('extra_discount', discType === 'percent'
-            ? ($('#extraDiscountPercent').val() || 0)
-            : ($('#extraDiscount').val() || 0));
+        fd.append('extra_discount', discType === 'percent' ? ($('#extraDiscountPercent').val() || 0) : ($('#extraDiscount').val() || 0));
         fd.append('extra_charge', $('#extraCharge').val() || 0);
         fd.append('charge_name',  $('#chargeName').val()  || '');
 
         $.ajax({
-            url: '{{ route("admin.purchases.store") }}',
-            type: 'POST', data: fd, processData: false, contentType: false,
+            url: '{{ route("admin.purchases.store") }}', type: 'POST', data: fd, processData: false, contentType: false,
             success: function(res) {
-                if (res.success) {
-                    showAlert('Invoice created!', 'success');
-                    setTimeout(function() { window.location.href = '/admin/purchases/' + res.invoice_id; }, 1500);
-                } else {
-                    showAlert('Error: ' + res.message, 'error');
-                    isSubmitting = false; $btn.prop('disabled', false).html(orig);
-                }
+                if (res.success) { showAlert('Invoice created!', 'success'); setTimeout(function() { window.location.href = '/admin/purchases/' + res.invoice_id; }, 1500); }
+                else { showAlert('Error: ' + res.message, 'error'); isSubmitting = false; $btn.prop('disabled', false).html(orig); }
             },
-            error: function(xhr) {
-                showAlert(xhr.responseJSON?.message || 'Failed', 'error');
-                isSubmitting = false; $btn.prop('disabled', false).html(orig);
-            }
+            error: function(xhr) { showAlert(xhr.responseJSON?.message || 'Failed', 'error'); isSubmitting = false; $btn.prop('disabled', false).html(orig); }
         });
     });
 
-    // Polling for new product
     setInterval(function() {
         if (localStorage.getItem('product_created') === 'true') {
             localStorage.removeItem('product_created');
             const modalOpen = $('#addItemModal').is(':visible');
-            allProducts = [];
-            $('#productsLoading').show();
-            $('#productsTableBody').empty();
+            allProducts = []; $('#productsLoading').show(); $('#productsTableBody').empty();
             $.get('{{ route("admin.purchases.get-warehouse-products") }}', function(res) {
-                $('#productsLoading').hide();
-                allProducts = res.products || [];
-                if (modalOpen) {
-                    renderProductTable(allProducts);
-                    showAlert('New product added to list! ✓', 'success');
-                }
+                $('#productsLoading').hide(); allProducts = res.products || [];
+                if (modalOpen) { renderProductTable(allProducts); showAlert('New product added to list! ✓', 'success'); }
             }).fail(function() { $('#productsLoading').hide(); });
         }
     }, 1000);

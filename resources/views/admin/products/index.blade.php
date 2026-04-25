@@ -32,7 +32,7 @@
                 </div>
             </div>
         </div>
-        <div class="report-card">
+        <div class="report-card" onclick="openLowStockModal()" style="cursor:pointer;">
             <div class="card-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">⚠️</div>
             <div class="card-info">
                 <div class="card-title">Low Stock Products</div>
@@ -386,6 +386,70 @@
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="closeBulkActionModal()">Cancel</button>
             <button type="button" class="btn-confirm" id="confirmBulkAction" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Confirm Update</button>
+        </div>
+    </div>
+</div>
+
+<!-- Low Stock Modal -->
+<div class="modal" id="lowStockModal">
+    <div class="modal-overlay" onclick="closeLowStockModal()"></div>
+    <div class="modal-content" style="max-width:750px; max-height:85vh;">
+        <div class="modal-header">
+            <div class="modal-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">⚠️</div>
+            <div class="modal-title-section">
+                <h4 class="modal-title">Low Stock Products</h4>
+                <p class="modal-subtitle" id="lowStockModalSubtitle">Loading...</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button onclick="downloadLowStockReport()" style="padding:7px 14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
+                    📥 Download CSV
+                </button>
+                <button class="modal-close" onclick="closeLowStockModal()">×</button>
+            </div>
+        </div>
+
+        <div class="modal-body" style="padding:16px;overflow-y:auto;max-height:calc(85vh - 140px);">
+
+            <!-- Summary Badges -->
+            <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+                <div style="padding:8px 14px;background:#fef3c7;border:1px solid #fde68a;border-radius:20px;font-size:12px;font-weight:600;color:#92400e;">
+                    ⚠️ Low Stock: <span id="ls_low_count">0</span>
+                </div>
+                <div style="padding:8px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:20px;font-size:12px;font-weight:600;color:#991b1b;">
+                    🔴 Critical: <span id="ls_critical_count">0</span>
+                </div>
+                <div style="padding:8px 14px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;font-size:12px;font-weight:600;color:#475569;">
+                    ⬛ Out of Stock: <span id="ls_out_count">0</span>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="lowStockLoading" style="text-align:center;padding:40px;color:#94a3b8;">
+                <div style="font-size:32px;margin-bottom:8px;">⏳</div>
+                <p>Loading...</p>
+            </div>
+
+            <!-- Table -->
+            <div id="lowStockTableWrapper" style="display:none;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead>
+                        <tr style="background:#f8fafc;">
+                            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase;">Product</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase;">SKU</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase;">Type</th>
+                            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase;">Stock</th>
+                            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase;">Min Alert</th>
+                            <th style="padding:10px 12px;text-align:center;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase;">Status</th>
+                            <th style="padding:10px 12px;text-align:left;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lowStockTableBody"></tbody>
+                </table>
+                <div id="lowStockEmpty" style="display:none;text-align:center;padding:40px;color:#94a3b8;">
+                    <div style="font-size:40px;margin-bottom:8px;">✅</div>
+                    <p>All products are well stocked!</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1937,8 +2001,114 @@ if (localStorage.getItem('product_created_close') === 'true') {
             closeProductTypeModal();
             closeBulkActionModal();
             closeStockManagementModal();
+            closeLowStockModal();
         }
     });
+
+    // ========== LOW STOCK MODAL ==========
+let lowStockData = [];
+
+function openLowStockModal() {
+    document.getElementById('lowStockModal').style.display = 'flex';
+    loadLowStockData();
+}
+
+function closeLowStockModal() {
+    document.getElementById('lowStockModal').style.display = 'none';
+}
+
+function loadLowStockData() {
+    document.getElementById('lowStockLoading').style.display = 'block';
+    document.getElementById('lowStockTableWrapper').style.display = 'none';
+
+    fetch('{{ route("admin.products.low-stock-report") }}')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('lowStockLoading').style.display = 'none';
+            document.getElementById('lowStockTableWrapper').style.display = 'block';
+
+            if (data.success) {
+                lowStockData = data.products || [];
+                document.getElementById('ls_low_count').textContent = data.low_stock_count || 0;
+                document.getElementById('ls_critical_count').textContent = data.critical_stock_count || 0;
+                document.getElementById('ls_out_count').textContent = data.out_of_stock_count || 0;
+                document.getElementById('lowStockModalSubtitle').textContent = lowStockData.length + ' product(s) need attention';
+                renderLowStockTable(lowStockData);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById('lowStockLoading').innerHTML = '<p style="color:#ef4444;">Error loading data</p>';
+        });
+}
+
+function renderLowStockTable(products) {
+    const tbody = document.getElementById('lowStockTableBody');
+    const empty = document.getElementById('lowStockEmpty');
+    tbody.innerHTML = '';
+
+    if (products.length === 0) {
+        empty.style.display = 'block';
+        return;
+    }
+    empty.style.display = 'none';
+
+    const statusMap = {
+        'out_of_stock': { bg: '#fee2e2', color: '#991b1b', text: 'Out of Stock' },
+        'critical':     { bg: '#fff1f2', color: '#be123c', text: 'Critical' },
+        'low_stock':    { bg: '#fef3c7', color: '#92400e', text: 'Low Stock' }
+    };
+
+    products.forEach(p => {
+        const s = statusMap[p.status] || { bg: '#f1f5f9', color: '#475569', text: p.status };
+        const typeBadge = p.type === 'simple'
+            ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">Simple</span>'
+            : '<span style="background:#f3e8ff;color:#6b21a8;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">Variant</span>';
+
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #f1f5f9';
+        tr.innerHTML = `
+            <td style="padding:10px 12px;font-weight:500;color:#1e293b;max-width:200px;">
+                <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${p.name}">${p.name}</div>
+                <div style="font-size:10px;color:#94a3b8;">${p.category}</div>
+            </td>
+            <td style="padding:10px 12px;color:#64748b;font-family:monospace;">${p.sku}</td>
+            <td style="padding:10px 12px;">${typeBadge}</td>
+            <td style="padding:10px 12px;text-align:center;">
+                <span style="font-weight:700;font-size:14px;color:${p.stock <= 0 ? '#ef4444' : p.stock <= 5 ? '#f59e0b' : '#1e293b'};">${p.stock}</span>
+                <div style="font-size:10px;color:#94a3b8;">${p.unit}</div>
+            </td>
+            <td style="padding:10px 12px;text-align:center;color:#64748b;">${p.min_stock_alert}</td>
+            <td style="padding:10px 12px;text-align:center;">
+                <span style="background:${s.bg};color:${s.color};padding:3px 10px;border-radius:12px;font-size:10px;font-weight:600;">${s.text}</span>
+            </td>
+            <td style="padding:10px 12px;font-size:11px;color:#64748b;">${p.action}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function downloadLowStockReport() {
+    if (!lowStockData || lowStockData.length === 0) {
+        alert('No data to download');
+        return;
+    }
+    const headers = ['Product Name','SKU','Category','Type','Stock','Unit','Min Stock Alert','Status','Action Required'];
+    const rows = lowStockData.map(p => [
+        `"${p.name}"`, p.sku, p.category, p.type,
+        p.stock, p.unit, p.min_stock_alert,
+        p.status === 'out_of_stock' ? 'Out of Stock' : p.status === 'critical' ? 'Critical' : 'Low Stock',
+        `"${p.action}"`
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `low_stock_report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
 </script>
 @endpush
 @endsection

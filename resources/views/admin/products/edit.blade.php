@@ -2349,14 +2349,14 @@
         }
 
         // MRP must be greater than sale price
-        if (mrpPrice > 0 && mrpPrice <= salePrice) {
+        if (mrpPrice > 0 && mrpPrice < salePrice) {
             if (mrpInput) mrpInput.classList.add('price-error');
             if (mrpPriceMsg) {
                 mrpPriceMsg.className = 'price-message error';
                 mrpPriceMsg.textContent = 'MRP must be greater than sale price';
             }
             isValid = false;
-        } else if (mrpPrice > salePrice) {
+        } else if (mrpPrice >= salePrice) {
             if (mrpInput) mrpInput.classList.add('price-success');
             if (mrpPriceMsg) {
                 mrpPriceMsg.className = 'price-message success';
@@ -2403,14 +2403,14 @@
         }
 
         // MRP must be greater than sale price
-        if (mrpPrice > 0 && mrpPrice <= salePrice) {
+        if (mrpPrice > 0 && mrpPrice < salePrice) {
             if (mrpInput) mrpInput.classList.add('price-error');
             if (mrpPriceMsg) {
                 mrpPriceMsg.className = 'price-message error';
                 mrpPriceMsg.textContent = 'MRP must be greater than sale price';
             }
             isValid = false;
-        } else if (mrpPrice > salePrice) {
+        } else if (mrpPrice >= salePrice) {
             if (mrpInput) mrpInput.classList.add('price-success');
             if (mrpPriceMsg) {
                 mrpPriceMsg.className = 'price-message success';

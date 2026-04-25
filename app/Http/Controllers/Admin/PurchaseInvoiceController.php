@@ -120,30 +120,44 @@ private function generateInvoiceNumber(string $invoiceType = 'gst'): string
         return $m >= 4 ? "{$y}-" . ($y + 1) : ($y - 1) . "-{$y}";
     }
 
-    /**
-     * Calculate item totals from the items array.
-     */
     private function calcItemTotals(array $items, string $invoiceType, bool $isIntra): array
     {
         $subtotal  = $totalMRP = $taxTotal = $cgst = $sgst = $igst = 0.0;
 
         foreach ($items as $item) {
-            $qty       = (float) $item['quantity'];
-            $price     = (float) $item['purchase_price'];
-            $mrp       = (float) ($item['mrp_price'] ?? $price);
-            $itemTotal = $qty * $price;
+            $qty        = (float) $item['quantity'];
+            $price      = (float) $item['purchase_price'];
+            $mrp        = (float) ($item['mrp_price'] ?? $price);
+            $taxPercent = (float) ($item['tax_percent'] ?? 0);
+            $isIncl     = !empty($item['gst_inclusive']);
 
-            $subtotal  += $itemTotal;
-            $totalMRP  += $qty * $mrp;
+            $totalMRP += $qty * $mrp;
+
+            if ($invoiceType === 'gst' && $isIncl && $taxPercent > 0) {
+                // Inclusive: reverse-extract base price
+                $basePerUnit   = $price * 100 / (100 + $taxPercent);
+                $itemBaseTotal = $qty * $basePerUnit;
+                $grossTotal    = $qty * $price;
+                $tax           = $grossTotal - $itemBaseTotal;
+            } else {
+                // Exclusive (default)
+                $basePerUnit   = $price;
+                $itemBaseTotal = $qty * $price;
+                $tax           = $invoiceType === 'gst'
+                    ? $itemBaseTotal * $taxPercent / 100
+                    : 0;
+            }
+
+            $subtotal += $itemBaseTotal;
+            $taxTotal += $tax;
 
             if ($invoiceType === 'gst') {
-                $tax      = $itemTotal * ((float)($item['tax_percent'] ?? 0)) / 100;
-                $taxTotal += $tax;
-                $isIntra ? ($cgst += $tax / 2) && ($sgst += $tax / 2) : ($igst += $tax);
+                if ($isIntra) { $cgst += $tax / 2; $sgst += $tax / 2; }
+                else          { $igst += $tax; }
             }
         }
 
-        return compact('subtotal','totalMRP','taxTotal','cgst','sgst','igst');
+        return compact('subtotal', 'totalMRP', 'taxTotal', 'cgst', 'sgst', 'igst');
     }
 
     private function resolvePaymentStatus(float $paid, float $balance): string
@@ -653,23 +667,6 @@ public function getPartyDetails($id, Request $request)
         }
     }
 
-    // =========================================================
-    //  STORE
-    // =========================================================
-    //
-    //  IMPORTANT ACCOUNTING RULES (opening_balance is NEVER modified):
-    //
-    //  Vendor purchase   → We owe vendor more  → payable increases (+)
-    //  Dealer/Distributor purchase from them → They owe us less / we record purchase transaction
-    //                                          → their outstanding reduces (-)
-    //
-    //  Grand Total = pure invoice total (subtotal + tax + charges − discounts)
-    //  Opening balance is just informational context; the ledger balance is
-    //  calculated dynamically from opening_balance + all transactions.
-    //
-    //  We do NOT subtract opening_balance from grand_total here.
-    // =========================================================
-
     public function store(Request $request)
     {
         if ($request->has('items') && is_string($request->items)) {
@@ -678,73 +675,66 @@ public function getPartyDetails($id, Request $request)
         if (empty($request->purchase_executive_id)) {
             $request->merge(['purchase_executive_id' => null]);
         }
+
         $v = Validator::make($request->all(), [
-            'party_type'            => 'required|in:vendor,dealer,distributor',
-            'vendor_id'             => 'required_if:party_type,vendor',
-            'dealer_id'             => 'required_if:party_type,dealer',
-            'distributor_id'        => 'required_if:party_type,distributor',
-            'warehouse_id'          => 'required',
-            'invoice_date'          => 'required|date',
-            'invoice_type'          => 'required|in:gst,cash',
-            'items'                 => 'required|array|min:1',
-            'items.*.product_name'  => 'required|string',
-            'items.*.quantity'      => 'required|numeric|min:0.01',
-            'items.*.purchase_price'=> 'required|numeric|min:0',
-            'purchase_executive_id' => 'nullable|exists:salesmen,_id',
+            'party_type'             => 'required|in:vendor,dealer,distributor',
+            'vendor_id'              => 'required_if:party_type,vendor',
+            'dealer_id'              => 'required_if:party_type,dealer',
+            'distributor_id'         => 'required_if:party_type,distributor',
+            'warehouse_id'           => 'required',
+            'invoice_date'           => 'required|date',
+            'invoice_type'           => 'required|in:gst,cash',
+            'items'                  => 'required|array|min:1',
+            'items.*.product_name'   => 'required|string',
+            'items.*.quantity'       => 'required|numeric|min:0.01',
+            'items.*.purchase_price' => 'required|numeric|min:0',
+            'purchase_executive_id'  => 'nullable|exists:salesmen,_id',
         ]);
-        if ($v->fails()) return response()->json(['success'=>false,'message'=>$v->errors()->first()],422);
-
-
+        if ($v->fails()) return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
 
         try {
-
             [$partyId, $billing, $shipping, $peId, $partyModel] = $this->resolvePartyFromRequest($request);
 
-            $wh           = Warehouse::findOrFail($request->warehouse_id);
-            $whState      = $wh->state ?? '';
-            $partyState   = $billing?->state ?? '';
-            $isIntra      = $whState && $partyState && strtolower($whState) === strtolower($partyState);
+            $wh         = Warehouse::findOrFail($request->warehouse_id);
+            $whState    = $wh->state ?? '';
+            $partyState = $billing?->state ?? '';
+            $isIntra    = $whState && $partyState && strtolower($whState) === strtolower($partyState);
 
             $totals = $this->calcItemTotals($request->items, $request->invoice_type, $isIntra);
 
-            // Extra discount
             $discType   = $request->extra_discount_type ?? 'amount';
-            $discValue  = (float)($request->extra_discount ?? 0);
+            $discValue  = (float) ($request->extra_discount ?? 0);
             $discAmount = $discType === 'percent'
                 ? $totals['subtotal'] * $discValue / 100
                 : $discValue;
 
-            $extraCharge = (float)($request->extra_charge ?? 0);
+            $extraCharge = (float) ($request->extra_charge ?? 0);
             $grandTotal  = ($totals['subtotal'] - $discAmount)
                          + ($request->invoice_type === 'gst' ? $totals['taxTotal'] : 0)
                          + $extraCharge;
 
-            // Round off
             $roundOff = 0;
             if ($request->auto_round_off) {
-                $rounded  = round($grandTotal);
-                $roundOff = $rounded - $grandTotal;
+                $rounded    = round($grandTotal);
+                $roundOff   = $rounded - $grandTotal;
                 $grandTotal = $rounded;
             }
 
-            $amountPaid = (float)($request->amount_paid ?? 0);
+            $amountPaid = (float) ($request->amount_paid ?? 0);
             $balance    = $grandTotal - $amountPaid;
             $payStatus  = $this->resolvePaymentStatus($amountPaid, $balance);
             if ($payStatus === 'paid') $balance = 0;
-            $partyName = '';
 
-            if ($request->party_type === 'vendor') {
-                $partyName = $partyModel->company_name;
-            } else {
-                $partyName = $partyModel->name;
-            }
+            $partyName = $request->party_type === 'vendor'
+                ? $partyModel->company_name
+                : $partyModel->name;
+
             $invoice = PurchaseInvoice::create([
-                'invoice_number' => $this->generateInvoiceNumber($request->invoice_type ?? 'gst'),
+                'invoice_number'        => $this->generateInvoiceNumber($request->invoice_type ?? 'gst'),
                 'public_token'          => Str::random(40),
                 'invoice_type'          => $request->invoice_type,
+                'gst_mode'              => $request->gst_mode ?? 'exclusive',
                 'invoice_date'          => $request->invoice_date,
-                // party_id stores the party ID regardless of type (vendor, dealer, distributor)
-                // Party type is NOT stored — it is derived by looking up the ID
                 'party_id'              => $partyId,
                 'party_type'            => $request->party_type,
                 'party_name'            => $partyName,
@@ -778,31 +768,33 @@ public function getPartyDetails($id, Request $request)
             ]);
 
             foreach ($request->items as $item) {
-                $qty   = (float)$item['quantity'];
-                $price = (float)$item['purchase_price'];
-                $mrp   = (float)($item['mrp_price'] ?? $price);
-                $taxPercent = (float)($item['tax_percent'] ?? 0);
-                $discountPercent = (float)($item['discount'] ?? 0);
+                $qty             = (float) $item['quantity'];
+                $price           = (float) $item['purchase_price'];
+                $mrp             = (float) ($item['mrp_price'] ?? $price);
+                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
+                $discountPercent = (float) ($item['discount'] ?? 0);
+                $isIncl          = !empty($item['gst_inclusive']) && $request->invoice_type === 'gst';
 
-                // 1. subtotal
-                $subtotal = $qty * $price;
+                if ($isIncl && $taxPercent > 0) {
+                    $basePerUnit   = $price * 100 / (100 + $taxPercent);
+                    $itemBaseTotal = $qty * $basePerUnit;
+                    $grossTotal    = $qty * $price;
+                    $taxAmount     = $grossTotal - $itemBaseTotal;
+                    $total         = $grossTotal;
+                } else {
+                    $basePerUnit    = $price;
+                    $itemBaseTotal  = $qty * $price;
+                    $discountAmount = ($itemBaseTotal * $discountPercent) / 100;
+                    $taxable        = $itemBaseTotal - $discountAmount;
+                    $taxAmount      = $request->invoice_type === 'gst'
+                        ? ($taxable * $taxPercent) / 100
+                        : 0;
+                    $total          = $taxable + $taxAmount;
+                }
 
-                // 2. discount
-                $discountAmount = ($subtotal * $discountPercent) / 100;
-
-                // 3. taxable
-                $taxable = $subtotal - $discountAmount;
-
-                // 4. tax
-                $taxAmount = ($taxable * $taxPercent) / 100;
-
-                // 5. GST split
                 $cgst = $isIntra ? $taxAmount / 2 : 0;
                 $sgst = $isIntra ? $taxAmount / 2 : 0;
                 $igst = !$isIntra ? $taxAmount : 0;
-
-                // 6. final total
-                $total = $taxable + $taxAmount;
 
                 PurchaseInvoiceItem::create([
                     'purchase_invoice_id' => $invoice->id,
@@ -814,35 +806,27 @@ public function getPartyDetails($id, Request $request)
                     'quantity'            => $qty,
                     'unit'                => $item['unit'] ?? 'PCS',
                     'mrp_price'           => round($mrp, 2),
-                    'purchase_price'      => round($price, 2),
-
-                    // ✅ important fields
-                    'discount'            => round($discountAmount, 2),
+                    'purchase_price'      => round($basePerUnit, 2),
+                    'purchase_price_incl' => $isIncl ? round($price, 2) : null,
+                    'gst_inclusive'       => $isIncl,
+                    'discount'            => round($discountPercent, 2),
                     'tax_percent'         => $taxPercent,
                     'tax_amount'          => round($taxAmount, 2),
                     'cgst_amount'         => round($cgst, 2),
                     'sgst_amount'         => round($sgst, 2),
                     'igst_amount'         => round($igst, 2),
-
-                    // ✅ FINAL TOTAL
                     'total'               => round($total, 2),
                 ]);
             }
 
-
-            return response()->json(['success'=>true,'invoice_id'=>$invoice->id,'message'=>'Purchase invoice created successfully']);
+            return response()->json(['success' => true, 'invoice_id' => $invoice->id, 'message' => 'Purchase invoice created successfully']);
 
         } catch (\Exception $e) {
-
-            return response()->json(['success'=>false,'message'=>'Error: '.$e->getMessage()],500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
-/**
-     * Generate invoice (draft → confirmed + stock in)
-     * PASTE THIS generate() method inside PurchaseInvoiceController
-     * replacing the existing generate() method
-     */
+
     public function generate($id)
     {
         try {
@@ -1196,15 +1180,11 @@ public function getPartyDetails($id, Request $request)
         ));
     }
 
-    // =========================================================
-    //  UPDATE
-    // =========================================================
-
     public function update(Request $request, $id)
     {
         $invoice = PurchaseInvoice::findOrFail($id);
         if ($invoice->status !== 'draft') {
-            return response()->json(['success'=>false,'message'=>'Only draft invoices can be updated.'],403);
+            return response()->json(['success' => false, 'message' => 'Only draft invoices can be updated.'], 403);
         }
 
         if ($request->has('items') && is_string($request->items)) {
@@ -1212,58 +1192,61 @@ public function getPartyDetails($id, Request $request)
         }
 
         $v = Validator::make($request->all(), [
-            'party_type'            => 'required|in:vendor,dealer,distributor',
-            'vendor_id'             => 'required_if:party_type,vendor',
-            'dealer_id'             => 'required_if:party_type,dealer',
-            'distributor_id'        => 'required_if:party_type,distributor',
-            'warehouse_id'          => 'required',
-            'invoice_date'          => 'required|date',
-            'invoice_type'          => 'required|in:gst,cash',
-            'items'                 => 'required|array|min:1',
-            'items.*.product_name'  => 'required|string',
-            'items.*.quantity'      => 'required|numeric|min:0.01',
-            'items.*.purchase_price'=> 'required|numeric|min:0',
+            'party_type'             => 'required|in:vendor,dealer,distributor',
+            'vendor_id'              => 'required_if:party_type,vendor',
+            'dealer_id'              => 'required_if:party_type,dealer',
+            'distributor_id'         => 'required_if:party_type,distributor',
+            'warehouse_id'           => 'required',
+            'invoice_date'           => 'required|date',
+            'invoice_type'           => 'required|in:gst,cash',
+            'items'                  => 'required|array|min:1',
+            'items.*.product_name'   => 'required|string',
+            'items.*.quantity'       => 'required|numeric|min:0.01',
+            'items.*.purchase_price' => 'required|numeric|min:0',
         ]);
-        if ($v->fails()) return response()->json(['success'=>false,'message'=>$v->errors()->first()],422);
+        if ($v->fails()) return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
 
         try {
             [$partyId, $billing, $shipping, $peId, $partyModel] = $this->resolvePartyFromRequest($request);
 
-            $wh       = Warehouse::findOrFail($request->warehouse_id);
-            $isIntra  = $wh->state && ($billing?->state)
+            $wh      = Warehouse::findOrFail($request->warehouse_id);
+            $isIntra = $wh->state && ($billing?->state)
                 && strtolower($wh->state) === strtolower($billing->state);
 
             $totals    = $this->calcItemTotals($request->items, $request->invoice_type, $isIntra);
             $discType  = $request->extra_discount_type ?? 'amount';
-            $discValue = (float)($request->extra_discount ?? 0);
+            $discValue = (float) ($request->extra_discount ?? 0);
             $discAmt   = $discType === 'percent' ? $totals['subtotal'] * $discValue / 100 : $discValue;
-            $extraChg  = (float)($request->extra_charge ?? 0);
+            $extraChg  = (float) ($request->extra_charge ?? 0);
             $grand     = ($totals['subtotal'] - $discAmt)
                        + ($request->invoice_type === 'gst' ? $totals['taxTotal'] : 0)
                        + $extraChg;
 
             $roundOff = 0;
-            if ($request->auto_round_off) { $rounded = round($grand); $roundOff = $rounded - $grand; $grand = $rounded; }
+            if ($request->auto_round_off) {
+                $rounded  = round($grand);
+                $roundOff = $rounded - $grand;
+                $grand    = $rounded;
+            }
 
-            $paid    = (float)($request->amount_paid ?? 0);
-            $balance = $grand - $paid;
+            $paid      = (float) ($request->amount_paid ?? 0);
+            $balance   = $grand - $paid;
             $payStatus = $this->resolvePaymentStatus($paid, $balance);
             if ($payStatus === 'paid') $balance = 0;
-            $partyName = '';
 
-            if ($request->party_type === 'vendor') {
-                $partyName = $partyModel->company_name;
-            } else {
-                $partyName = $partyModel->name;
-            }
-            PurchaseInvoiceItem::where('purchase_invoice_id',$id)->delete();
+            $partyName = $request->party_type === 'vendor'
+                ? $partyModel->company_name
+                : $partyModel->name;
+
+            PurchaseInvoiceItem::where('purchase_invoice_id', $id)->delete();
 
             $invoice->update([
                 'invoice_type'          => $request->invoice_type,
+                'gst_mode'              => $request->gst_mode ?? 'exclusive',
                 'invoice_date'          => $request->invoice_date,
-                'party_id'              => $partyId, // party_type NOT stored — derived on load
-                'party_type'             => $request->party_type,
-                'party_name' => $partyName,
+                'party_id'              => $partyId,
+                'party_type'            => $request->party_type,
+                'party_name'            => $partyName,
                 'purchase_executive_id' => $peId,
                 'warehouse_id'          => $request->warehouse_id,
                 'billing_address'       => $billing?->full_address,
@@ -1271,51 +1254,53 @@ public function getPartyDetails($id, Request $request)
                 'payment_terms'         => $request->payment_terms,
                 'due_date'              => $request->due_date,
                 'po_number'             => $request->po_number,
-                'total_mrp'             => round($totals['totalMRP'],2),
-                'subtotal'              => round($totals['subtotal'],2),
-                'tax_total'             => round($totals['taxTotal'],2),
-                'cgst_total'            => round($totals['cgst'],2),
-                'sgst_total'            => round($totals['sgst'],2),
-                'igst_total'            => round($totals['igst'],2),
+                'total_mrp'             => round($totals['totalMRP'], 2),
+                'subtotal'              => round($totals['subtotal'], 2),
+                'tax_total'             => round($totals['taxTotal'], 2),
+                'cgst_total'            => round($totals['cgst'], 2),
+                'sgst_total'            => round($totals['sgst'], 2),
+                'igst_total'            => round($totals['igst'], 2),
                 'tax_type'              => $isIntra ? 'intra' : 'inter',
-                'extra_discount'        => round($discValue,2),
+                'extra_discount'        => round($discValue, 2),
                 'extra_discount_type'   => $discType,
-                'extra_charge'          => round($extraChg,2),
+                'extra_charge'          => round($extraChg, 2),
                 'charge_name'           => $request->charge_name,
-                'round_off'             => round($roundOff,2),
-                'grand_total'           => round($grand,2),
-                'total_paid'            => round($paid,2),
-                'balance_amount'        => round($balance,2),
+                'round_off'             => round($roundOff, 2),
+                'grand_total'           => round($grand, 2),
+                'total_paid'            => round($paid, 2),
+                'balance_amount'        => round($balance, 2),
                 'payment_status'        => $payStatus,
                 'notes'                 => $request->notes,
             ]);
 
             foreach ($request->items as $item) {
-                $qty   = (float)$item['quantity'];
-                $price = (float)$item['purchase_price'];
-                $mrp   = (float)($item['mrp_price'] ?? $price);
-                $taxPercent = (float)($item['tax_percent'] ?? 0);
-                $discountPercent = (float)($item['discount'] ?? 0);
+                $qty             = (float) $item['quantity'];
+                $price           = (float) $item['purchase_price'];
+                $mrp             = (float) ($item['mrp_price'] ?? $price);
+                $taxPercent      = (float) ($item['tax_percent'] ?? 0);
+                $discountPercent = (float) ($item['discount'] ?? 0);
+                $isIncl          = !empty($item['gst_inclusive']) && $request->invoice_type === 'gst';
 
-                // 1. subtotal
-                $subtotal = $qty * $price;
+                if ($isIncl && $taxPercent > 0) {
+                    $basePerUnit   = $price * 100 / (100 + $taxPercent);
+                    $itemBaseTotal = $qty * $basePerUnit;
+                    $grossTotal    = $qty * $price;
+                    $taxAmount     = $grossTotal - $itemBaseTotal;
+                    $total         = $grossTotal;
+                } else {
+                    $basePerUnit    = $price;
+                    $itemBaseTotal  = $qty * $price;
+                    $discountAmount = ($itemBaseTotal * $discountPercent) / 100;
+                    $taxable        = $itemBaseTotal - $discountAmount;
+                    $taxAmount      = $request->invoice_type === 'gst'
+                        ? ($taxable * $taxPercent) / 100
+                        : 0;
+                    $total          = $taxable + $taxAmount;
+                }
 
-                // 2. discount
-                $discountAmount = ($subtotal * $discountPercent) / 100;
-
-                // 3. taxable
-                $taxable = $subtotal - $discountAmount;
-
-                // 4. tax
-                $taxAmount = ($taxable * $taxPercent) / 100;
-
-                // 5. GST split
                 $cgst = $isIntra ? $taxAmount / 2 : 0;
                 $sgst = $isIntra ? $taxAmount / 2 : 0;
                 $igst = !$isIntra ? $taxAmount : 0;
-
-                // 6. final total
-                $total = $taxable + $taxAmount;
 
                 PurchaseInvoiceItem::create([
                     'purchase_invoice_id' => $invoice->id,
@@ -1327,33 +1312,25 @@ public function getPartyDetails($id, Request $request)
                     'quantity'            => $qty,
                     'unit'                => $item['unit'] ?? 'PCS',
                     'mrp_price'           => round($mrp, 2),
-                    'purchase_price'      => round($price, 2),
-
-                    // ✅ important fields
-                    'discount'            => round($discountAmount, 2),
+                    'purchase_price'      => round($basePerUnit, 2),
+                    'purchase_price_incl' => $isIncl ? round($price, 2) : null,
+                    'gst_inclusive'       => $isIncl,
+                    'discount'            => round($discountPercent, 2),
                     'tax_percent'         => $taxPercent,
                     'tax_amount'          => round($taxAmount, 2),
                     'cgst_amount'         => round($cgst, 2),
                     'sgst_amount'         => round($sgst, 2),
                     'igst_amount'         => round($igst, 2),
-
-                    // ✅ FINAL TOTAL
                     'total'               => round($total, 2),
                 ]);
             }
 
-
-            return response()->json(['success'=>true,'invoice_id'=>$invoice->id,'message'=>'Invoice updated successfully']);
+            return response()->json(['success' => true, 'invoice_id' => $invoice->id, 'message' => 'Invoice updated successfully']);
 
         } catch (\Exception $e) {
-
-            return response()->json(['success'=>false,'message'=>'Error: '.$e->getMessage()],500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
-
-    // =========================================================
-    //  DESTROY
-    // =========================================================
 
     public function destroy($id)
     {
