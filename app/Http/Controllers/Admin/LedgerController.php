@@ -439,29 +439,51 @@ private function buildLedger(string $partyType, string $id, $party): \Illuminate
         $creditNotes = CreditNote::where('party_id', $id)->get();
 
         // Group regular payments by invoice (CREDIT entries)
-        $paymentsByInvoice = [];
-        foreach ($regularPayments as $pmt) {
-            $map = $this->resolvePaymentInvoiceMap($pmt, 'sales_invoice_id');
-            $voucherNo = $this->resolvePaymentVoucherNumber($pmt, $invNumMap, 'sales_invoice_id');
+       // Group regular payments by invoice (CREDIT entries)
+$paymentsByInvoice = [];
+foreach ($regularPayments as $pmt) {
+    $map = $this->resolvePaymentInvoiceMap($pmt, 'sales_invoice_id');
+    $voucherNo = $this->resolvePaymentVoucherNumber($pmt, $invNumMap, 'sales_invoice_id');
 
-            if (!empty($map)) {
-                foreach ($map as $invId => $amount) {
-                    $paymentsByInvoice[$invId][] = [
-                        'raw_date' => $pmt->payment_date,
-                        'date' => $this->formatDate($pmt->payment_date),
-                        'voucher_type' => 'Payment Received',
-                        'voucher_no' => $voucherNo,
-                        'debit' => 0.0,
-                        'credit' => $this->toFloat($amount),  // ✅ CREDIT - Customer paid us
-                        'tds_by_party' => $this->extractTDS($this->parseAllocations($pmt->allocations), 'tds_by_party'),
-                        'tds_by_self' => $this->extractTDS($this->parseAllocations($pmt->allocations), 'tds_by_self'),
-                        'is_child' => true,
-                        'parent_id' => $invId,
-                        'is_refund' => false,
-                    ];
-                }
-            }
+    if (!empty($map)) {
+        foreach ($map as $invId => $amount) {
+            $paymentsByInvoice[$invId][] = [
+                'raw_date' => $pmt->payment_date,
+                'date' => $this->formatDate($pmt->payment_date),
+                'voucher_type' => 'Payment Received',
+                'voucher_no' => $voucherNo,
+                'debit' => 0.0,
+                'credit' => $this->toFloat($amount),
+                'tds_by_party' => $this->extractTDS($this->parseAllocations($pmt->allocations), 'tds_by_party'),
+                'tds_by_self' => $this->extractTDS($this->parseAllocations($pmt->allocations), 'tds_by_self'),
+                'is_child' => true,
+                'parent_id' => $invId,
+                'is_refund' => false,
+            ];
         }
+    }
+
+    // ✅ Opening balance allocation check karo
+    $allocations = $this->parseAllocations($pmt->allocations);
+    foreach ($allocations as $alloc) {
+        if (($alloc['type'] ?? '') === 'opening_balance') {
+            $groupedEntries[] = [
+                'raw_date' => $pmt->payment_date,
+                'date' => $this->formatDate($pmt->payment_date),
+                'voucher_type' => 'Opening Balance Payment',
+                'voucher_no' => $pmt->payment_number ?? '—',
+                'debit' => 0.0,
+                'credit' => $this->toFloat($alloc['amount'] ?? 0),
+                'tds_by_party' => 0.0,
+                'tds_by_self' => 0.0,
+                'is_parent' => false,
+                'is_child' => false,
+                'is_refund' => false,
+                'parent_id' => null,
+            ];
+        }
+    }
+}
 
         // Initialize arrays for credit notes
         $creditNotesByInvoice = [];
