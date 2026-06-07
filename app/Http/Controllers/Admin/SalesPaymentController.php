@@ -809,6 +809,7 @@ $partyPhone = $party['phone'] ?? '—';
         $openingBalance = max(0, $originalOpening - $openingPaid);
 
         $invoices = SalesInvoice::where('status', '!=', 'draft')
+            ->where('status', '!=', 'cancelled')
             ->whereIn('payment_status', ['unpaid', 'partial'])
             ->where(function ($q) use ($partyIdStr, $partyIdObj) {
                 $q->where('party_id', $partyIdStr)
