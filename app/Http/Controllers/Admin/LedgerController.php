@@ -870,6 +870,9 @@ private function buildLedger(string $partyType, string $id, $party): \Illuminate
         'is_opening' => true,
         'is_parent' => false,
     ]);
+    usort($groupedEntries, function($a, $b) {
+        return strtotime($a['raw_date'] ?? '0') - strtotime($b['raw_date'] ?? '0');
+    });
 
     // Process entries in the order they were added
     foreach ($groupedEntries as $entry) {

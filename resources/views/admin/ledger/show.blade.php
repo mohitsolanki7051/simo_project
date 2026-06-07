@@ -139,16 +139,46 @@
     </div>
 
     {{-- ══════════════════════════════════════════════
-         TAB 2 — LEDGER STATEMENT
+        TAB 2 — LEDGER STATEMENT
     ══════════════════════════════════════════════ --}}
     <div class="ldg-panel" id="tab-ledger">
-        <div class="ldg-toolbar">
-            <div class="ldg-search">
-                <input type="text" id="ledgerSearch" placeholder="Search voucher..." class="ldg-input">
+        <div class="ldg-toolbar" style="justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div class="ldg-search">
+                    <input type="text" id="ledgerSearch" placeholder="Search voucher..." class="ldg-input">
+                </div>
+
+                {{-- Date filter pills --}}
+                <div class="ldg-pills" id="ledgerDateFilters">
+                    <button class="ldg-pill active" data-days="all">All</button>
+                    <button class="ldg-pill" data-days="7">7 Days</button>
+                    <button class="ldg-pill" data-days="30">30 Days</button>
+                    <button class="ldg-pill" data-days="60">60 Days</button>
+                    <button class="ldg-pill" data-days="90">90 Days</button>
+                    <button class="ldg-pill" data-days="180">6 Months</button>
+                    <button class="ldg-pill" data-days="365">1 Year</button>
+                </div>
+
+                {{-- Custom date range --}}
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="date" id="ledgerFromDate" class="ldg-input" style="width:130px;" placeholder="From">
+                    <span style="color:#9ca3af;font-size:11px;">to</span>
+                    <input type="date" id="ledgerToDate" class="ldg-input" style="width:130px;" placeholder="To">
+                    <button onclick="applyCustomDateFilter()" style="padding:4px 10px;background:#1f2937;color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer;">Apply</button>
+                </div>
             </div>
+
             <button class="ldg-print-btn" onclick="window.open('{{ route('admin.ledger.print', ['partyType' => $partyType, 'id' => $partyType === 'vendor' ? $party->id : $party->_id]) }}', '_blank')">
                 🖨️ Print Ledger
             </button>
+        </div>
+
+        {{-- Filtered summary --}}
+        <div id="ledgerFilteredSummary" style="display:none;margin-bottom:10px;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;display:flex;gap:24px;flex-wrap:wrap;">
+            <span>Period: <strong id="flt_period">—</strong></span>
+            <span style="color:#b91c1c;">Debit: <strong id="flt_debit">₹0.00</strong></span>
+            <span style="color:#15803d;">Credit: <strong id="flt_credit">₹0.00</strong></span>
+            <span>Closing Balance: <strong id="flt_balance">₹0.00</strong></span>
         </div>
 
         <div class="ldg-table-wrap" id="ledger-print-area">
@@ -162,7 +192,7 @@
                 <thead>
                     <tr>
                         <th style="width:90px">Date</th>
-                        <th style="width:160px">Voucher Type</th>
+                        <th style="width:180px">Voucher Type</th>
                         <th>Voucher No.</th>
                         <th class="ta-r" style="width:110px">Debit (₹)</th>
                         <th class="ta-r" style="width:110px">Credit (₹)</th>
@@ -171,54 +201,55 @@
                         <th class="ta-r" style="width:130px">Balance (₹)</th>
                     </tr>
                 </thead>
-<tbody>
-    @foreach($ledger as $entry)
-    <tr class="{{ $entry['is_opening'] ? 'ldg-opening-row' : '' }}
-               {{ ($entry['is_parent'] ?? false) ? 'ldg-parent-row' : '' }}
-               {{ ($entry['is_child'] ?? false) ? 'ldg-child-row-tr' : '' }}">
-        <td class="ldg-date">{{ $entry['is_opening'] ? 'Opening' : $entry['date'] }}</td>
-        <td>
-            @if($entry['is_child'] ?? false)
-                <span class="ldg-child-prefix" style="display:none;"></span> {{-- Hidden but kept for spacing --}}
-            @endif
-            <span class="ldg-vtype vt-{{ Str::slug($entry['voucher_type']) }}">
-                {{ $entry['voucher_type'] }}
-            </span>
-        </td>
-        <td class="ldg-mono">{{ $entry['voucher_no'] }}</td>
-        <td class="ta-r {{ $entry['debit'] > 0 ? 'ldg-dr fw6' : 'ldg-muted' }}">
-            {{ $entry['debit'] > 0 ? number_format($entry['debit'], 2) : '—' }}
-        </td>
-        <td class="ta-r {{ $entry['credit'] > 0 ? 'ldg-cr fw6' : 'ldg-muted' }}">
-            {{ $entry['credit'] > 0 ? number_format($entry['credit'], 2) : '—' }}
-        </td>
-        <td class="ta-r ldg-muted">
-            {{ ($entry['tds_by_party'] ?? 0) > 0 ? number_format($entry['tds_by_party'], 2) : '—' }}
-        </td>
-        <td class="ta-r ldg-muted">
-            {{ ($entry['tds_by_self'] ?? 0) > 0 ? number_format($entry['tds_by_self'], 2) : '—' }}
-        </td>
-        <td class="ta-r fw6 ldg-bal-cell
-            {{ $entry['balance'] > 0 ? 'ldg-dr' : ($entry['balance'] < 0 ? 'ldg-cr' : 'ldg-muted') }}">
-            {{ number_format(abs($entry['balance']), 2) }}
-            @if(!$entry['is_opening'])
-                <span class="ldg-drcr">{{ $entry['balance'] >= 0 ? 'Dr' : 'Cr' }}</span>
-            @endif
-        </td>
-    </tr>
-    @endforeach
-</tbody>
+                <tbody>
+                    @foreach($ledger as $entry)
+                    <tr class="{{ $entry['is_opening'] ? 'ldg-opening-row' : '' }}
+                            {{ ($entry['is_parent'] ?? false) ? 'ldg-parent-row' : '' }}
+                            {{ ($entry['is_child'] ?? false) ? 'ldg-child-row-tr' : '' }}"
+                        data-raw-date="{{ $entry['raw_date'] ? \Carbon\Carbon::parse($entry['raw_date'])->format('Y-m-d') : '' }}"
+                        data-is-opening="{{ $entry['is_opening'] ? '1' : '0' }}"
+                        data-debit="{{ $entry['debit'] }}"
+                        data-credit="{{ $entry['credit'] }}"
+                        data-balance="{{ $entry['balance'] }}">
+                        <td class="ldg-date">{{ $entry['is_opening'] ? 'Opening' : $entry['date'] }}</td>
+                        <td>
+                            <span class="ldg-vtype vt-{{ Str::slug($entry['voucher_type']) }}">
+                                {{ $entry['voucher_type'] }}
+                            </span>
+                        </td>
+                        <td class="ldg-mono">{{ $entry['voucher_no'] }}</td>
+                        <td class="ta-r {{ $entry['debit'] > 0 ? 'ldg-dr fw6' : 'ldg-muted' }}">
+                            {{ $entry['debit'] > 0 ? number_format($entry['debit'], 2) : '—' }}
+                        </td>
+                        <td class="ta-r {{ $entry['credit'] > 0 ? 'ldg-cr fw6' : 'ldg-muted' }}">
+                            {{ $entry['credit'] > 0 ? number_format($entry['credit'], 2) : '—' }}
+                        </td>
+                        <td class="ta-r ldg-muted">
+                            {{ ($entry['tds_by_party'] ?? 0) > 0 ? number_format($entry['tds_by_party'], 2) : '—' }}
+                        </td>
+                        <td class="ta-r ldg-muted">
+                            {{ ($entry['tds_by_self'] ?? 0) > 0 ? number_format($entry['tds_by_self'], 2) : '—' }}
+                        </td>
+                        <td class="ta-r fw6 ldg-bal-cell {{ $entry['balance'] > 0 ? 'ldg-dr' : ($entry['balance'] < 0 ? 'ldg-cr' : 'ldg-muted') }}">
+                            {{ number_format(abs($entry['balance']), 2) }}
+                            @if(!$entry['is_opening'])
+                                <span class="ldg-drcr">{{ $entry['balance'] >= 0 ? 'Dr' : 'Cr' }}</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
                 <tfoot>
-                    <tr class="ldg-tfoot">
+                    <tr class="ldg-tfoot" id="ledgerTfoot">
                         <td colspan="3" class="fw6">Total</td>
-                        <td class="ta-r fw6 ldg-dr">
+                        <td class="ta-r fw6 ldg-dr" id="tfoot_debit">
                             {{ number_format($ledger->where('is_opening', false)->sum('debit'), 2) }}
                         </td>
-                        <td class="ta-r fw6 ldg-cr">
+                        <td class="ta-r fw6 ldg-cr" id="tfoot_credit">
                             {{ number_format($ledger->where('is_opening', false)->sum('credit'), 2) }}
                         </td>
                         <td colspan="2"></td>
-                        <td class="ta-r fw6 {{ $summary['closing_balance'] >= 0 ? 'ldg-dr' : 'ldg-cr' }}">
+                        <td class="ta-r fw6 {{ $summary['closing_balance'] >= 0 ? 'ldg-dr' : 'ldg-cr' }}" id="tfoot_balance">
                             {{ number_format(abs($summary['closing_balance']), 2) }}
                             <span class="ldg-drcr">{{ $summary['closing_balance'] >= 0 ? 'Dr' : 'Cr' }}</span>
                         </td>
@@ -542,6 +573,120 @@ document.querySelectorAll('.ldg-tab').forEach(function(btn) {
     });
 });
 
+// ========== LEDGER DATE FILTER ==========
+function applyLedgerFilter(fromDate, toDate, labelText) {
+    var rows = document.querySelectorAll('#ledgerTable tbody tr');
+    var totalDebit = 0, totalCredit = 0, lastBalance = 0;
+    var visibleCount = 0;
+
+    rows.forEach(function(row) {
+        var isOpening = row.dataset.isOpening === '1';
+        var rawDate = row.dataset.rawDate;
+
+        if (isOpening) {
+            row.style.display = '';
+            return;
+        }
+
+        if (!fromDate && !toDate) {
+            row.style.display = '';
+            totalDebit  += parseFloat(row.dataset.debit  || 0);
+            totalCredit += parseFloat(row.dataset.credit || 0);
+            lastBalance  = parseFloat(row.dataset.balance || 0);
+            visibleCount++;
+            return;
+        }
+
+        var rowDate = rawDate ? new Date(rawDate) : null;
+        var show = true;
+
+        if (rowDate) {
+            if (fromDate && rowDate < fromDate) show = false;
+            if (toDate   && rowDate > toDate)   show = false;
+        }
+
+        row.style.display = show ? '' : 'none';
+
+        if (show) {
+            totalDebit  += parseFloat(row.dataset.debit  || 0);
+            totalCredit += parseFloat(row.dataset.credit || 0);
+            lastBalance  = parseFloat(row.dataset.balance || 0);
+            visibleCount++;
+        }
+    });
+
+    // Update tfoot
+    document.getElementById('tfoot_debit').textContent  = totalDebit.toFixed(2);
+    document.getElementById('tfoot_credit').textContent = totalCredit.toFixed(2);
+    var balEl = document.getElementById('tfoot_balance');
+    balEl.textContent = Math.abs(lastBalance).toFixed(2) + (lastBalance >= 0 ? ' Dr' : ' Cr');
+    balEl.className = 'ta-r fw6 ' + (lastBalance >= 0 ? 'ldg-dr' : 'ldg-cr');
+
+    // Show filtered summary
+    var summaryEl = document.getElementById('ledgerFilteredSummary');
+    if (fromDate || toDate) {
+        summaryEl.style.display = 'flex';
+        document.getElementById('flt_period').textContent  = labelText;
+        document.getElementById('flt_debit').textContent   = '₹' + totalDebit.toFixed(2);
+        document.getElementById('flt_credit').textContent  = '₹' + totalCredit.toFixed(2);
+        document.getElementById('flt_balance').textContent = '₹' + Math.abs(lastBalance).toFixed(2) + (lastBalance >= 0 ? ' Dr' : ' Cr');
+    } else {
+        summaryEl.style.display = 'none';
+    }
+}
+
+// Pill click
+document.querySelectorAll('#ledgerDateFilters .ldg-pill').forEach(function(pill) {
+    pill.addEventListener('click', function() {
+        document.querySelectorAll('#ledgerDateFilters .ldg-pill').forEach(function(p) { p.classList.remove('active'); });
+        this.classList.add('active');
+
+        var days = this.dataset.days;
+        document.getElementById('ledgerFromDate').value = '';
+        document.getElementById('ledgerToDate').value   = '';
+
+        if (days === 'all') {
+            applyLedgerFilter(null, null, 'All');
+            return;
+        }
+
+        var toDate   = new Date();
+        var fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - parseInt(days));
+        applyLedgerFilter(fromDate, toDate, 'Last ' + days + ' days');
+    });
+});
+
+// Custom date apply
+function applyCustomDateFilter() {
+    document.querySelectorAll('#ledgerDateFilters .ldg-pill').forEach(function(p) { p.classList.remove('active'); });
+
+    var fromVal = document.getElementById('ledgerFromDate').value;
+    var toVal   = document.getElementById('ledgerToDate').value;
+
+    var fromDate = fromVal ? new Date(fromVal) : null;
+    var toDate   = toVal   ? new Date(toVal)   : null;
+
+    if (toDate) toDate.setHours(23, 59, 59);
+
+    var label = (fromVal || 'Start') + ' → ' + (toVal || 'Today');
+    applyLedgerFilter(fromDate, toDate, label);
+}
+
+// Ledger search (existing) — update to respect filter
+var ledgerSearchEl = document.getElementById('ledgerSearch');
+if (ledgerSearchEl) {
+    ledgerSearchEl.addEventListener('input', function() {
+        var t = this.value.toLowerCase();
+        document.querySelectorAll('#ledgerTable tbody tr').forEach(function(row) {
+            if (row.dataset.isOpening === '1') return;
+            if (row.style.display === 'none') return;
+            var matches = row.textContent.toLowerCase().indexOf(t) > -1;
+            row.style.display = matches ? '' : 'none';
+        });
+    });
+}
+
 // Generic table search
 function filterTable(tableId, term) {
     var t = term.toLowerCase();
@@ -554,12 +699,6 @@ function filterTable(tableId, term) {
 var txnSearchEl = document.getElementById('txnSearch');
 if (txnSearchEl) {
     txnSearchEl.addEventListener('input', function() { filterTable('txnTable', this.value); });
-}
-
-// Ledger search
-var ledgerSearchEl = document.getElementById('ledgerSearch');
-if (ledgerSearchEl) {
-    ledgerSearchEl.addEventListener('input', function() { filterTable('ledgerTable', this.value); });
 }
 
 // Item search
