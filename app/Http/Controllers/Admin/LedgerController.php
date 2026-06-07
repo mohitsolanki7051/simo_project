@@ -274,6 +274,7 @@ class LedgerController extends Controller
 
             $purchaseInvoices = PurchaseInvoice::where('party_id', $id)
                 ->where('status', '!=', 'draft')
+                ->where('status', '!=', 'cancelled')
                 ->orderBy('invoice_date', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -649,6 +650,7 @@ private function buildLedger(string $partyType, string $id, $party): \Illuminate
     if (in_array($partyType, ['vendor', 'dealer', 'distributor'])) {
         $purchaseInvoices = PurchaseInvoice::where('party_id', $id)
             ->where('status', '!=', 'draft')
+            ->where('status', '!=', 'cancelled')
             ->orderBy('invoice_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();

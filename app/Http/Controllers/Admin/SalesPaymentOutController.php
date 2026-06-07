@@ -436,6 +436,7 @@ class SalesPaymentOutController extends Controller
 
         // Get outstanding purchase invoices (we owe them money)
         $invoices = PurchaseInvoice::where('status', '!=', 'draft')
+            ->where('status', '!=', 'cancelled')
             ->whereIn('payment_status', ['unpaid', 'partial'])
             ->where('party_id', $partyIdStr)
             ->where('balance_amount', '>', 0)
