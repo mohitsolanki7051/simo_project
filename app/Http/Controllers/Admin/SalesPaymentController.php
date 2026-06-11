@@ -171,34 +171,24 @@ class SalesPaymentController extends Controller
     private function searchSalesParties(string $search)
     {
         $partyIdsWithInvoices = SalesInvoice::where('status', '!=', 'draft')
-            ->pluck('party_id')
-            ->map(fn($id) => (string) $id)
-            ->unique()
-            ->values()
-            ->toArray();
-
-        // Opening balance wale customers bhi include karo
-        $partyIdsWithOpeningBalance = \App\Models\Customer::whereNotNull('opening_balance')
-    ->where('opening_balance', '!=', 0)
-    ->pluck('_id')
+    ->pluck('party_id')
     ->map(fn($id) => (string) $id)
+    ->unique()
+    ->values()
     ->toArray();
 
-        $allPartyIds = array_unique(array_merge($partyIdsWithInvoices, $partyIdsWithOpeningBalance));
-
-        if (empty($allPartyIds)) {
-            return response()->json(['success' => true, 'parties' => []]);
-        }
-
-        $parties = Customer::whereIn('_id', $allPartyIds)
-            ->where(function ($query) use ($search) {
-                $query->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('phone', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%');
-            })
-        ->orderBy('name')
-        ->limit(20)
-        ->get();
+$parties = Customer::where(function ($query) use ($partyIdsWithInvoices) {
+        $query->whereIn('_id', $partyIdsWithInvoices)
+              ->orWhere('opening_balance', '>', 0);
+    })
+    ->where(function ($query) use ($search) {
+        $query->where('name', 'like', '%' . $search . '%')
+              ->orWhere('phone', 'like', '%' . $search . '%')
+              ->orWhere('email', 'like', '%' . $search . '%');
+    })
+    ->orderBy('name')
+    ->limit(20)
+    ->get();
 
         $result = [];
         foreach ($parties as $party) {
