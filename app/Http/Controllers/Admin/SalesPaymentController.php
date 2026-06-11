@@ -170,6 +170,9 @@ class SalesPaymentController extends Controller
      */
     private function searchSalesParties(string $search)
     {
+          $customer = Customer::where('name', 'test11')->first();
+
+    dd($this->getPartyDueDetails($customer));
         $partyIdsWithInvoices = SalesInvoice::where('status', '!=', 'draft')
     ->pluck('party_id')
     ->map(fn($id) => (string) $id)
