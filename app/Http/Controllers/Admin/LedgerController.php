@@ -422,8 +422,8 @@ private function buildLedger(string $partyType, string $id, $party): \Illuminate
         $salesInvoices = SalesInvoice::where('party_id', $id)
             ->where('status', '!=', 'draft')
             ->where('status', '!=', 'cancelled')
-            ->orderBy('invoice_date', 'desc')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('invoice_date', 'asc')
+            ->orderBy('created_at', 'asc')
             ->get();
 
         $invNumMap = $salesInvoices->pluck('invoice_number', '_id')
@@ -651,8 +651,8 @@ private function buildLedger(string $partyType, string $id, $party): \Illuminate
         $purchaseInvoices = PurchaseInvoice::where('party_id', $id)
             ->where('status', '!=', 'draft')
             ->where('status', '!=', 'cancelled')
-            ->orderBy('invoice_date', 'desc')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('invoice_date', 'asc')
+            ->orderBy('created_at', 'asc')
             ->get();
 
         $invNumMap = $purchaseInvoices->pluck('invoice_number', '_id')
