@@ -170,28 +170,26 @@ class SalesPaymentController extends Controller
      */
     private function searchSalesParties(string $search)
     {
-          $customer = Customer::where('name', 'test11')->first();
-
-    dd($this->getPartyDueDetails($customer));
         $partyIdsWithInvoices = SalesInvoice::where('status', '!=', 'draft')
-    ->pluck('party_id')
-    ->map(fn($id) => (string) $id)
-    ->unique()
-    ->values()
-    ->toArray();
+            ->pluck('party_id')
+            ->map(fn($id) => (string) $id)
+            ->unique()
+            ->values()
+            ->toArray();
 
-$parties = Customer::where(function ($query) use ($partyIdsWithInvoices) {
-        $query->whereIn('_id', $partyIdsWithInvoices)
-              ->orWhere('opening_balance', '>', 0);
-    })
-    ->where(function ($query) use ($search) {
-        $query->where('name', 'like', '%' . $search . '%')
-              ->orWhere('phone', 'like', '%' . $search . '%')
-              ->orWhere('email', 'like', '%' . $search . '%');
-    })
-    ->orderBy('name')
-    ->limit(20)
-    ->get();
+        if (empty($partyIdsWithInvoices)) {
+            return response()->json(['success' => true, 'parties' => []]);
+        }
+
+        $parties = Customer::whereIn('_id', $partyIdsWithInvoices)
+            ->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                      ->orWhere('phone', 'like', '%' . $search . '%')
+                      ->orWhere('email', 'like', '%' . $search . '%');
+            })
+            ->orderBy('name')
+            ->limit(20)
+            ->get();
 
         $result = [];
         foreach ($parties as $party) {
