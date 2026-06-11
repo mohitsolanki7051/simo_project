@@ -177,19 +177,27 @@ class SalesPaymentController extends Controller
             ->values()
             ->toArray();
 
-        if (empty($partyIdsWithInvoices)) {
+        // Opening balance wale customers bhi include karo
+        $partyIdsWithOpeningBalance = \App\Models\Customer::where('opening_balance', '>', 0)
+            ->pluck('_id')
+            ->map(fn($id) => (string) $id)
+            ->toArray();
+
+        $allPartyIds = array_unique(array_merge($partyIdsWithInvoices, $partyIdsWithOpeningBalance));
+
+        if (empty($allPartyIds)) {
             return response()->json(['success' => true, 'parties' => []]);
         }
 
-        $parties = Customer::whereIn('_id', $partyIdsWithInvoices)
+        $parties = Customer::whereIn('_id', $allPartyIds)
             ->where(function ($query) use ($search) {
                 $query->where('name', 'like', '%' . $search . '%')
-                      ->orWhere('phone', 'like', '%' . $search . '%')
-                      ->orWhere('email', 'like', '%' . $search . '%');
+                    ->orWhere('phone', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%');
             })
-            ->orderBy('name')
-            ->limit(20)
-            ->get();
+        ->orderBy('name')
+        ->limit(20)
+        ->get();
 
         $result = [];
         foreach ($parties as $party) {
