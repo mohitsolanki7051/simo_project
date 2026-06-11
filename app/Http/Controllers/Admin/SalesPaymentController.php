@@ -178,10 +178,11 @@ class SalesPaymentController extends Controller
             ->toArray();
 
         // Opening balance wale customers bhi include karo
-        $partyIdsWithOpeningBalance = \App\Models\Customer::where('opening_balance', '>', 0)
-            ->pluck('_id')
-            ->map(fn($id) => (string) $id)
-            ->toArray();
+        $partyIdsWithOpeningBalance = \App\Models\Customer::whereNotNull('opening_balance')
+    ->where('opening_balance', '!=', 0)
+    ->pluck('_id')
+    ->map(fn($id) => (string) $id)
+    ->toArray();
 
         $allPartyIds = array_unique(array_merge($partyIdsWithInvoices, $partyIdsWithOpeningBalance));
 
