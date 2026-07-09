@@ -200,14 +200,35 @@ class SalesPaymentOutController extends Controller
             ->values()
             ->toArray();
 
-        if (empty($partyIdsWithInvoices)) {
+        // Get vendor IDs with opening balance > 0
+        $vendorIdsWithOpening = Vendor::whereNotNull('opening_balance')
+            ->whereNotIn('opening_balance', ['', '0', '0.00', 0, 0.0])
+            ->pluck('id')
+            ->map(fn($id) => (string) $id)
+            ->toArray();
+
+        // Get customer IDs (dealers/distributors) with opening balance > 0
+        $customerIdsWithOpening = Customer::whereIn('party_type', ['dealer', 'distributor'])
+            ->whereNotNull('opening_balance')
+            ->whereNotIn('opening_balance', ['', '0', '0.00', 0, 0.0])
+            ->pluck('id')
+            ->map(fn($id) => (string) $id)
+            ->toArray();
+
+        $allowedPartyIds = array_values(array_unique(array_merge(
+            $partyIdsWithInvoices,
+            $vendorIdsWithOpening,
+            $customerIdsWithOpening
+        )));
+
+        if (empty($allowedPartyIds)) {
             return response()->json(['success' => true, 'parties' => []]);
         }
 
         $parties = collect();
 
         // Search vendors
-        $vendors = Vendor::whereIn('id', $partyIdsWithInvoices)
+        $vendors = Vendor::whereIn('id', $allowedPartyIds)
             ->where(function ($query) use ($search) {
                 $query->where('company_name', 'like', '%' . $search . '%')
                       ->orWhere('phone', 'like', '%' . $search . '%')
@@ -233,7 +254,7 @@ class SalesPaymentOutController extends Controller
         }
 
         // Search dealers and distributors
-        $customers = Customer::whereIn('_id', $partyIdsWithInvoices)
+        $customers = Customer::whereIn('_id', $allowedPartyIds)
             ->whereIn('party_type', ['dealer', 'distributor'])
             ->where(function ($query) use ($search) {
                 $query->where('name', 'like', '%' . $search . '%')

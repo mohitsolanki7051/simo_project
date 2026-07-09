@@ -412,4 +412,36 @@ public function getVariantStock($variantId)
         }
     }
 
+    public function getVariantCostPriceAtDate($variantId, $dateStr)
+    {
+        if (!$this->variants || !is_array($this->variants)) {
+            return 0;
+        }
+
+        foreach ($this->variants as $variant) {
+            if ((string)($variant['_id'] ?? '') === (string)$variantId) {
+                $costHistory = $variant['cost_history'] ?? [];
+                if (empty($costHistory)) {
+                    return $this->convertToFloat($variant['cost_price'] ?? 0);
+                }
+
+                usort($costHistory, function($a, $b) {
+                    return strcmp($a['date'], $b['date']);
+                });
+
+                $lastCost = null;
+                foreach ($costHistory as $entry) {
+                    if (strcmp($entry['date'], $dateStr) <= 0) {
+                        $lastCost = $this->convertToFloat($entry['cost_price']);
+                    } else {
+                        break;
+                    }
+                }
+
+                return $lastCost !== null ? $lastCost : $this->convertToFloat($variant['cost_price'] ?? 0);
+            }
+        }
+
+        return 0;
+    }
 }

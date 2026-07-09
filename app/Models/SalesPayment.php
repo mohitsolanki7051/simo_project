@@ -16,6 +16,7 @@ class SalesPayment extends Model
         'party_id',
         'sales_invoice_id',
         'amount',
+        'discount',
         'payment_method',
         'payment_date',
         'status',
@@ -29,6 +30,7 @@ class SalesPayment extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'discount' => 'decimal:2',
         'payment_date' => 'date',
         'allocations' => 'array'
     ];

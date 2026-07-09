@@ -110,6 +110,17 @@
                             </div>
                             <div id="amountValidation" class="pi-val-msg" style="display:none;"></div>
                         </div>
+
+                        {{-- Discount --}}
+                        <div id="discountSection" style="display:none; margin-top:14px;">
+                            <label class="pi-label">Discount</label>
+                            <div class="pi-amount-wrap">
+                                <span class="pi-currency">₹</span>
+                                <input type="number" step="0.01" min="0" id="discountAmount"
+                                       name="discount" class="pi-input pi-amount-input" placeholder="0.00"
+                                       onkeydown="limitDecimals(event, this)">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -668,12 +679,14 @@ function selectSalesParty(partyId) {
 
             $('#partySelected').show();
             $('#amountSection').show();
+            $('#discountSection').show();
             $('#invoicesSection').show();
             $('#debitNotesSection').hide();
             $('#submitSection').show();
 
             if (party.net_payable <= 0) {
                 $('#amountSection').hide();
+                $('#discountSection').hide();
                 $('#submitSection').hide();
                 showAlert('Customer has credit. Use refund or adjust in next invoice.', 'warning');
             }
@@ -741,10 +754,12 @@ function resetParty() {
     party = null; invoices = []; allocationMap = {};
     $('#partySelected').hide();
     $('#amountSection').hide();
+    $('#discountSection').hide();
     $('#invoicesSection').hide();
     $('#debitNotesSection').hide();
     $('#submitSection').hide();
     $('#amountReceived').val('');
+    $('#discountAmount').val('');
     $('#partyId').val('');
     $('#partySearch').val('').show();
     $('#partySearchWrap .pi-search-field').show();
@@ -757,30 +772,47 @@ function resetParty() {
 /* ═══════════════════════════════════════════════════════════
    AMOUNT INPUT — routes to correct handler
 ═══════════════════════════════════════════════════════════ */
-$('#amountReceived').on('input', function () {
+$('#amountReceived, #discountAmount').on('input', function () {
     if (currentMode === 'refund') {
-        onRefundAmountInput($(this).val());
+        onRefundAmountInput($('#amountReceived').val());
     } else {
-        onSalesAmountInput($(this).val());
+        onSalesAmountInput($('#amountReceived').val(), $('#discountAmount').val());
     }
 });
 
-function onSalesAmountInput(val) {
-    const amount     = parseFloat(val) || 0;
+function onSalesAmountInput(amountVal, discountVal) {
+    const amount     = parseFloat(amountVal) || 0;
+    const discount   = parseFloat(discountVal) || 0;
+    const totalPaid  = amount + discount;
     const netPayable = party ? (party.net_payable || 0) : 0;
     const $msg = $('#amountValidation');
 
-    if (amount <= 0) {
+    if (totalPaid <= 0) {
         $msg.hide();
-    } else if (amount > netPayable + 0.005) {
-        $msg.text('Amount exceeds net payable of ₹' + fmt(netPayable)).attr('class','pi-val-msg err').show();
-        $('#amountReceived').val(fmt(netPayable));
+    } else if (totalPaid > netPayable + 0.005) {
+        $msg.text('Total paid (Amount + Discount) exceeds net payable of ₹' + fmt(netPayable)).attr('class','pi-val-msg err').show();
+        
+        if (document.activeElement && document.activeElement.id === 'discountAmount') {
+            const allowedDiscount = Math.max(0, netPayable - amount);
+            $('#discountAmount').val(allowedDiscount > 0 ? fmt(allowedDiscount) : '');
+        } else {
+            const allowedAmount = Math.max(0, netPayable - discount);
+            $('#amountReceived').val(allowedAmount > 0 ? fmt(allowedAmount) : '');
+        }
+
+        const newAmount    = parseFloat($('#amountReceived').val()) || 0;
+        const newDiscount  = parseFloat($('#discountAmount').val()) || 0;
+        const newTotalPaid = newAmount + newDiscount;
+
+        if (newTotalPaid > 0) autoAllocate(newTotalPaid);
+        else clearAllocations();
+        updateSummary();
         return;
     } else {
         $msg.hide();
     }
 
-    if (amount > 0) autoAllocate(amount);
+    if (totalPaid > 0) autoAllocate(totalPaid);
     else clearAllocations();
     updateSummary();
 }
@@ -1023,6 +1055,7 @@ function updateSummary() {
         return;
     }
     const amount     = parseFloat($('#amountReceived').val()) || 0;
+    const discount   = parseFloat($('#discountAmount').val()) || 0;
     const opening    = party.opening_balance || 0;
     const invDue     = party.invoice_due || 0;
     const netPayable = party.net_payable || 0;
@@ -1031,12 +1064,17 @@ function updateSummary() {
     $('#sumInvoice').text('₹' + fmt(invDue));
     $('#sumCredit').text('₹'  + fmt(party.credit_balance || 0));
     $('#sumTotal').text('₹'   + fmt(netPayable));
-    $('#sumPaying').text('₹'  + fmt(amount));
+    
+    let sumPayingText = '₹' + fmt(amount + discount);
+    if (discount > 0) {
+        sumPayingText += ` (₹${fmt(amount)} + ₹${fmt(discount)} Disc.)`;
+    }
+    $('#sumPaying').text(sumPayingText);
 
     $('#salesSummaryStrip').show();
     $('#refundSummaryStrip').hide();
 
-    const valid = amount >= 0 && amount <= (netPayable + 0.005);
+    const valid = (amount + discount) >= 0 && (amount + discount) <= (netPayable + 0.005);
     $('#submitBtn').prop('disabled', !valid);
 }
 
@@ -1055,13 +1093,14 @@ $('#paymentForm').on('submit', function (e) {
     e.preventDefault();
 
     const amount        = parseFloat($('#amountReceived').val()) || 0;
+    const discount      = (party && currentMode === 'sales') ? (parseFloat($('#discountAmount').val()) || 0) : 0;
     const method        = $('#paymentMethod').val();
     const date          = $('#paymentDate').val();
     const partyId       = $('#partyId').val();
     const creditBalance = (party && currentMode === 'sales') ? (party.credit_balance || 0) : 0;
 
     if (!partyId)  { showAlert('Please select a party', 'error'); return; }
-    if (amount <= 0 && creditBalance <= 0) { showAlert('Please enter a valid amount', 'error'); return; }
+    if (amount <= 0 && discount <= 0 && creditBalance <= 0) { showAlert('Please enter a valid amount or discount', 'error'); return; }
     if (!method)   { showAlert('Please select a payment mode', 'error'); return; }
     if (!date)     { showAlert('Please select a payment date', 'error'); return; }
 
@@ -1069,6 +1108,7 @@ $('#paymentForm').on('submit', function (e) {
         _token:           '{{ csrf_token() }}',
         party_id:         partyId,
         amount:           amount,
+        discount:         discount,
         payment_date:     date,
         payment_method:   method,
         payment_subtype:  currentMode === 'refund' ? 'debit_refund' : 'sales_payment',

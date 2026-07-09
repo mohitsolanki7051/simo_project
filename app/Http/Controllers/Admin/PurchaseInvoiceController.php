@@ -940,6 +940,7 @@ public function getPartyDetails($id, Request $request)
 
             /* ================= INVOICE STATUS ================= */
             $invoice->update(['status' => 'confirmed']);
+            $this->syncProductCostPrices($invoice);
 
             /* ================= CREATE PAYMENT RECORD ================= */
             // ✅ FIX: payment_type, payment_subtype, allocations — sabhi fields set karo
@@ -1155,7 +1156,9 @@ public function getPartyDetails($id, Request $request)
     {
         $invoice = PurchaseInvoice::with(['items'])->findOrFail($id);
         if ($invoice->status !== 'draft') {
-            return redirect()->route('admin.purchases.show',$id)->with('error','Only draft invoices can be edited.');
+            if (!auth()->guard('admin')->check()) {
+                return redirect()->route('admin.purchases.show',$id)->with('error','Only draft invoices can be edited.');
+            }
         }
 
         $vendors = Vendor::with(['addresses'=>fn($q)=>$q->where('is_default',true)])
@@ -1184,7 +1187,9 @@ public function getPartyDetails($id, Request $request)
     {
         $invoice = PurchaseInvoice::findOrFail($id);
         if ($invoice->status !== 'draft') {
-            return response()->json(['success' => false, 'message' => 'Only draft invoices can be updated.'], 403);
+            if (!auth()->guard('admin')->check()) {
+                return response()->json(['success' => false, 'message' => 'Only draft invoices can be updated.'], 403);
+            }
         }
 
         if ($request->has('items') && is_string($request->items)) {
@@ -1237,6 +1242,169 @@ public function getPartyDetails($id, Request $request)
             $partyName = $request->party_type === 'vendor'
                 ? $partyModel->company_name
                 : $partyModel->name;
+
+            $isConfirmed = ($invoice->status !== 'draft');
+
+            if ($isConfirmed) {
+                // 1. Group old items by key
+                $oldItems = PurchaseInvoiceItem::where('purchase_invoice_id', $invoice->id)->get();
+                $oldMap = [];
+                foreach ($oldItems as $oldItem) {
+                    if (!$oldItem->product_id) continue;
+                    $key = $oldItem->product_id . '_' . ($oldItem->variant_id ?? '');
+                    $oldMap[$key] = (float) $oldItem->quantity;
+                }
+
+                // 2. Group new items by key
+                $newMap = [];
+                foreach ($request->items as $item) {
+                    if (empty($item['product_id'])) continue;
+                    $key = $item['product_id'] . '_' . ($item['variant_id'] ?? '');
+                    $newMap[$key] = ($newMap[$key] ?? 0.0) + (float) $item['quantity'];
+                }
+
+                // 3. Check stock availability for net reductions
+                $warehouseChanged = ($invoice->warehouse_id !== $request->warehouse_id);
+
+                if ($warehouseChanged) {
+                    // Reverting old warehouse means deducting old quantities from old warehouse
+                    foreach ($oldItems as $oldItem) {
+                        if (!$oldItem->product_id) continue;
+                        $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                            ->where('product_id', $oldItem->product_id)
+                            ->where('product_type', $oldItem->variant_id ? 'variant' : 'simple')
+                            ->when($oldItem->variant_id, function ($q) use ($oldItem) {
+                                return $q->where('variant_id', $oldItem->variant_id);
+                            })
+                            ->first();
+                        if (!$stock || $stock->quantity < $oldItem->quantity) {
+                            throw new \Exception("Insufficient stock in old warehouse to revert the purchase for item " . ($oldItem->product_name ?? ''));
+                        }
+                    }
+                } else {
+                    // Same warehouse: check net difference
+                    $allKeys = array_unique(array_merge(array_keys($oldMap), array_keys($newMap)));
+                    foreach ($allKeys as $key) {
+                        $oldQty = $oldMap[$key] ?? 0.0;
+                        $newQty = $newMap[$key] ?? 0.0;
+                        $diff = $newQty - $oldQty;
+
+                        if ($diff < -0.001) {
+                            $absDiff = abs($diff);
+                            list($productId, $variantId) = explode('_', $key);
+                            $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                                ->where('product_id', $productId)
+                                ->where('product_type', $variantId ? 'variant' : 'simple')
+                                ->when($variantId, function ($q) use ($variantId) {
+                                    return $q->where('variant_id', $variantId);
+                                })
+                                ->first();
+                            if (!$stock || $stock->quantity < $absDiff) {
+                                throw new \Exception("Insufficient stock in warehouse to reduce purchase quantity (needs to deduct " . $absDiff . " units)");
+                            }
+                        }
+                    }
+                }
+
+                // 4. Apply stock updates and movements
+                if ($warehouseChanged) {
+                    // Deduct old items from old warehouse (revert purchase)
+                    foreach ($oldItems as $oldItem) {
+                        if (!$oldItem->product_id) continue;
+                        $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                            ->where('product_id', $oldItem->product_id)
+                            ->where('product_type', $oldItem->variant_id ? 'variant' : 'simple')
+                            ->when($oldItem->variant_id, function ($q) use ($oldItem) {
+                                return $q->where('variant_id', $oldItem->variant_id);
+                            })
+                            ->first();
+                        if ($stock) {
+                            $stock->update(['quantity' => max(0, $stock->quantity - $oldItem->quantity)]);
+                        }
+                    }
+                    // Delete old warehouse movement
+                    WarehouseMovement::where('reference_id', $invoice->id)->delete();
+
+                    // Add new items to new warehouse
+                    foreach ($request->items as $item) {
+                        if (empty($item['product_id'])) continue;
+                        $isVariant = !empty($item['variant_id']);
+                        $stock = WarehouseStock::where('warehouse_id', $request->warehouse_id)
+                            ->where('product_id', $item['product_id'])
+                            ->where('product_type', $isVariant ? 'variant' : 'simple')
+                            ->when($isVariant, function ($q) use ($item) {
+                                return $q->where('variant_id', $item['variant_id']);
+                            })
+                            ->first();
+                        if ($stock) {
+                            $stock->update(['quantity' => $stock->quantity + $item['quantity']]);
+                        } else {
+                            WarehouseStock::create([
+                                'warehouse_id'    => $request->warehouse_id,
+                                'product_id'      => $item['product_id'],
+                                'variant_id'      => $item['variant_id'] ?? null,
+                                'product_type'    => $isVariant ? 'variant' : 'simple',
+                                'quantity'        => $item['quantity'],
+                                'min_stock_alert' => 0,
+                            ]);
+                        }
+                        WarehouseMovement::create([
+                            'warehouse_id' => $request->warehouse_id,
+                            'product_id'   => $item['product_id'],
+                            'variant_id'   => $item['variant_id'] ?? null,
+                            'product_type' => $isVariant ? 'variant' : 'simple',
+                            'type'         => 'purchase',
+                            'quantity'     => $item['quantity'],
+                            'reference_id' => $invoice->id,
+                            'remarks'      => "Purchase Invoice Updated (Warehouse Changed): {$invoice->invoice_number}",
+                        ]);
+                    }
+                } else {
+                    // Same warehouse: apply net difference
+                    $allKeys = array_unique(array_merge(array_keys($oldMap), array_keys($newMap)));
+                    WarehouseMovement::where('reference_id', $invoice->id)->delete();
+
+                    foreach ($allKeys as $key) {
+                        $oldQty = $oldMap[$key] ?? 0.0;
+                        $newQty = $newMap[$key] ?? 0.0;
+                        $diff = $newQty - $oldQty;
+
+                        list($productId, $variantId) = explode('_', $key);
+                        $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                            ->where('product_id', $productId)
+                            ->where('product_type', $variantId ? 'variant' : 'simple')
+                            ->when($variantId, function ($q) use ($variantId) {
+                                return $q->where('variant_id', $variantId);
+                            })
+                            ->first();
+                        if ($stock) {
+                            $stock->update(['quantity' => max(0, $stock->quantity + $diff)]);
+                        } else if ($newQty > 0.001) {
+                            WarehouseStock::create([
+                                'warehouse_id'    => $invoice->warehouse_id,
+                                'product_id'      => $productId,
+                                'variant_id'      => $variantId ?: null,
+                                'product_type'    => $variantId ? 'variant' : 'simple',
+                                'quantity'        => $newQty,
+                                'min_stock_alert' => 0,
+                            ]);
+                        }
+
+                        if ($newQty > 0.001) {
+                            WarehouseMovement::create([
+                                'warehouse_id' => $invoice->warehouse_id,
+                                'product_id'   => $productId,
+                                'variant_id'   => $variantId ?: null,
+                                'product_type' => $variantId ? 'variant' : 'simple',
+                                'type'         => 'purchase',
+                                'quantity'     => $newQty,
+                                'reference_id' => $invoice->id,
+                                'remarks'      => "Purchase Invoice Updated: {$invoice->invoice_number}",
+                            ]);
+                        }
+                    }
+                }
+            }
 
             PurchaseInvoiceItem::where('purchase_invoice_id', $id)->delete();
 
@@ -1325,6 +1493,9 @@ public function getPartyDetails($id, Request $request)
                 ]);
             }
 
+            $invoice->load('items');
+            $this->syncProductCostPrices($invoice);
+
             return response()->json(['success' => true, 'invoice_id' => $invoice->id, 'message' => 'Invoice updated successfully']);
 
         } catch (\Exception $e) {
@@ -1346,6 +1517,94 @@ public function getPartyDetails($id, Request $request)
             return response()->json(['success'=>false,'message'=>'Failed: '.$e->getMessage()],500);
         }
     }
+    private function syncProductCostPrices($invoice)
+    {
+        try {
+            $invoiceDateStr = $invoice->invoice_date instanceof \Carbon\Carbon
+                ? $invoice->invoice_date->format('Y-m-d')
+                : date('Y-m-d', strtotime($invoice->invoice_date));
+
+            foreach ($invoice->items as $item) {
+                if (!$item->product_id) continue;
+
+                $purchasePrice = $this->decimalToFloat($item->purchase_price);
+
+                if (empty($item->variant_id)) {
+                    // Simple product
+                    $product = SimpleProduct::find($item->product_id);
+                    if ($product) {
+                        $costHistory = $product->cost_history ?? [];
+                        $found = false;
+                        foreach ($costHistory as &$entry) {
+                            if (($entry['reference_id'] ?? '') === (string)$invoice->id) {
+                                $entry['cost_price'] = $purchasePrice;
+                                $entry['date'] = $invoiceDateStr;
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (!$found) {
+                            $costHistory[] = [
+                                'date' => $invoiceDateStr,
+                                'cost_price' => $purchasePrice,
+                                'source' => 'purchase_invoice',
+                                'reference_id' => (string)$invoice->id,
+                            ];
+                        }
+
+                        $product->update([
+                            'cost_price' => $purchasePrice,
+                            'cost_history' => $costHistory,
+                        ]);
+                    }
+                } else {
+                    // Variant product
+                    $product = VariantProduct::find($item->product_id);
+                    if ($product) {
+                        $variants = $product->variants ?? [];
+                        $variantsUpdated = false;
+
+                        foreach ($variants as &$variant) {
+                            if ((string)($variant['_id'] ?? '') === (string)$item->variant_id) {
+                                $variant['cost_price'] = $purchasePrice;
+
+                                $costHistory = $variant['cost_history'] ?? [];
+                                $found = false;
+                                foreach ($costHistory as &$entry) {
+                                    if (($entry['reference_id'] ?? '') === (string)$invoice->id) {
+                                        $entry['cost_price'] = $purchasePrice;
+                                        $entry['date'] = $invoiceDateStr;
+                                        $found = true;
+                                        break;
+                                    }
+                                }
+                                if (!$found) {
+                                    $costHistory[] = [
+                                        'date' => $invoiceDateStr,
+                                        'cost_price' => $purchasePrice,
+                                        'source' => 'purchase_invoice',
+                                        'reference_id' => (string)$invoice->id,
+                                    ];
+                                }
+                                $variant['cost_history'] = $costHistory;
+                                $variantsUpdated = true;
+                                break;
+                            }
+                        }
+
+                        if ($variantsUpdated) {
+                            $product->update([
+                                'variants' => $variants,
+                            ]);
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('syncProductCostPrices error: ' . $e->getMessage());
+        }
+    }
+
     private function decimalToFloat($value)
     {
         if ($value instanceof \MongoDB\BSON\Decimal128) {

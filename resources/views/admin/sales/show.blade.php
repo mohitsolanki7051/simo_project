@@ -745,6 +745,10 @@
                 <button onclick="generateInvoice()" class="iv-btn iv-btn-primary">Generate</button>
                 <a href="{{ route('admin.sales.edit', $invoice->_id) }}" class="iv-btn iv-btn-outline">Edit</a>
                 <button onclick="deleteInvoice()" class="iv-btn iv-btn-danger">Delete</button>
+            @else
+                @if(auth()->guard('admin')->check())
+                    <a href="{{ route('admin.sales.edit', $invoice->_id) }}" class="iv-btn iv-btn-outline">Edit</a>
+                @endif
             @endif
 
             {{-- ✅ FIX: Cancel button ONLY for unpaid invoices --}}

@@ -598,6 +598,19 @@ public function ledger($id)
             'reference_id' => (string) $payment->_id,
             'is_opening' => false
         ]);
+
+        if ((float)($payment->discount ?? 0) > 0) {
+            $ledgerEntries->push([
+                'date' => $payment->payment_date,
+                'voucher_type' => 'Discount Allowed',
+                'voucher_no' => $voucherNo . '-D',
+                'debit' => 0,
+                'credit' => (float) $payment->discount,
+                'balance' => 0, // Will calculate later
+                'reference_id' => (string) $payment->_id,
+                'is_opening' => false
+            ]);
+        }
     }
 
     // Add discounts (credit notes)

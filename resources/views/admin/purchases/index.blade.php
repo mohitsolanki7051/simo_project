@@ -506,6 +506,15 @@
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                         </svg>
                                     </button>
+                                @else
+                                    @if(auth()->guard('admin')->check())
+                                        <a href="{{ route('admin.purchases.edit', $invoice->id) }}"
+                                           class="pi-act pi-act--edit" title="Edit Invoice">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                                            </svg>
+                                        </a>
+                                    @endif
                                 @endif
 
                                 @if($invoice->status === 'confirmed' && $invoice->payment_status === 'unpaid')

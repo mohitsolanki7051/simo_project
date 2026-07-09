@@ -75,13 +75,6 @@
                             @enderror
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Body Type <span class="required">*</span></label>
-                            <input type="text" class="form-input" name="body_type" value="{{ old('body_type', $simpleProduct->body_type) }}" placeholder="e.g., PVC, Metal, Plastic" required>
-                            @error('body_type')
-                                <div class="error-message">{{ $message }}</div>
-                            @enderror
-                        </div>
 
                         <div class="form-group">
                             <label class="form-label">Status <span class="required">*</span></label>

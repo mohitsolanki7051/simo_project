@@ -97,7 +97,8 @@
                         <option value="7"      {{ request('period') == '7'      ? 'selected' : '' }}>Last 7 Days</option>
                         <option value="30"     {{ request('period') == '30'     ? 'selected' : '' }}>Last 30 Days</option>
                         <option value="90"     {{ request('period') == '90'     ? 'selected' : '' }}>Last 90 Days</option>
-                        <option value="365"    {{ request('period') == '365'    ? 'selected' : '' }}>Last 365 Days</option>
+                        <option value="this_month" {{ request('period') == 'this_month' ? 'selected' : '' }}>This Month</option>
+                        <option value="previous_month" {{ request('period') == 'previous_month' ? 'selected' : '' }}>Previous Month</option>
                         <option value="custom" {{ request('period') == 'custom' ? 'selected' : '' }}>Custom Range</option>
                     </select>
                 </div>
@@ -363,6 +364,12 @@
                                     <button type="button" class="si-act si-act--del del-btn" data-id="{{ $invoice->_id }}" title="Delete Invoice">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                     </button>
+                                @else
+                                    @if(auth()->guard('admin')->check())
+                                        <a href="{{ route('admin.sales.edit', $invoice->_id) }}" class="si-act si-act--edit" title="Edit Invoice">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                        </a>
+                                    @endif
                                 @endif
                             </div>
                         </td>

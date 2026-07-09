@@ -254,6 +254,11 @@
                         </td>
                         <td class="tc-amount">
                             <span class="td-amount">₹ {{ number_format($amount, 2) }}</span>
+                            @if(!empty($payment->discount) && (float) $payment->discount > 0)
+                            <div style="font-size: 11px; color: #10b981; margin-top: 2px;" title="Discount given">
+                                + ₹{{ number_format((float)$payment->discount, 2) }} Disc.
+                            </div>
+                            @endif
                         </td>
                         <td class="tc-method">
                             <span class="pi-method-badge pi-method--{{ $payment->payment_method }}">
@@ -1189,6 +1194,12 @@ function viewPayment(id) {
                     <span class="md-label">Amount Received</span>
                     <span class="md-value green">₹${fmt(p.amount)}</span>
                 </div>
+                ${p.discount > 0 ? `
+                <div class="md-item">
+                    <span class="md-label">Discount Given</span>
+                    <span class="md-value" style="color: #10b981; font-weight: 600;">₹${fmt(p.discount)}</span>
+                </div>
+                ` : ''}
                 <div class="md-item">
                     <span class="md-label">Payment Method</span>
                     <span class="md-value">${esc(p.payment_method)}</span>

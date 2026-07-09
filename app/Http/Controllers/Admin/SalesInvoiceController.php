@@ -77,14 +77,23 @@ private function generateInvoiceNumber(string $invoiceType = 'gst'): string
             $period = $request->period;
             if ($period === 'today') {
                 $query->whereDate('invoice_date', today());
+            } elseif ($period === 'this_month') {
+                $query->whereDate('invoice_date', '>=', now()->startOfMonth()->toDateString())
+                      ->whereDate('invoice_date', '<=', now()->endOfMonth()->toDateString());
+            } elseif ($period === 'previous_month') {
+                $query->whereDate('invoice_date', '>=', now()->subMonth()->startOfMonth()->toDateString())
+                      ->whereDate('invoice_date', '<=', now()->subMonth()->endOfMonth()->toDateString());
             } elseif ($period === 'custom') {
                 if ($request->filled('date_from')) $query->whereDate('invoice_date', '>=', $request->date_from);
                 if ($request->filled('date_to'))   $query->whereDate('invoice_date', '<=', $request->date_to);
             } elseif (is_numeric($period)) {
                 $query->whereDate('invoice_date', '>=', now()->subDays((int)$period)->toDateString());
             }
+        } else {
+            if ($request->filled('date')) {
+                $query->whereDate('invoice_date', $request->date);
+            }
         }
-        if ($request->filled('date'))         $query->whereDate('invoice_date', $request->date);
         if ($request->filled('invoice_number')) $query->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
         if ($request->filled('invoice_type') && $request->invoice_type != '') $query->where('invoice_type', $request->invoice_type);
         if ($request->filled('party_id') && $request->party_id != '')         $query->where('party_id', $request->party_id);
@@ -122,14 +131,23 @@ private function generateInvoiceNumber(string $invoiceType = 'gst'): string
             $period = $request->period;
             if ($period === 'today') {
                 $statsQuery->whereDate('invoice_date', today());
+            } elseif ($period === 'this_month') {
+                $statsQuery->whereDate('invoice_date', '>=', now()->startOfMonth()->toDateString())
+                           ->whereDate('invoice_date', '<=', now()->endOfMonth()->toDateString());
+            } elseif ($period === 'previous_month') {
+                $statsQuery->whereDate('invoice_date', '>=', now()->subMonth()->startOfMonth()->toDateString())
+                           ->whereDate('invoice_date', '<=', now()->subMonth()->endOfMonth()->toDateString());
             } elseif ($period === 'custom') {
                 if ($request->filled('date_from')) $statsQuery->whereDate('invoice_date', '>=', $request->date_from);
                 if ($request->filled('date_to'))   $statsQuery->whereDate('invoice_date', '<=', $request->date_to);
             } elseif (is_numeric($period)) {
                 $statsQuery->whereDate('invoice_date', '>=', now()->subDays((int)$period)->toDateString());
             }
+        } else {
+            if ($request->filled('date')) {
+                $statsQuery->whereDate('invoice_date', $request->date);
+            }
         }
-        if ($request->filled('date'))           $statsQuery->whereDate('invoice_date', $request->date);
         if ($request->filled('invoice_number')) $statsQuery->where('invoice_number', 'like', '%' . $request->invoice_number . '%');
         if ($request->filled('invoice_type') && $request->invoice_type != '')  $statsQuery->where('invoice_type', $request->invoice_type);
         if ($request->filled('party_id') && $request->party_id != '')          $statsQuery->where('party_id', $request->party_id);
@@ -598,10 +616,12 @@ public function store(Request $request)
     {
         $invoice = SalesInvoice::with(['items', 'party'])->findOrFail($id);
 
-        // Check if invoice is editable (only draft status)
+        // Check if invoice is editable (only draft status, except for Admin)
         if ($invoice->status !== 'draft') {
-            return redirect()->route('admin.sales.show', $id)
-                ->with('error', 'Only draft invoices can be edited.');
+            if (!auth()->guard('admin')->check()) {
+                return redirect()->route('admin.sales.show', $id)
+                    ->with('error', 'Only draft invoices can be edited.');
+            }
         }
 
         // Get all active parties
@@ -633,7 +653,9 @@ public function store(Request $request)
         $invoice = SalesInvoice::findOrFail($id);
 
         if ($invoice->status !== 'draft') {
-            return response()->json(['success' => false, 'message' => 'Only draft invoices can be updated.'], 403);
+            if (!auth()->guard('admin')->check()) {
+                return response()->json(['success' => false, 'message' => 'Only draft invoices can be updated.'], 403);
+            }
         }
 
         if ($request->has('items') && is_string($request->items)) {
@@ -810,6 +832,144 @@ public function store(Request $request)
                 $balance       = 0;
             } else {
                 $paymentStatus = 'partial';
+            }
+
+            $isConfirmed = ($invoice->status !== 'draft');
+
+            if ($isConfirmed) {
+                // 1. Group old items by key
+                $oldItems = SalesInvoiceItem::where('sales_invoice_id', $invoice->_id)->get();
+                $oldMap = [];
+                foreach ($oldItems as $oldItem) {
+                    $key = $oldItem->product_id . '_' . ($oldItem->variant_id ?? '');
+                    $oldMap[$key] = (float) $oldItem->quantity;
+                }
+
+                // 2. Group new items by key
+                $newMap = [];
+                foreach ($request->items as $item) {
+                    $key = $item['product_id'] . '_' . ($item['variant_id'] ?? '');
+                    $newMap[$key] = ($newMap[$key] ?? 0.0) + (float) $item['quantity'];
+                }
+
+                // 3. Check stock availability for net additions
+                $warehouseChanged = ($invoice->warehouse_id !== $request->warehouse_id);
+
+                if ($warehouseChanged) {
+                    // Check new warehouse for full new quantities
+                    foreach ($request->items as $item) {
+                        $stock = WarehouseStock::where('warehouse_id', $request->warehouse_id)
+                            ->where('product_id', $item['product_id'])
+                            ->where('product_type', $item['variant_id'] ? 'variant' : 'simple')
+                            ->when($item['variant_id'], function ($q) use ($item) {
+                                return $q->where('variant_id', $item['variant_id']);
+                            })
+                            ->first();
+                        if (!$stock || $stock->quantity < $item['quantity']) {
+                            throw new \Exception("Insufficient stock in new warehouse for item " . ($item['product_name'] ?? ''));
+                        }
+                    }
+                } else {
+                    // Check same warehouse for net difference
+                    $allKeys = array_unique(array_merge(array_keys($oldMap), array_keys($newMap)));
+                    foreach ($allKeys as $key) {
+                        $oldQty = $oldMap[$key] ?? 0.0;
+                        $newQty = $newMap[$key] ?? 0.0;
+                        $diff = $newQty - $oldQty;
+
+                        if ($diff > 0.001) {
+                            list($productId, $variantId) = explode('_', $key);
+                            $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                                ->where('product_id', $productId)
+                                ->where('product_type', $variantId ? 'variant' : 'simple')
+                                ->when($variantId, function ($q) use ($variantId) {
+                                    return $q->where('variant_id', $variantId);
+                                })
+                                ->first();
+                            if (!$stock || $stock->quantity < $diff) {
+                                throw new \Exception("Insufficient stock for item (needs additional " . $diff . " units)");
+                            }
+                        }
+                    }
+                }
+
+                // 4. Apply stock updates and movements
+                if ($warehouseChanged) {
+                    // Revert old items on old warehouse
+                    foreach ($oldItems as $oldItem) {
+                        $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                            ->where('product_id', $oldItem->product_id)
+                            ->where('product_type', $oldItem->variant_id ? 'variant' : 'simple')
+                            ->when($oldItem->variant_id, function ($q) use ($oldItem) {
+                                return $q->where('variant_id', $oldItem->variant_id);
+                            })
+                            ->first();
+                        if ($stock) {
+                            $stock->update(['quantity' => $stock->quantity + $oldItem->quantity]);
+                        }
+                    }
+                    // Delete old warehouse movement
+                    WarehouseMovement::where('reference_id', $invoice->_id)->delete();
+
+                    // Deduct new items on new warehouse
+                    foreach ($request->items as $item) {
+                        $stock = WarehouseStock::where('warehouse_id', $request->warehouse_id)
+                            ->where('product_id', $item['product_id'])
+                            ->where('product_type', $item['variant_id'] ? 'variant' : 'simple')
+                            ->when($item['variant_id'], function ($q) use ($item) {
+                                return $q->where('variant_id', $item['variant_id']);
+                            })
+                            ->first();
+                        if ($stock) {
+                            $stock->update(['quantity' => $stock->quantity - $item['quantity']]);
+                        }
+                        WarehouseMovement::create([
+                            'warehouse_id' => $request->warehouse_id,
+                            'product_id'   => $item['product_id'],
+                            'product_type' => $item['variant_id'] ? 'variant' : 'simple',
+                            'variant_id'   => $item['variant_id'] ?? null,
+                            'type'         => WarehouseMovement::TYPE_SALE,
+                            'quantity'     => -$item['quantity'],
+                            'reference_id' => $invoice->_id,
+                            'remarks'      => "Sales Invoice Updated (Warehouse Changed): {$invoice->invoice_number}",
+                        ]);
+                    }
+                } else {
+                    // Apply net difference updates
+                    $allKeys = array_unique(array_merge(array_keys($oldMap), array_keys($newMap)));
+                    WarehouseMovement::where('reference_id', $invoice->_id)->delete();
+
+                    foreach ($allKeys as $key) {
+                        $oldQty = $oldMap[$key] ?? 0.0;
+                        $newQty = $newMap[$key] ?? 0.0;
+                        $diff = $newQty - $oldQty;
+
+                        list($productId, $variantId) = explode('_', $key);
+                        $stock = WarehouseStock::where('warehouse_id', $invoice->warehouse_id)
+                            ->where('product_id', $productId)
+                            ->where('product_type', $variantId ? 'variant' : 'simple')
+                            ->when($variantId, function ($q) use ($variantId) {
+                                return $q->where('variant_id', $variantId);
+                            })
+                            ->first();
+                        if ($stock && abs($diff) > 0.001) {
+                            $stock->update(['quantity' => $stock->quantity - $diff]);
+                        }
+
+                        if ($newQty > 0.001) {
+                            WarehouseMovement::create([
+                                'warehouse_id' => $invoice->warehouse_id,
+                                'product_id'   => $productId,
+                                'product_type' => $variantId ? 'variant' : 'simple',
+                                'variant_id'   => $variantId ?: null,
+                                'type'         => WarehouseMovement::TYPE_SALE,
+                                'quantity'     => -$newQty,
+                                'reference_id' => $invoice->_id,
+                                'remarks'      => "Sales Invoice Updated: {$invoice->invoice_number}",
+                            ]);
+                        }
+                    }
+                }
             }
 
             $invoice->update([
@@ -1216,6 +1376,15 @@ public function store(Request $request)
                 return response()->json(['products' => []]);
             }
 
+            $partyId = $request->party_id;
+            $partyInvoiceIds = [];
+            if ($partyId) {
+                $partyInvoiceIds = SalesInvoice::where('party_id', $partyId)
+                    ->where('status', '!=', 'cancelled')
+                    ->pluck('id')
+                    ->toArray();
+            }
+
             /* ================= SIMPLE PRODUCTS ================= */
             $simpleStocks = WarehouseStock::where('warehouse_id', $warehouse->_id)
                 ->where('product_type', 'simple')
@@ -1225,11 +1394,25 @@ public function store(Request $request)
             $simpleProducts = SimpleProduct::whereIn('_id', $simpleStocks)
                 ->where('status', 'active')
                 ->get()
-                ->map(function ($product) use ($warehouse) {
+                ->map(function ($product) use ($warehouse, $partyInvoiceIds) {
                     $stock = WarehouseStock::where('warehouse_id', $warehouse->_id)
                         ->where('product_id', $product->_id)
                         ->where('product_type', 'simple')
                         ->first();
+
+                    $lastSalePrice = null;
+                    if (!empty($partyInvoiceIds)) {
+                        $lastSoldItem = SalesInvoiceItem::whereIn('sales_invoice_id', $partyInvoiceIds)
+                            ->where('product_id', $product->_id)
+                            ->whereNull('variant_id')
+                            ->orderBy('created_at', 'desc')
+                            ->first();
+                        if ($lastSoldItem) {
+                            $lastSalePrice = $lastSoldItem->gst_inclusive 
+                                ? (float)$lastSoldItem->sale_price_incl 
+                                : (float)$lastSoldItem->price;
+                        }
+                    }
 
                     return [
                         'id' => (string) $product->_id,
@@ -1246,6 +1429,7 @@ public function store(Request $request)
                         'warranty_type' => $product->warranty_unit ?? 'none',
                         'warranty_period' => (int) ($product->warranty_duration ?? 0),
                         'tax_percent' => (float) ($product->gst ?? 0),
+                        'last_sale_price' => $lastSalePrice,
                     ];
                 });
 
@@ -1290,6 +1474,20 @@ public function store(Request $request)
 
                     if (!$stock) continue;
 
+                    $lastSalePrice = null;
+                    if (!empty($partyInvoiceIds)) {
+                        $lastSoldItem = SalesInvoiceItem::whereIn('sales_invoice_id', $partyInvoiceIds)
+                            ->where('product_id', $product->_id)
+                            ->where('variant_id', (string)$variantId)
+                            ->orderBy('created_at', 'desc')
+                            ->first();
+                        if ($lastSoldItem) {
+                            $lastSalePrice = $lastSoldItem->gst_inclusive 
+                                ? (float)$lastSoldItem->sale_price_incl 
+                                : (float)$lastSoldItem->price;
+                        }
+                    }
+
                     $variantProducts->push([
                         'id' => (string) $product->_id,
                         'variant_id' => (string) $variantId,
@@ -1306,17 +1504,18 @@ public function store(Request $request)
                         'warranty_type' => $product->warranty_unit ?? 'none',
                         'warranty_period' => (int) ($product->warranty_duration ?? 0),
                         'tax_percent' => (float) ($product->gst ?? 0),
+                        'last_sale_price' => $lastSalePrice,
                     ]);
                 }
             }
             $products = collect()
-    ->merge($simpleProducts)
-    ->merge($variantProducts)
-    ->values();
+                ->merge($simpleProducts)
+                ->merge($variantProducts)
+                ->values();
 
-return response()->json([
-    'products' => $products
-]);
+            return response()->json([
+                'products' => $products
+            ]);
 
         } catch (\Exception $e) {
             return response()->json([

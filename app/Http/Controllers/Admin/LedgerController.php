@@ -61,7 +61,7 @@ class LedgerController extends Controller
                 ->sum(fn($inv) => $controller->toFloat($inv->grand_total));
 
             $balance -= $controller->getSalesPaymentsIn($id)
-                ->sum(fn($pmt) => $controller->toFloat($pmt->amount));
+                ->sum(fn($pmt) => $controller->toFloat($pmt->amount) + $controller->toFloat($pmt->discount ?? 0));
 
             $balance -= CreditNote::where('party_id', $id)->get()
                 ->sum(fn($cn) => $controller->toFloat($cn->amount));
@@ -411,6 +411,22 @@ class LedgerController extends Controller
                 'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
                 '_sort_priority'   => 2,
             ];
+
+            $discountVal = $this->toFloat($pmt->discount ?? 0);
+            if ($discountVal > 0) {
+                $rows[] = [
+                    'raw_date'         => $pmt->payment_date,
+                    'date'             => $this->formatDate($pmt->payment_date),
+                    'voucher_type'     => 'Discount Allowed',
+                    'sr_no'            => ($pmt->payment_number ? $pmt->payment_number . '-D' : '—'),
+                    'payment_mode'     => '—',
+                    'reference_number' => null,
+                    'debit'            => 0.0,
+                    'credit'           => $discountVal,
+                    'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
+                    '_sort_priority'   => 2.5,
+                ];
+            }
         }
 
         foreach (CreditNote::where('party_id', $id)->get() as $cn) {
