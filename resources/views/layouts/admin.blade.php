@@ -387,6 +387,173 @@
             .main-content { margin-left: 0 !important; }
             .menu-toggle { display: flex; }
         }
+
+
+/* ===========================
+   MOBILE NAV PREMIUM
+=========================== */
+
+.mobile-bottom-nav,
+.fab-menu{
+    display:none;
+}
+
+@media (max-width:768px){
+
+    .mobile-bottom-nav{
+        position:fixed;
+        left:50%;
+        bottom:12px;
+        transform:translateX(-50%);
+
+        width:92%;
+        max-width:390px;
+        height:68px;
+
+        background:#111827;
+
+        border-radius:22px;
+
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+
+        padding:0 12px;
+
+        z-index:9999;
+
+        box-shadow:
+        0 10px 30px rgba(0,0,0,.18);
+    }
+
+    .mobile-nav-item{
+        width:60px;
+
+        text-decoration:none;
+
+        color:#ffffff;
+
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+
+        gap:3px;
+
+        transition:.25s;
+    }
+
+    .mobile-nav-item span{
+        font-size:18px;
+        line-height:1;
+    }
+
+    .mobile-nav-item small{
+        font-size:10px;
+        opacity:.8;
+    }
+
+    .mobile-nav-item.active{
+        color:#f98824;
+    }
+
+    .fab-btn{
+        width: 45px;
+        height: 46px;
+
+        border:none;
+        border-radius:60px;
+
+        background:#f98824;
+
+        color:#fff;
+
+        font-size:25px;
+        font-weight:600;
+
+        cursor:pointer;
+
+        display:flex;
+        align-items:center;
+        justify-content:center;
+
+        box-shadow:
+        0 10px 25px rgba(249,136,36,.35);
+
+        transition:.35s ease;
+    }
+
+    .fab-btn:hover{
+        transform:scale(1.05);
+    }
+
+    .fab-menu{
+        position:fixed;
+
+        left:50%;
+        bottom:90px;
+
+        transform:
+        translateX(-50%)
+        translateY(20px)
+        scale(.95);
+
+        flex-direction:column;
+
+        gap:10px;
+
+        opacity:0;
+        visibility:hidden;
+
+        transition:.3s ease;
+
+        z-index:10000;
+    }
+
+    .fab-menu.show{
+
+        display:flex;
+
+        opacity:1;
+        visibility:visible;
+
+        transform:
+        translateX(-50%)
+        translateY(0)
+        scale(1);
+    }
+
+    .fab-item{
+
+        background:#fff;
+
+        color:#111827;
+
+        text-decoration:none;
+
+        padding:12px 18px;
+
+        border-radius:30px;
+
+        font-size:13px;
+        font-weight:600;
+
+        white-space:nowrap;
+
+        box-shadow:
+        0 8px 25px rgba(0,0,0,.15);
+
+        transition:.25s;
+    }
+
+    .fab-item:hover{
+        transform:translateY(-2px);
+    }
+
+    .dashboard-content{
+        padding-bottom:110px !important;
+    }
+}
     </style>
     @stack('styles')
 </head>
@@ -662,10 +829,10 @@
             </button>
             <div class="user-profile" id="userProfile" onclick="toggleUserMenu()">
                 <div class="user-avatar">{{ strtoupper(substr(Auth::guard('admin')->user()->name ?? 'A', 0, 1)) }}</div>
-                <div class="user-info">
+                <!-- <div class="user-info">
                     <div class="user-name">{{ Auth::guard('admin')->user()->name ?? 'Admin' }}</div>
                     <div class="user-role">Administrator</div>
-                </div>
+                </div> -->
                 <span class="user-chevron"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
                 <div class="user-menu" id="userMenu">
                     <div class="user-menu-header">
@@ -686,6 +853,49 @@
         </div>
     </header>
     <div class="dashboard-content">@yield('content')</div>
+</div>
+<div class="mobile-bottom-nav">
+
+    <a href="/admin/dashboard" class="mobile-nav-item active">
+        <span>🏠</span>
+        <small>Home</small>
+    </a>
+
+    <a href="/admin/products" class="mobile-nav-item">
+        <span>📦</span>
+        <small>Products</small>
+    </a>
+
+    <button class="fab-btn" id="fabBtn">
+        +
+    </button>
+
+    <a href="/admin/sales" class="mobile-nav-item">
+        <span>🧾</span>
+        <small>Sales</small>
+    </a>
+
+    <a href="/admin/profile" class="mobile-nav-item">
+        <span>👤</span>
+        <small>Profile</small>
+    </a>
+
+</div>
+
+<div class="fab-menu" id="fabMenu">
+
+    <a href="/admin/sales/create" class="fab-item">
+        🧾 Sales Invoice
+    </a>
+
+    <a href="/admin/sales-returns/create" class="fab-item">
+        🔄 Sales Return
+    </a>
+
+    <a href="/admin/purchases/create" class="fab-item">
+        📦 Purchase Invoice
+    </a>
+
 </div>
 
 <script>
@@ -864,6 +1074,30 @@ document.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
     if (e.key === 'Escape' && searchOverlay.classList.contains('show')) closeSearch();
 });
+
+//  +==============================44
+
+
+const fabBtn = document.getElementById('fabBtn');
+const fabMenu = document.getElementById('fabMenu');
+
+fabBtn.addEventListener('click', () => {
+
+    fabMenu.classList.toggle('show');
+
+    if(fabMenu.classList.contains('show')){
+
+        fabBtn.innerHTML = '✕';
+        fabBtn.style.transform = 'rotate(45deg)';
+
+    }else{
+
+        fabBtn.innerHTML = '+';
+        fabBtn.style.transform = 'rotate(0deg)';
+    }
+
+});
+
 </script>
  <script src="{{ asset('js/voice-commands.js') }}"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

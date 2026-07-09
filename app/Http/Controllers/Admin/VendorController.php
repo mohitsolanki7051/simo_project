@@ -617,7 +617,7 @@ class VendorController extends Controller
         $validator = Validator::make($request->all(), [
             'vendor_ids' => 'required|array',
             'vendor_ids.*' => 'required|exists:vendors,id',
-            'status' => 'required|in:active,inactive'
+            'status' => 'required|in:active,inactive,delete'
         ]);
 
         if ($validator->fails()) {
@@ -628,6 +628,42 @@ class VendorController extends Controller
         }
 
         try {
+            if ($request->status === 'delete') {
+                $vendors = Vendor::whereIn('id', $request->vendor_ids)->get();
+                $deletedCount = 0;
+                $skippedCount = 0;
+
+                foreach ($vendors as $vendor) {
+                    // Check for transaction records
+                    $hasTransactions = \App\Models\PurchaseInvoice::where('vendor_id', $vendor->id)->orWhere('party_id', $vendor->id)->exists()
+                        || \App\Models\PurchasePayment::where('vendor_id', $vendor->id)->orWhere('party_id', $vendor->id)->exists()
+                        || \App\Models\PurchaseReturn::where('party_id', $vendor->id)->exists()
+                        || \App\Models\DebitNote::where('party_id', $vendor->id)->exists()
+                        || \App\Models\SalesPayment::where('party_id', $vendor->id)->exists()
+                        || \App\Models\CreditNote::where('party_id', $vendor->id)->exists();
+
+                    if ($hasTransactions) {
+                        $skippedCount++;
+                    } else {
+                        VendorAddress::where('vendor_id', $vendor->id)->delete();
+                        $vendor->delete();
+                        $deletedCount++;
+                    }
+                }
+
+                if ($deletedCount === 0 && $skippedCount > 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to delete selected vendors because they all have associated transactions.'
+                    ], 400);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "Successfully deleted {$deletedCount} vendors." . ($skippedCount > 0 ? " Skipped {$skippedCount} vendors with transactions." : "")
+                ]);
+            }
+
             Vendor::whereIn('id', $request->vendor_ids)
                 ->update(['status' => $request->status]);
 
@@ -638,7 +674,7 @@ class VendorController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating status: ' . $e->getMessage()
+                'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -697,4 +733,39 @@ class VendorController extends Controller
             'default_shipping' => $vendor->defaultShippingAddress(),
         ]);
     }
+
+    /**
+     * Remove the specified vendor from storage.
+     */
+    public function destroy($id)
+    {
+        try {
+            $vendor = Vendor::findOrFail($id);
+
+            // Check for transaction records
+            $hasTransactions = \App\Models\PurchaseInvoice::where('vendor_id', $id)->orWhere('party_id', $id)->exists()
+                || \App\Models\PurchasePayment::where('vendor_id', $id)->orWhere('party_id', $id)->exists()
+                || \App\Models\PurchaseReturn::where('party_id', $id)->exists()
+                || \App\Models\DebitNote::where('party_id', $id)->exists()
+                || \App\Models\SalesPayment::where('party_id', $id)->exists()
+                || \App\Models\CreditNote::where('party_id', $id)->exists();
+
+            if ($hasTransactions) {
+                return redirect()->back()->with('error', 'Cannot delete this vendor because they have associated transactions.');
+            }
+
+            // Delete addresses
+            VendorAddress::where('vendor_id', $id)->delete();
+
+            // Delete vendor
+            $vendor->delete();
+
+            return redirect()->route('admin.vendors.index')
+                ->with('success', 'Vendor deleted successfully!');
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error deleting vendor: ' . $e->getMessage());
+        }
+    }
 }
+

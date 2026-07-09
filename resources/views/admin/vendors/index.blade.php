@@ -5,6 +5,8 @@
 
 @section('content')
 <div class="vendors-container">
+    <!-- Alert Messages -->
+    <div id="alertContainer"></div>
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
@@ -72,6 +74,7 @@
                 <option value="">Bulk Actions</option>
                 <option value="active">Set Active</option>
                 <option value="inactive">Set Inactive</option>
+                <option value="delete">Delete Selected</option>
             </select>
             <button class="btn-bulk" id="applyBulkAction" disabled>Apply</button>
         </div>
@@ -654,6 +657,37 @@
         transform: scale(1.1);
     }
 
+    .icon-ledger { background: #ede9fe; }
+    .icon-ledger:hover { background: #ddd6fe; transform: scale(1.1); }
+    .icon-delete { color: #ef4444; background: #fee2e2; }
+    .icon-delete:hover { background: #fca5a5; transform: scale(1.1); }
+
+    /* Alerts */
+    #alertContainer {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .alert {
+        padding: 10px 14px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        min-width: 250px;
+        animation: slideInRight 0.3s ease;
+    }
+    .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
     /* Empty State */
     .empty-state {
         padding: 40px 20px;
@@ -958,12 +992,14 @@
 
         const actionText = {
             'active': 'Set as Active',
-            'inactive': 'Set as Inactive'
+            'inactive': 'Set as Inactive',
+            'delete': 'Delete Selected'
         }[action];
 
         const actionMessage = {
             'active': `Are you sure you want to set ${selectedVendorIds.length} vendor(s) as active?`,
-            'inactive': `Are you sure you want to set ${selectedVendorIds.length} vendor(s) as inactive?`
+            'inactive': `Are you sure you want to set ${selectedVendorIds.length} vendor(s) as inactive?`,
+            'delete': `Are you sure you want to permanently delete ${selectedVendorIds.length} vendor(s)? This action cannot be undone.`
         }[action];
 
         modalTitle.textContent = actionText;
@@ -999,7 +1035,7 @@
             const data = await response.json();
 
             if (data.success) {
-                alert('Status updated successfully!');
+                alert(data.message || 'Operation completed successfully!');
                 window.location.reload();
             } else {
                 alert(data.message || 'Operation failed. Please try again.');
@@ -1098,8 +1134,29 @@
             if (modal) {
                 modal.style.display = 'none';
             }
-        });
     });
+
+    // ========== ALERT SYSTEM ==========
+    function showAlert(message, type = 'success') {
+        const container = document.getElementById('alertContainer');
+        if (!container) return;
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.innerHTML = `<span>${message}</span>`;
+        container.appendChild(alert);
+
+        setTimeout(() => {
+            alert.remove();
+        }, 3000);
+    }
+
+    // Trigger alerts from PHP sessions
+    @if(session('success'))
+        showAlert('{{ session('success') }}', 'success');
+    @endif
+    @if(session('error'))
+        showAlert('{{ session('error') }}', 'error');
+    @endif
 </script>
 @endpush
 @endsection

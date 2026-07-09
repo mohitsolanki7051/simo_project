@@ -97,8 +97,11 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Category</label>
-                            <select class="form-select" name="category_id">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <label class="form-label" style="margin-bottom: 0;">Category</label>
+                                <button type="button" onclick="openCategoryModal()" style="background: none; border: none; color: #fa8128; font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; outline: none;">+ New Category</button>
+                            </div>
+                            <select class="form-select" name="category_id" id="category_select">
                                 <option value="">Select Category</option>
                                 @foreach($categories as $category)
                                 <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
@@ -360,6 +363,43 @@
             </div>
         </div>
     </form>
+</div>
+
+<!-- ========== CATEGORY CREATION MODAL ========== -->
+<div class="hsn-modal-overlay" id="categoryModal" style="display:none;">
+    <div class="hsn-modal" style="max-width: 450px;">
+        <div class="hsn-modal-header">
+            <h3 class="hsn-modal-title">📁 Create New Category</h3>
+            <button type="button" class="hsn-modal-close" onclick="closeCategoryModal()">✕</button>
+        </div>
+        <div class="hsn-modal-body" style="overflow-y: auto;">
+            <form id="inlineCategoryForm" onsubmit="submitInlineCategory(event)">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label">Category Name <span class="required">*</span></label>
+                    <input type="text" id="new_category_name" class="form-input" placeholder="e.g. Cables, Accessories" required style="width: 100%; box-sizing: border-box; height: 36px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label">Slug (Optional)</label>
+                    <input type="text" id="new_category_slug" class="form-input" placeholder="e.g. cables-accessories" style="width: 100%; box-sizing: border-box; height: 36px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label">Description (Optional)</label>
+                    <textarea id="new_category_desc" class="form-textarea" placeholder="Enter category description" style="width: 100%; box-sizing: border-box; min-height: 60px;"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Status <span class="required">*</span></label>
+                    <select id="new_category_status" class="form-select" required style="width: 100%; box-sizing: border-box; height: 36px;">
+                        <option value="active" selected>Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+                    <button type="button" onclick="closeCategoryModal()" style="padding: 6px 12px; background: #e9ecef; color: #495057; border: 1px solid #ced4da; border-radius: 4px; font-weight: 500; cursor: pointer;">Cancel</button>
+                    <button type="submit" id="saveCategoryBtn" style="padding: 6px 15px; background: #fa8128; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer;">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 @push('styles')
@@ -1083,6 +1123,92 @@
         files.forEach(file => dataTransfer.items.add(file));
         input.files = dataTransfer.files;
         previewGalleryImages({ target: input });
+    }
+
+    // ========== CATEGORY INLINE CREATION ==========
+    function openCategoryModal() {
+        document.getElementById('categoryModal').style.display = 'flex';
+        document.getElementById('new_category_name').focus();
+    }
+
+    function closeCategoryModal() {
+        document.getElementById('categoryModal').style.display = 'none';
+        document.getElementById('inlineCategoryForm').reset();
+    }
+
+    // Close category modal on overlay click
+    document.getElementById('categoryModal').addEventListener('click', function(e) {
+        if (e.target === this) closeCategoryModal();
+    });
+
+    function submitInlineCategory(event) {
+        event.preventDefault();
+        const nameField = document.getElementById('new_category_name');
+        const slugField = document.getElementById('new_category_slug');
+        const descField = document.getElementById('new_category_desc');
+        const statusField = document.getElementById('new_category_status');
+        const saveBtn = document.getElementById('saveCategoryBtn');
+
+        if (!nameField.value.trim()) {
+            showAlert('Category name is required', 'error');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Saving...';
+
+        const token = document.querySelector('input[name="_token"]').value;
+
+        fetch('{{ route("admin.categories.store") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': token
+            },
+            body: JSON.stringify({
+                name: nameField.value.trim(),
+                slug: slugField.value.trim(),
+                description: descField.value.trim(),
+                status: statusField.value
+            })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw err; });
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.success && data.category) {
+                // Add option to dropdown
+                const select = document.getElementById('category_select');
+                const opt = document.createElement('option');
+                opt.value = data.category.id;
+                opt.textContent = data.category.name;
+                opt.selected = true;
+                select.appendChild(opt);
+
+                showAlert(data.message || 'Category created successfully!', 'success');
+                closeCategoryModal();
+            } else {
+                showAlert(data.message || 'Failed to create category', 'error');
+            }
+        })
+        .catch(err => {
+            let errorMsg = 'Failed to create category. Please check details.';
+            if (err && err.errors && err.errors.name) {
+                errorMsg = err.errors.name[0];
+            } else if (err && err.message) {
+                errorMsg = err.message;
+            }
+            showAlert(errorMsg, 'error');
+            console.error('Category creation error:', err);
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        });
     }
 
     // ========== INITIALIZE ==========

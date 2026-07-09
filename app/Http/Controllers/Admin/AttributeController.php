@@ -95,11 +95,28 @@ public function index()
                 $message .= " {$duplicateCount} duplicate value(s) were skipped.";
             }
 
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'attribute' => [
+                        'id' => (string) $attribute->id,
+                        'type' => $attribute->type
+                    ]
+                ]);
+            }
+
             return redirect()->route('admin.attributes.index')
                 ->with('success', $message);
 
         } catch (\Exception $e) {
             Log::error('Attribute creation failed: ' . $e->getMessage());
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to create attribute. Please try again: ' . $e->getMessage()
+                ], 500);
+            }
             return back()->withInput()
                 ->with('error', 'Failed to create attribute. Please try again.');
         }

@@ -1020,9 +1020,24 @@
         .form-grid, .transfer-item-body {
             grid-template-columns: 1fr;
         }
+        .control-grid {
+            grid-template-columns: 1fr !important;
+            gap: 12px;
+        }
         .stats-display {
-            flex-wrap: wrap;
-            gap: 15px;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 8px;
+            width: 100%;
+        }
+        .stat-item {
+            padding: 8px 10px !important;
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 10px !important;
+        }
+        .stat-value {
+            font-size: 13px !important;
         }
         .warehouse-selector {
             flex-direction: column;
@@ -1032,10 +1047,14 @@
             width: 100%;
         }
         .action-buttons {
-            flex-wrap: wrap;
+            display: flex;
+            gap: 8px;
+            width: 100%;
         }
         .btn-primary, .btn-transfer {
+            flex: 1;
             width: 100%;
+            justify-content: center;
         }
         .warehouse-info-row {
             width: 100%;
@@ -1044,6 +1063,219 @@
         .warehouse-actions-compact {
             margin-left: 0;
             margin-top: 10px;
+        }
+
+        /* Stock Table -> Card View */
+        .table-wrapper {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            overflow-x: visible;
+        }
+        .data-table {
+            min-width: 100%;
+            display: block;
+            border: none;
+        }
+        .data-table thead {
+            display: none;
+        }
+        .data-table tbody {
+            display: block;
+            width: 100%;
+        }
+        .data-table tr {
+            position: relative;
+        }
+        .data-table tr.simple-row, .data-table tr.variant-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            background: #fff;
+            border-radius: 8px;
+            padding: 12px 14px 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+        .data-table tr.variant-group-header {
+            display: block;
+            background: #f1f5f9;
+            padding: 8px 12px;
+            margin-top: 12px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            font-weight: 700;
+            color: #334155;
+            font-size: 12px;
+        }
+        .data-table tr.variant-group-header td {
+            display: block;
+            width: 100%;
+            border: none;
+            padding: 0;
+        }
+        .data-table tr.simple-row:hover td, .data-table tr.variant-row:hover td {
+            background: transparent;
+        }
+        .data-table td {
+            border: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        /* td 1: Checkbox */
+        .data-table td:nth-child(1) {
+            width: 30px;
+            order: 1;
+        }
+        /* td 2: Product Name */
+        .data-table td:nth-child(2) {
+            flex: 1;
+            min-width: 0;
+            order: 2;
+        }
+        .product-info .product-name {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .product-info .variant-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        /* td 5: Status Badge -> absolute top right */
+        .data-table td:nth-child(5) {
+            width: auto;
+            order: 3;
+            position: absolute;
+            top: 12px;
+            right: 14px;
+        }
+        .status-badge {
+            font-size: 9px;
+            padding: 2px 7px;
+        }
+
+        /* td 3: SKU, td 4: Unit */
+        .data-table td:nth-child(3) {
+            width: auto;
+            order: 4;
+            margin-top: 4px;
+            margin-right: 10px;
+            font-size: 11px;
+            color: #64748b;
+        }
+        .data-table td:nth-child(3)::before {
+            content: "SKU: ";
+            font-weight: 600;
+        }
+        .data-table td:nth-child(4) {
+            width: auto;
+            order: 5;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #64748b;
+        }
+        .data-table td:nth-child(4)::before {
+            content: "Unit: ";
+            font-weight: 600;
+        }
+
+        /* td 6: Stock, td 7: Min Stock, td 8: Stock Value */
+        .data-table td:nth-child(6) {
+            width: 33.33%;
+            order: 6;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
+        .data-table td:nth-child(6)::before {
+            content: "Stock";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        .data-table td:nth-child(7) {
+            width: 33.33%;
+            order: 7;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
+        .data-table td:nth-child(7)::before {
+            content: "Min Stock";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        .data-table td:nth-child(8) {
+            width: 33.33%;
+            order: 8;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
+        .data-table td:nth-child(8)::before {
+            content: "Stock Value";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        /* td 9: Sale Price, td 10: Cost Price */
+        .data-table td:nth-child(9) {
+            width: 50%;
+            order: 9;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
+        .data-table td:nth-child(9)::before {
+            content: "Sale Price";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        .data-table td:nth-child(10) {
+            width: 50%;
+            order: 10;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
+        .data-table td:nth-child(10)::before {
+            content: "Cost Price";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
         }
     }
 </style>

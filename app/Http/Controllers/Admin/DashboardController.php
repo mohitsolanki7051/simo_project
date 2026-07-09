@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\Salesman;
 use App\Models\Warehouse;
 use App\Models\SalesInvoice;
+use App\Models\SalesInvoiceItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -54,7 +55,7 @@ class DashboardController extends Controller
         $activeWarehouses = Warehouse::where('status', 'active')->count();
         $mainWarehouse    = Warehouse::main()->first();
 
-        // ── Sales Invoices ─────────────────────────────────────────────────
+        // ── Sales Invoices ────────────────────────────────────────────────
         $totalInvoices   = SalesInvoice::count();
         $totalRevenue    = $this->toFloat(SalesInvoice::sum('grand_total'));
         $totalCollected  = $this->toFloat(SalesInvoice::sum('total_paid'));
@@ -83,6 +84,44 @@ class DashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(8)
             ->get();
+
+
+// ── Revenue Breakdown (Today / Week / Month) ──────────────────────
+$todayRevenue   = $this->toFloat(SalesInvoice::whereDate('invoice_date', Carbon::today())->sum('grand_total'));
+$todayCount     = SalesInvoice::whereDate('invoice_date', Carbon::today())->count();
+
+$weekRevenue    = $this->toFloat(SalesInvoice::whereBetween('invoice_date', [
+                    Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()
+                  ])->sum('grand_total'));
+$weekCount      = SalesInvoice::whereBetween('invoice_date', [
+                    Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()
+                  ])->count();
+
+$monthRevenue   = $this->toFloat(SalesInvoice::whereYear('invoice_date', Carbon::now()->year)
+                    ->whereMonth('invoice_date', Carbon::now()->month)
+                    ->sum('grand_total'));
+$monthCount     = SalesInvoice::whereYear('invoice_date', Carbon::now()->year)
+                    ->whereMonth('invoice_date', Carbon::now()->month)
+                    ->count();
+
+        // ── Top Selling Products (Current Month) ──────────────────────────
+$startOfMonth = Carbon::now()->startOfMonth();
+$endOfMonth   = Carbon::now()->endOfMonth();
+
+$topProducts = SalesInvoiceItem::whereBetween('created_at', [$startOfMonth, $endOfMonth])
+    ->get()
+    ->groupBy('product_name')
+    ->map(function ($items, $productName) {
+        return (object)[
+            'product_name' => $productName,
+            'total_qty'    => $items->sum(fn($i) => (float) $i->quantity),
+            'total_orders' => $items->count(),
+            'unit'         => $items->first()->unit ?? 'qty',
+        ];
+    })
+    ->sortByDesc('total_qty')
+    ->take(5)
+    ->values();
 
         // ── Stats Array ───────────────────────────────────────────────────
         $stats = [
@@ -118,8 +157,15 @@ class DashboardController extends Controller
 
             'monthly_sales'          => $monthlySales,
             'max_monthly_sale'       => $maxMonthlySale ?: 1,
+            // Revenue breakdown
+'today_revenue'  => $todayRevenue,
+'today_count'    => $todayCount,
+'week_revenue'   => $weekRevenue,
+'week_count'     => $weekCount,
+'month_revenue'  => $monthRevenue,
+'month_count'    => $monthCount,
         ];
 
-        return view('admin.dashboard', compact('stats', 'recentSales'));
+        return view('admin.dashboard', compact('stats', 'recentSales', 'topProducts'));
     }
 }

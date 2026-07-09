@@ -114,7 +114,7 @@ public function create(Request $request)
                 'parent_party_id' => $request->parent_party_id,
                 'gst_number' => strtoupper($request->gst_number),
                 'pan_number' => strtoupper($request->pan_number),
-                'status' => $request->status,
+                'status' => $request->status,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                 'notes' => $request->notes
             ]);
 
@@ -460,7 +460,7 @@ public function edit($id)
         $validator = Validator::make($request->all(), [
             'party_ids' => 'required|array',
             'party_ids.*' => 'required|exists:customers,_id',
-            'status' => 'required|in:active,inactive'
+            'status' => 'required|in:active,inactive,delete'
         ]);
 
         if ($validator->fails()) {
@@ -471,6 +471,49 @@ public function edit($id)
         }
 
         try {
+            if ($request->status === 'delete') {
+                $parties = Customer::whereIn('_id', $request->party_ids)->get();
+                $deletedCount = 0;
+                $skippedCount = 0;
+
+                foreach ($parties as $party) {
+                    // Check if there are child parties
+                    $hasDealers = Customer::where('parent_party_id', $party->id)->exists();
+
+                    // Check for transaction records
+                    $hasTransactions = \App\Models\SalesInvoice::where('party_id', $party->id)->exists()
+                        || \App\Models\SalesPayment::where('party_id', $party->id)->exists()
+                        || \App\Models\Quotation::where('party_id', $party->id)->exists()
+                        || \App\Models\SalesReturn::where('party_id', $party->id)->exists()
+                        || \App\Models\CreditNote::where('party_id', $party->id)->exists()
+                        || \App\Models\DebitNote::where('party_id', $party->id)->exists()
+                        || \App\Models\PurchaseReturn::where('party_id', $party->id)->exists()
+                        || \App\Models\PurchaseInvoice::where('party_id', $party->id)->exists()
+                        || \App\Models\PurchasePayment::where('party_id', $party->id)->exists()
+                        || \App\Models\WarrantyClaim::where('party_id', $party->id)->exists();
+
+                    if ($hasDealers || $hasTransactions) {
+                        $skippedCount++;
+                    } else {
+                        CustomerAddress::where('customer_id', $party->id)->delete();
+                        $party->delete();
+                        $deletedCount++;
+                    }
+                }
+
+                if ($deletedCount === 0 && $skippedCount > 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to delete selected parties because they all have associated transactions/dealers.'
+                    ], 400);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "Successfully deleted {$deletedCount} parties." . ($skippedCount > 0 ? " Skipped {$skippedCount} parties with transactions." : "")
+                ]);
+            }
+
             Customer::whereIn('_id', $request->party_ids)
                 ->update(['status' => $request->status]);
 
@@ -481,7 +524,7 @@ public function edit($id)
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating status: ' . $e->getMessage()
+                'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -722,4 +765,49 @@ public function ledger($id)
         'totalItems'
     ));
 }
+
+    /**
+     * Remove the specified party from storage.
+     */
+    public function destroy($id)
+    {
+        try {
+            $party = Customer::findOrFail($id);
+
+            // Check if there are child parties (dealers under a distributor)
+            $hasDealers = Customer::where('parent_party_id', $id)->exists();
+            if ($hasDealers) {
+                return redirect()->back()->with('error', 'Cannot delete this distributor as it has dealers associated with it.');
+            }
+
+            // Check for transaction records
+            $hasTransactions = \App\Models\SalesInvoice::where('party_id', $id)->exists()
+                || \App\Models\SalesPayment::where('party_id', $id)->exists()
+                || \App\Models\Quotation::where('party_id', $id)->exists()
+                || \App\Models\SalesReturn::where('party_id', $id)->exists()
+                || \App\Models\CreditNote::where('party_id', $id)->exists()
+                || \App\Models\DebitNote::where('party_id', $id)->exists()
+                || \App\Models\PurchaseReturn::where('party_id', $id)->exists()
+                || \App\Models\PurchaseInvoice::where('party_id', $id)->exists()
+                || \App\Models\PurchasePayment::where('party_id', $id)->exists()
+                || \App\Models\WarrantyClaim::where('party_id', $id)->exists();
+
+            if ($hasTransactions) {
+                return redirect()->back()->with('error', 'Cannot delete this ' . $party->party_type . ' because they have associated transactions.');
+            }
+
+            // Delete addresses
+            CustomerAddress::where('customer_id', $id)->delete();
+
+            // Delete party
+            $party->delete();
+
+            return redirect()->route('admin.parties.index', ['type' => $party->party_type])
+                ->with('success', ucfirst($party->party_type) . ' deleted successfully!');
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error deleting party: ' . $e->getMessage());
+        }
+    }
 }
+

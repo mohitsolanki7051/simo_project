@@ -74,8 +74,11 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Category</label>
-                            <select class="form-select" name="category_id">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <label class="form-label" style="margin-bottom: 0;">Category</label>
+                                <button type="button" onclick="openCategoryModal()" style="background: none; border: none; color: #fa8427; font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; outline: none;">+ New Category</button>
+                            </div>
+                            <select class="form-select" name="category_id" id="category_select">
                                 <option value="">Select Category</option>
                                 @foreach($categories as $category)
                                 <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
@@ -216,7 +219,10 @@
 
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label class="form-label">Attribute Type <span class="required">*</span></label>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                        <label class="form-label" style="margin-bottom: 0;">Attribute Type <span class="required">*</span></label>
+                                        <button type="button" onclick="openAttributeModal()" style="background: none; border: none; color: #fa8427; font-size: 11px; font-weight: 600; cursor: pointer; padding: 0; outline: none;">+ New Attribute</button>
+                                    </div>
                                     <select class="form-select" id="attribute_type" onchange="loadAttributeValues()">
                                         <option value="">Select Type</option>
                                         @foreach($attributeTypes as $attribute)
@@ -287,6 +293,84 @@
             </div>
         </div>
     </form>
+</div>
+
+<!-- ========== CATEGORY CREATION MODAL ========== -->
+<div class="hsn-modal-overlay" id="categoryModal" style="display:none;">
+    <div class="hsn-modal" style="max-width: 450px;">
+        <div class="hsn-modal-header">
+            <h3 class="hsn-modal-title">📁 Create New Category</h3>
+            <button type="button" class="hsn-modal-close" onclick="closeCategoryModal()">✕</button>
+        </div>
+        <div class="hsn-modal-body" style="overflow-y: auto;">
+            <form id="inlineCategoryForm" onsubmit="submitInlineCategory(event)">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label">Category Name <span class="required">*</span></label>
+                    <input type="text" id="new_category_name" class="form-input" placeholder="e.g. Cables, Accessories" required style="width: 100%; box-sizing: border-box; height: 36px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label">Slug (Optional)</label>
+                    <input type="text" id="new_category_slug" class="form-input" placeholder="e.g. cables-accessories" style="width: 100%; box-sizing: border-box; height: 36px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label">Description (Optional)</label>
+                    <textarea id="new_category_desc" class="form-textarea" placeholder="Enter category description" style="width: 100%; box-sizing: border-box; min-height: 60px;"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Status <span class="required">*</span></label>
+                    <select id="new_category_status" class="form-select" required style="width: 100%; box-sizing: border-box; height: 36px;">
+                        <option value="active" selected>Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+                    <button type="button" onclick="closeCategoryModal()" style="padding: 6px 12px; background: #e9ecef; color: #495057; border: 1px solid #ced4da; border-radius: 4px; font-weight: 500; cursor: pointer;">Cancel</button>
+                    <button type="submit" id="saveCategoryBtn" style="padding: 6px 15px; background: #fa8128; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer;">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ========== ATTRIBUTE CREATION MODAL ========== -->
+<div class="hsn-modal-overlay" id="attributeModal" style="display:none;">
+    <div class="hsn-modal" style="max-width: 450px;">
+        <div class="hsn-modal-header">
+            <h3 class="hsn-modal-title">🎨 Create New Attribute</h3>
+            <button type="button" class="hsn-modal-close" onclick="closeAttributeModal()">✕</button>
+        </div>
+        <div class="hsn-modal-body" style="overflow-y: auto;">
+            <form id="inlineAttributeForm" onsubmit="submitInlineAttribute(event)">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label">Attribute Name / Type <span class="required">*</span></label>
+                    <input type="text" id="new_attribute_type" class="form-input" placeholder="e.g. Color, Size, Material" required style="width: 100%; box-sizing: border-box; height: 36px;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label class="form-label">Attribute Values <span class="required">*</span></label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <input type="text" id="new_attribute_value_input" class="form-input" placeholder="Add a value, e.g. Red, XL" style="flex: 1; height: 36px;" onkeydown="handleAttributeValueKeydown(event)">
+                        <button type="button" onclick="addAttributeValueTag()" style="padding: 0 15px; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; height: 36px;">Add</button>
+                    </div>
+                    <div id="attributeValuesList" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px dashed #ced4da; border-radius: 4px; min-height: 50px; background: #fafafa;">
+                        <span style="color: #9ca3af; font-size: 11px;">No values added yet</span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Status <span class="required">*</span></label>
+                    <select id="new_attribute_status" class="form-select" required style="width: 100%; box-sizing: border-box; height: 36px;">
+                        <option value="active" selected>Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+                    <button type="button" onclick="closeAttributeModal()" style="padding: 6px 12px; background: #e9ecef; color: #495057; border: 1px solid #ced4da; border-radius: 4px; font-weight: 500; cursor: pointer;">Cancel</button>
+                    <button type="submit" id="saveAttributeBtn" style="padding: 6px 15px; background: #fa8128; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer;">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 @push('styles')
@@ -1117,6 +1201,31 @@
             text-align: center;
         }
     }
+
+    /* ===== INLINE CREATION MODALS ===== */
+    .hsn-modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+        z-index: 99999; display: flex; align-items: center; justify-content: center;
+        padding: 15px;
+    }
+    .hsn-modal {
+        background: white; border-radius: 8px; width: 100%; max-width: 600px;
+        max-height: 80vh; display: flex; flex-direction: column;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .hsn-modal-header {
+        padding: 14px 16px; border-bottom: 1px solid #dee2e6;
+        display: flex; align-items: center; justify-content: space-between;
+        background: #f8f9fa; border-radius: 8px 8px 0 0;
+    }
+    .hsn-modal-title { font-size: 14px; font-weight: 700; color: #343a40; margin: 0; }
+    .hsn-modal-close {
+        width: 28px; height: 28px; border: none; background: #dc3545; color: white;
+        border-radius: 50%; cursor: pointer; font-size: 12px; font-weight: bold;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .hsn-modal-close:hover { background: #c82333; }
+    .hsn-modal-body { padding: 14px; flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 </style>
 @endpush
 
@@ -1889,6 +1998,235 @@
         }
 
         return isValid;
+    }
+
+    // ========== CATEGORY INLINE CREATION ==========
+    function openCategoryModal() {
+        document.getElementById('categoryModal').style.display = 'flex';
+        document.getElementById('new_category_name').focus();
+    }
+
+    function closeCategoryModal() {
+        document.getElementById('categoryModal').style.display = 'none';
+        document.getElementById('inlineCategoryForm').reset();
+    }
+
+    // Close category modal on overlay click
+    document.getElementById('categoryModal').addEventListener('click', function(e) {
+        if (e.target === this) closeCategoryModal();
+    });
+
+    function submitInlineCategory(event) {
+        event.preventDefault();
+        const nameField = document.getElementById('new_category_name');
+        const slugField = document.getElementById('new_category_slug');
+        const descField = document.getElementById('new_category_desc');
+        const statusField = document.getElementById('new_category_status');
+        const saveBtn = document.getElementById('saveCategoryBtn');
+
+        if (!nameField.value.trim()) {
+            showAlert('Category name is required', 'error');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Saving...';
+
+        const token = document.querySelector('input[name="_token"]').value;
+
+        fetch('{{ route("admin.categories.store") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': token
+            },
+            body: JSON.stringify({
+                name: nameField.value.trim(),
+                slug: slugField.value.trim(),
+                description: descField.value.trim(),
+                status: statusField.value
+            })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw err; });
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.success && data.category) {
+                // Add option to dropdown
+                const select = document.getElementById('category_select');
+                const opt = document.createElement('option');
+                opt.value = data.category.id;
+                opt.textContent = data.category.name;
+                opt.selected = true;
+                select.appendChild(opt);
+
+                showAlert(data.message || 'Category created successfully!', 'success');
+                closeCategoryModal();
+            } else {
+                showAlert(data.message || 'Failed to create category', 'error');
+            }
+        })
+        .catch(err => {
+            let errorMsg = 'Failed to create category. Please check details.';
+            if (err && err.errors && err.errors.name) {
+                errorMsg = err.errors.name[0];
+            } else if (err && err.message) {
+                errorMsg = err.message;
+            }
+            showAlert(errorMsg, 'error');
+            console.error('Category creation error:', err);
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        });
+    }
+
+    // ========== ATTRIBUTE INLINE CREATION ==========
+    let inlineAttributeValues = [];
+
+    function openAttributeModal() {
+        document.getElementById('attributeModal').style.display = 'flex';
+        document.getElementById('new_attribute_type').focus();
+        inlineAttributeValues = [];
+        renderAttributeValueTags();
+    }
+
+    function closeAttributeModal() {
+        document.getElementById('attributeModal').style.display = 'none';
+        document.getElementById('inlineAttributeForm').reset();
+        inlineAttributeValues = [];
+        renderAttributeValueTags();
+    }
+
+    // Close attribute modal on overlay click
+    document.getElementById('attributeModal').addEventListener('click', function(e) {
+        if (e.target === this) closeAttributeModal();
+    });
+
+    function handleAttributeValueKeydown(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addAttributeValueTag();
+        }
+    }
+
+    function addAttributeValueTag() {
+        const input = document.getElementById('new_attribute_value_input');
+        const value = input.value.trim();
+        if (!value) return;
+
+        if (inlineAttributeValues.includes(value)) {
+            showAlert('Value already added', 'error');
+            return;
+        }
+
+        inlineAttributeValues.push(value);
+        input.value = '';
+        renderAttributeValueTags();
+    }
+
+    function removeAttributeValueTag(val) {
+        inlineAttributeValues = inlineAttributeValues.filter(v => v !== val);
+        renderAttributeValueTags();
+    }
+
+    function renderAttributeValueTags() {
+        const container = document.getElementById('attributeValuesList');
+        container.innerHTML = '';
+        if (inlineAttributeValues.length === 0) {
+            container.innerHTML = '<span style="color: #9ca3af; font-size: 11px;">No values added yet</span>';
+            return;
+        }
+
+        inlineAttributeValues.forEach(val => {
+            const badge = document.createElement('span');
+            badge.style.cssText = 'display: inline-flex; align-items: center; background: #e3f2fd; color: #0d47a1; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px; gap: 4px; border: 1px solid #bbdefb;';
+            badge.innerHTML = `${val} <span onclick="removeAttributeValueTag('${val}')" style="cursor: pointer; font-weight: bold; color: #d32f2f; margin-left: 4px;">✕</span>`;
+            container.appendChild(badge);
+        });
+    }
+
+    function submitInlineAttribute(event) {
+        event.preventDefault();
+        const typeField = document.getElementById('new_attribute_type');
+        const statusField = document.getElementById('new_attribute_status');
+        const saveBtn = document.getElementById('saveAttributeBtn');
+
+        if (!typeField.value.trim()) {
+            showAlert('Attribute name/type is required', 'error');
+            return;
+        }
+
+        if (inlineAttributeValues.length === 0) {
+            showAlert('Please add at least one attribute value tag', 'error');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Saving...';
+
+        const token = document.querySelector('input[name="_token"]').value;
+
+        fetch('{{ route("admin.attributes.store") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': token
+            },
+            body: JSON.stringify({
+                type: typeField.value.trim().toLowerCase(),
+                values: inlineAttributeValues,
+                status: statusField.value
+            })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw err; });
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.success && data.attribute) {
+                // Add option to dropdown
+                const select = document.getElementById('attribute_type');
+                const opt = document.createElement('option');
+                opt.value = data.attribute.type;
+                opt.textContent = data.attribute.type.charAt(0).toUpperCase() + data.attribute.type.slice(1);
+                opt.selected = true;
+                select.appendChild(opt);
+
+                showAlert(data.message || 'Attribute created successfully!', 'success');
+                closeAttributeModal();
+                // Trigger dropdown change to load the newly added values
+                loadAttributeValues();
+            } else {
+                showAlert(data.message || 'Failed to create attribute', 'error');
+            }
+        })
+        .catch(err => {
+            let errorMsg = 'Failed to create attribute. Please check details.';
+            if (err && err.errors) {
+                if (err.errors.type) {
+                    errorMsg = err.errors.type[0];
+                } else if (err.errors.values) {
+                    errorMsg = err.errors.values[0];
+                }
+            } else if (err && err.message) {
+                errorMsg = err.message;
+            }
+            showAlert(errorMsg, 'error');
+            console.error('Attribute creation error:', err);
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        });
     }
 
     // ========== INITIALIZE ==========
