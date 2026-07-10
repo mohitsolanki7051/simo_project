@@ -138,6 +138,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // Edit/Update
             Route::get('/{id}/edit', [CustomerController::class, 'edit'])->name('edit');
             Route::put('/{id}', [CustomerController::class, 'update'])->name('update');
+            Route::delete('/{id}', [CustomerController::class, 'destroy'])->name('destroy');
+
 
             // Address Routes
             Route::post('/{id}/addresses', [CustomerController::class, 'storeAddress'])->name('addresses.store');
@@ -308,6 +310,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/{id}',                     [VendorController::class, 'show'])->name('show');
         Route::get('/{id}/edit',                [VendorController::class, 'edit'])->name('edit');
         Route::put('/{id}',                     [VendorController::class, 'update'])->name('update');
+        Route::delete('/{id}',                   [VendorController::class, 'destroy'])->name('destroy');
         Route::get('/{id}/ledger',               [VendorController::class, 'ledger'])->name('ledger');
 
         // Address management

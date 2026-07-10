@@ -67,12 +67,7 @@
                         <span class="info-label">Brand:</span>
                         <span class="info-value">{{ $product->brand ?? 'N/A' }}</span>
                     </div>
-                    @if($product instanceof \App\Models\SimpleProduct)
-                    <div class="info-row">
-                        <span class="info-label">Body Type:</span>
-                        <span class="info-value">{{ $product->body_type ?? 'N/A' }}</span>
-                    </div>
-                    @endif
+
                     <div class="info-row">
                         <span class="info-label">Status:</span>
                         <span class="info-value">

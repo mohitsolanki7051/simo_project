@@ -328,6 +328,12 @@
                 <button onclick="deleteInvoice()" class="iv-btn iv-btn-danger">
                     🗑 Delete
                 </button>
+            @else
+                @if(auth()->guard('admin')->check())
+                    <a href="{{ route('admin.purchases.edit', $invoice->id) }}" class="iv-btn iv-btn-warning">
+                        ✏️ Edit
+                    </a>
+                @endif
             @endif
             @if($invoice->status === 'confirmed' && $invoice->payment_status === 'unpaid')
                 <button onclick="cancelInvoice()" class="iv-btn iv-btn-danger">

@@ -228,7 +228,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
             'brand' => 'required|string|max:100',
-            'body_type' => 'required|string|max:100',
+            'body_type' => 'nullable|string|max:100',
             'warranty_duration' => 'nullable|integer',
             'warranty_unit' => 'nullable|in:year,month',
             'status' => 'required|in:active,inactive',
@@ -707,7 +707,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
             'brand' => 'required|string|max:100',
-            'body_type' => 'required|string|max:100',
+            'body_type' => 'nullable|string|max:100',
             'warranty_duration' => 'nullable|integer',
             'warranty_unit' => 'nullable|in:year,month',
             'status' => 'required|in:active,inactive',
@@ -1693,9 +1693,21 @@ public function updateprice(Request $request)
     /**
      * Get detailed total cost report
      */
-    public function totalCostReport()
+    public function totalCostReport(Request $request)
     {
         try {
+            $targetDate = $request->get('date');
+            $dateStr = null;
+            $carbonDate = null;
+            if ($targetDate) {
+                try {
+                    $carbonDate = \Illuminate\Support\Carbon::parse($targetDate);
+                    $dateStr = $carbonDate->format('Y-m-d');
+                } catch (\Exception $ex) {
+                    $targetDate = null;
+                }
+            }
+
             // Get all products with relationships
             $simpleProducts = SimpleProduct::with(['category'])->get();
             $variantProducts = VariantProduct::with(['category'])->get();
@@ -1710,6 +1722,16 @@ public function updateprice(Request $request)
             foreach ($simpleProducts as $product) {
                 $stock = $product->current_stock ?? 0;
                 $costPrice = $product->cost_price ?? 0;
+
+                if ($targetDate) {
+                    // Calculate stock at date by subtracting movements after that date
+                    $movementsQty = WarehouseMovement::where('product_id', $product->id)
+                        ->where('created_at', '>', $carbonDate->endOfDay())
+                        ->sum('quantity');
+                    $stock = max(0, $stock - $movementsQty);
+                    $costPrice = $product->getCostPriceAtDate($dateStr);
+                }
+
                 $salePrice = $product->sale_price ?? 0;
                 $mrpPrice = $product->mrp_price ?? 0;
 
@@ -1743,6 +1765,17 @@ public function updateprice(Request $request)
                     foreach ($product->variants as $index => $variant) {
                         $stock = $variant['current_stock'] ?? 0;
                         $costPrice = $variant['cost_price'] ?? 0;
+                        $variantId = $variant['_id'] ?? null;
+
+                        if ($targetDate && $variantId) {
+                            $movementsQty = WarehouseMovement::where('product_id', $product->id)
+                                ->where('variant_id', (string)$variantId)
+                                ->where('created_at', '>', $carbonDate->endOfDay())
+                                ->sum('quantity');
+                            $stock = max(0, $stock - $movementsQty);
+                            $costPrice = $product->getVariantCostPriceAtDate($variantId, $dateStr);
+                        }
+
                         $salePrice = $variant['sale_price'] ?? 0;
                         $mrpPrice = $variant['mrp_price'] ?? 0;
 

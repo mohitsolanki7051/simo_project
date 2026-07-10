@@ -538,6 +538,7 @@
     }
 
     /* Responsive */
+    /* Responsive */
     @media (max-width: 768px) {
         .products-container {
             padding: 10px;
@@ -553,6 +554,10 @@
             flex-direction: column;
             align-items: stretch;
             gap: 10px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
 
         .filter-group {
@@ -569,83 +574,146 @@
             width: 100%;
         }
 
-        .category-display {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 5px;
+        /* Card-based layout for Category items */
+        .table-wrapper {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            overflow-x: visible;
         }
 
-        .category-info {
-            width: 100%;
-        }
-    }
-
-    @media (max-width: 480px) {
         .compact-table {
             display: block;
+            min-width: 100%;
+            border: none;
         }
 
         .compact-table thead {
             display: none;
         }
 
-        .compact-table tr {
+        .compact-table tbody {
             display: block;
+            width: 100%;
+        }
+
+        .compact-table tr {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            background: #fff;
+            border-radius: 8px;
+            padding: 12px 14px 10px;
             margin-bottom: 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+
+        .compact-table tr:hover td {
+            background: transparent;
         }
 
         .compact-table td {
-            display: block;
-            text-align: left;
-            border-bottom: 1px solid #f3f4f6;
+            border: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
         }
 
-        .compact-table td:last-child {
-            border-bottom: none;
-        }
-
+        /* Col 1: S.No (td-sno) -> Hide */
         .td-sno {
-            background: #f8fafc;
-            font-weight: 600;
-            border-bottom: 1px solid #e5e7eb !important;
+            display: none !important;
         }
 
-        .td-category::before {
-            content: "Category: ";
-            font-weight: 600;
-            color: #4b5563;
+        /* Col 2: Category display */
+        .td-category {
+            flex: 1;
+            min-width: 0;
+            order: 1;
         }
 
+        .category-display {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Col 6: Status -> absolute top-right */
+        .td-status {
+            width: auto;
+            order: 2;
+            position: absolute;
+            top: 12px;
+            right: 14px;
+        }
+
+        /* Col 3: Simple count */
+        .td-simple {
+            width: 33.33%;
+            order: 3;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
         .td-simple::before {
-            content: "Simple Products: ";
-            font-weight: 600;
-            color: #4b5563;
+            content: "Simple";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 3px;
+            text-transform: uppercase;
         }
 
+        /* Col 4: Variant count */
+        .td-variant {
+            width: 33.33%;
+            order: 4;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
         .td-variant::before {
-            content: "Variant Products: ";
-            font-weight: 600;
-            color: #4b5563;
+            content: "Variant";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 3px;
+            text-transform: uppercase;
         }
 
+        /* Col 5: Total count */
+        .td-total {
+            width: 33.33%;
+            order: 5;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
         .td-total::before {
-            content: "Total Products: ";
-            font-weight: 600;
-            color: #4b5563;
+            content: "Total";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 3px;
+            text-transform: uppercase;
         }
 
-        .td-status::before {
-            content: "Status: ";
-            font-weight: 600;
-            color: #4b5563;
-        }
-
-        .td-actions::before {
-            content: "Actions: ";
-            font-weight: 600;
-            color: #4b5563;
+        /* Col 7: Actions */
+        .td-actions {
+            width: 100%;
+            order: 6;
+            margin-top: 8px;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 8px;
+            justify-content: flex-end;
         }
     }
 </style>

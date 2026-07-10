@@ -674,6 +674,37 @@
     .button-icon {
         font-size: 16px;
     }
+
+    @media (max-width: 768px) {
+        .barcode-print-container {
+            padding: 10px;
+        }
+        .warehouse-card {
+            padding: 12px;
+            gap: 12px;
+        }
+        .warehouse-details h4 {
+            font-size: 14px;
+        }
+        .warehouse-details p {
+            font-size: 12px;
+        }
+        .selection-column, .settings-column {
+            gap: 15px;
+        }
+        .search-section, .selected-section, .settings-section, .preview-section {
+            padding: 12px;
+        }
+        .product-item {
+            padding: 10px;
+        }
+        .product-name {
+            font-size: 13px;
+        }
+        .sku-code {
+            font-size: 10px;
+        }
+    }
 </style>
 @endpush
 

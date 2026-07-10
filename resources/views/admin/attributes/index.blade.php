@@ -722,10 +722,114 @@
         .table-filters {
             flex-direction: column;
             align-items: stretch;
+            padding: 12px;
         }
 
         .search-box {
             max-width: 100%;
+        }
+
+        /* Table -> Compact Dense Cards */
+        .table-wrapper {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            overflow-x: visible;
+        }
+        .products-table {
+            min-width: 100%;
+            display: block;
+            border: none;
+        }
+        .products-table thead {
+            display: none;
+        }
+        .products-table tbody {
+            display: block;
+            width: 100%;
+        }
+        
+        .products-table .table-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            background: #fff;
+            border-radius: 8px;
+            padding: 12px 14px 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+        .products-table .table-row:hover td {
+            background: transparent;
+        }
+
+        .products-table td {
+            border: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Col 1: S.No (td 1) -> Hide */
+        .products-table td:nth-child(1) {
+            display: none;
+        }
+
+        /* Col 2: Attribute Name/Type (td 2) */
+        .products-table td:nth-child(2) {
+            flex: 1;
+            min-width: 0;
+            order: 1;
+        }
+        .product-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        /* Col 4: Status (td 4) - Pushed absolute to top-right */
+        .products-table td:nth-child(4) {
+            width: auto;
+            order: 2;
+            position: absolute;
+            top: 12px;
+            right: 14px;
+        }
+        .status-badge {
+            font-size: 9px;
+            padding: 2px 7px;
+        }
+
+        /* Col 3: Values tags and stats (td 3) */
+        .products-table td:nth-child(3) {
+            width: 100%;
+            order: 3;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+            gap: 6px;
+        }
+
+        /* Col 5: Actions (td 5) */
+        .products-table td:nth-child(5) {
+            width: 100%;
+            order: 4;
+            margin-top: 8px;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 8px;
+            justify-content: flex-end;
+        }
+        .action-icons {
+            gap: 8px;
+        }
+        .action-btn {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
         }
     }
 </style>

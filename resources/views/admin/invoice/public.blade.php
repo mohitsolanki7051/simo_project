@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Invoice #{{ $invoice->invoice_number }}</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
@@ -13,15 +13,15 @@
         body {
             font-family: 'Inter', sans-serif;
             background: #f3f4f6;
-            font-size: 12px;
+            font-size: 13px;
             color: #111827;
         }
 
-        /* Top Bar */
+        /* ─── TOP BAR ─────────────────────────────────── */
         .pub-topbar {
             background: white;
             border-bottom: 1px solid #e5e7eb;
-            padding: 12px 20px;
+            padding: 10px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -29,59 +29,69 @@
             top: 0;
             z-index: 100;
             box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-        }
-
-        .pub-topbar-left {
-            display: flex;
-            align-items: center;
             gap: 10px;
         }
 
         .pub-topbar-title {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
             color: #111827;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .pub-topbar-sub {
             font-size: 11px;
             color: #6b7280;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .pub-btn {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
+            justify-content: center;
+            gap: 4px;
+            padding: 8px 12px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             border: none;
             text-decoration: none;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
-        .pub-btn-primary {
-            background: #f97316;
-            color: white;
-        }
-
-        .pub-btn-outline {
-            background: white;
-            border: 1px solid #d1d5db;
-            color: #374151;
-        }
+        .pub-btn-primary { background: #f97316; color: white; }
+        .pub-btn-outline { background: white; border: 1px solid #d1d5db; color: #374151; }
 
         .pub-btn-group {
             display: flex;
-            gap: 8px;
+            gap: 6px;
+            flex-shrink: 0;
         }
 
-        /* Invoice Card */
+        /* Payment Badge */
+        .pub-status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .badge-paid    { background: #d1fae5; color: #065f46; }
+        .badge-unpaid  { background: #fee2e2; color: #991b1b; }
+        .badge-partial { background: #fef3c7; color: #92400e; }
+
+        /* ─── WRAPPER ─────────────────────────────────── */
         .pub-wrap {
             max-width: 900px;
-            margin: 24px auto;
-            padding: 0 16px 40px;
+            margin: 16px auto;
+            padding: 0 12px 40px;
         }
 
         .pub-card {
@@ -92,37 +102,40 @@
             overflow: hidden;
         }
 
-        /* Header */
+        /* ─── HEADER ──────────────────────────────────── */
         .iv-header {
-            padding: 20px 25px;
-            border-bottom: 2px solid #f97316;
+            padding: 16px 20px;
+            border-bottom: 3px solid #f97316;
         }
 
         .iv-company-block {
             display: flex;
-            align-items: center;
-            gap: 15px;
+            align-items: flex-start;
+            gap: 12px;
         }
 
-        .iv-logo-img { height: 60px; width: auto; }
+        .iv-logo-img { height: 52px; width: auto; flex-shrink: 0; }
 
         .iv-logo-placeholder {
-            width: 60px; height: 60px;
+            width: 52px; height: 52px;
             background: #f97316;
             color: white;
-            border-radius: 4px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            font-weight: 700;
-        }
-
-        .iv-company-details h2 {
             font-size: 20px;
             font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .iv-company-details { flex: 1; min-width: 0; }
+
+        .iv-company-details h2 {
+            font-size: 16px;
+            font-weight: 700;
             color: #111827;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
 
         .iv-company-details p {
@@ -133,46 +146,50 @@
 
         .iv-company-contact {
             display: flex;
-            gap: 20px;
-            margin-top: 6px;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            margin-top: 5px;
             font-size: 11px;
             color: #4b5563;
         }
 
-        /* Title Row */
+        /* ─── TITLE ROW ───────────────────────────────── */
         .iv-title-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px 25px 10px;
+            padding: 12px 20px 8px;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .iv-doc-title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             color: #f97316;
             text-transform: uppercase;
         }
 
+        .iv-invoice-meta { text-align: right; }
+
         .iv-invoice-number {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
             color: #111827;
-            text-align: right;
         }
 
         .iv-invoice-date {
-            font-size: 12px;
+            font-size: 11px;
             color: #6b7280;
             margin-top: 2px;
         }
 
-        /* Party Grid */
+        /* ─── PARTY GRID ──────────────────────────────── */
         .iv-party-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            padding: 15px 25px;
+            gap: 12px;
+            padding: 12px 20px;
             background: #f9fafb;
             border-top: 1px solid #e5e7eb;
             border-bottom: 1px solid #e5e7eb;
@@ -180,23 +197,26 @@
 
         .iv-party-block {
             background: white;
-            padding: 15px;
+            padding: 12px;
             border: 1px solid #e5e7eb;
             border-radius: 6px;
         }
 
         .iv-party-block-title {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: #f97316;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 5px;
+            padding-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
-        /* Items Table */
-        .iv-items-section { padding: 15px 25px; }
+        /* ─── ITEMS TABLE ─────────────────────────────── */
+        .iv-items-section { padding: 12px 20px; }
 
+        /* Desktop table */
         .iv-table {
             width: 100%;
             border-collapse: collapse;
@@ -222,7 +242,7 @@
             padding: 6px 5px;
             border-right: 1px solid #e5e7eb;
             text-align: center;
-            font-size: 9px;
+            font-size: 10px;
         }
 
         .iv-table tbody td:last-child { border-right: none; font-weight: 600; }
@@ -235,30 +255,100 @@
 
         .iv-table tfoot td { padding: 8px 6px; text-align: center; }
 
-        /* Bottom Grid */
+        /* Mobile card layout for items */
+        .iv-items-mobile { display: none; }
+
+        .iv-item-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .iv-item-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .iv-item-name {
+            font-weight: 700;
+            font-size: 13px;
+            color: #111827;
+        }
+
+        .iv-item-variant {
+            font-size: 10px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        .iv-item-total {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f97316;
+            white-space: nowrap;
+        }
+
+        .iv-item-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 12px;
+            margin-top: 6px;
+        }
+
+        .iv-item-pill {
+            background: #f3f4f6;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 10px;
+            color: #374151;
+        }
+
+        .iv-item-pill strong { color: #111827; }
+
+        .iv-items-total-bar {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 6px;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 4px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* ─── BOTTOM GRID ─────────────────────────────── */
         .iv-bottom-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            padding: 20px 25px;
+            gap: 12px;
+            padding: 16px 20px;
             background: #f9fafb;
             border-top: 1px solid #e5e7eb;
         }
 
         .iv-left-panel, .iv-right-panel {
             background: white;
-            padding: 15px;
+            padding: 14px;
             border: 1px solid #e5e7eb;
             border-radius: 6px;
         }
 
         .iv-panel-title {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: #f97316;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             border-bottom: 1px solid #e5e7eb;
             padding-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
         .iv-bank-row {
@@ -267,7 +357,7 @@
             font-size: 11px;
         }
 
-        .iv-bank-label { width: 90px; color: #6b7280; }
+        .iv-bank-label { min-width: 85px; color: #6b7280; }
         .iv-bank-value { font-weight: 500; color: #111827; }
 
         .iv-total-row {
@@ -290,22 +380,23 @@
         .iv-total-row.grand .iv-total-value { color: #f97316; }
 
         .iv-amount-words {
-            margin-top: 15px;
-            padding-top: 15px;
+            margin-top: 14px;
+            padding-top: 12px;
             border-top: 1px dashed #e5e7eb;
         }
 
-        .iv-words-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+        .iv-words-label { font-size: 10px; color: #6b7280; margin-bottom: 4px; }
 
         .iv-words-value {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             color: #111827;
             text-transform: uppercase;
+            line-height: 1.5;
         }
 
         .iv-footer {
-            padding: 12px 25px;
+            padding: 12px 20px;
             text-align: center;
             border-top: 1px solid #e5e7eb;
             font-size: 10px;
@@ -316,38 +407,76 @@
         .iv-notes {
             font-size: 11px;
             color: #4b5563;
-            line-height: 1.6;
-            margin-bottom: 15px;
+            line-height: 1.7;
+            margin-bottom: 12px;
         }
 
-        /* Payment Status Badge */
-        .pub-status-badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
+        /* ─── RESPONSIVE ──────────────────────────────── */
+        @media (max-width: 640px) {
+            /* Topbar */
+            .pub-topbar {
+                padding: 10px 12px;
+                flex-wrap: wrap;
+            }
+            .pub-topbar-left { flex: 1; min-width: 0; }
+            .pub-btn-group { flex-shrink: 0; }
+            .pub-btn { padding: 7px 10px; font-size: 11px; }
+            .pub-btn span.btn-label { display: none; }
+
+            /* Wrap */
+            .pub-wrap { margin: 10px auto; padding: 0 8px 30px; }
+
+            /* Header */
+            .iv-header { padding: 14px; }
+            .iv-company-details h2 { font-size: 14px; }
+
+            /* Title row */
+            .iv-title-row {
+                padding: 10px 14px 6px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .iv-invoice-meta { text-align: left; }
+
+            /* Party grid: stack */
+            .iv-party-grid {
+                grid-template-columns: 1fr;
+                padding: 10px 14px;
+                gap: 8px;
+            }
+
+            /* Items: hide table, show cards */
+            .iv-items-section { padding: 10px 14px; }
+            .iv-table-wrap { display: none; }
+            .iv-items-mobile { display: block; }
+
+            /* Bottom grid: stack */
+            .iv-bottom-grid {
+                grid-template-columns: 1fr;
+                padding: 12px 14px;
+                gap: 10px;
+            }
+
+            /* Totals panel — make it prominent on mobile */
+            .iv-right-panel { order: -1; }
+
+            .iv-total-row.grand { font-size: 15px; }
+            .iv-footer { padding: 10px 14px; }
         }
 
-        .badge-paid    { background: #d1fae5; color: #065f46; }
-        .badge-unpaid  { background: #fee2e2; color: #991b1b; }
-        .badge-partial { background: #fef3c7; color: #92400e; }
-
-        /* Responsive */
-        @media (max-width: 600px) {
-            .iv-party-grid { grid-template-columns: 1fr; }
-            .iv-bottom-grid { grid-template-columns: 1fr; }
-            .pub-topbar { flex-direction: column; gap: 10px; align-items: flex-start; }
-            .pub-btn-group { width: 100%; }
-            .pub-btn { flex: 1; justify-content: center; }
+        @media (max-width: 360px) {
+            .pub-btn-group { gap: 4px; }
+            .pub-btn { padding: 6px 8px; }
         }
 
-        /* Print */
+        /* ─── PRINT ───────────────────────────────────── */
         @media print {
             .pub-topbar { display: none !important; }
             body { background: white; }
             .pub-wrap { margin: 0; padding: 0; }
             .pub-card { box-shadow: none; border: none; }
+            .iv-items-mobile { display: none !important; }
+            .iv-table-wrap { display: block !important; }
             @page { size: A4; margin: 0.3in; }
             .iv-table thead tr {
                 background: #f97316 !important;
@@ -392,34 +521,32 @@
     }
 @endphp
 
-<!-- Top Action Bar -->
+<!-- ─── TOP ACTION BAR ─────────────────────────────── -->
 <div class="pub-topbar">
     <div class="pub-topbar-left">
-        <div>
-            <div class="pub-topbar-title">
-                {{ $invoice->invoice_type === 'cash' ? 'Cash Memo' : 'Tax Invoice' }}
-                #{{ $invoice->invoice_number }}
-            </div>
-            <div class="pub-topbar-sub">
-                {{ $party->name ?? '' }} &nbsp;·&nbsp;
-                {{ $invoice->invoice_date->format('d M Y') }} &nbsp;·&nbsp;
-                <span class="pub-status-badge badge-{{ $invoice->payment_status }}">
-                    {{ ucfirst($invoice->payment_status) }}
-                </span>
-            </div>
+        <div class="pub-topbar-title">
+            {{ $invoice->invoice_type === 'cash' ? 'Cash Memo' : 'Tax Invoice' }}
+            #{{ $invoice->invoice_number }}
+        </div>
+        <div class="pub-topbar-sub">
+            {{ $party->name ?? '' }} &nbsp;·&nbsp;
+            {{ $invoice->invoice_date->format('d M Y') }} &nbsp;·&nbsp;
+            <span class="pub-status-badge badge-{{ $invoice->payment_status }}">
+                {{ ucfirst($invoice->payment_status) }}
+            </span>
         </div>
     </div>
     <div class="pub-btn-group">
         <button onclick="window.print()" class="pub-btn pub-btn-outline">
-            🖨️ Print
+            🖨️ <span class="btn-label">Print</span>
         </button>
         <button onclick="downloadPDF()" class="pub-btn pub-btn-primary">
-            ⬇️ Download PDF
+            ⬇️ <span class="btn-label">Download PDF</span>
         </button>
     </div>
 </div>
 
-<!-- Invoice -->
+<!-- ─── INVOICE ────────────────────────────────────── -->
 <div class="pub-wrap">
     <div class="pub-card" id="invoiceToPrint">
 
@@ -438,16 +565,16 @@
                     <p>{{ $settings?->company_address ?? '' }}</p>
                     <div class="iv-company-contact">
                         @if($settings?->company_phone) <span>Phone: {{ $settings?->company_phone }}</span> @endif
-                        @if($settings?->company_email) <span>Email: {{ $settings?->company_email }}</span> @endif
+                        @if($settings?->company_email) <span>Enail:  {{ $settings?->company_email }}</span> @endif
                     </div>
                     @if($showGST && ($settings?->gstin || $settings?->pan))
                     <div style="margin-top:5px;font-size:11px;font-weight:500;">
                         @if($settings?->gstin) GSTIN: {{ $settings?->gstin }} @endif
-                        @if($settings?->pan) | PAN: {{ $settings?->pan }} @endif
+                        @if($settings?->pan) &nbsp;|&nbsp; PAN: {{ $settings?->pan }} @endif
                     </div>
                     @endif
                     @if($invoice->salesman && $invoice->salesman->name)
-                    <div style="margin-top:8px;font-size:11px;background:#f3f4f6;padding:4px 8px;border-radius:4px;display:inline-block;">
+                    <div style="margin-top:8px;font-size:11px;background:#fff7ed;padding:4px 8px;border-radius:4px;display:inline-block;border:1px solid #fed7aa;">
                         <strong>Sales Executive:</strong> {{ $invoice->salesman->name }}
                     </div>
                     @endif
@@ -455,12 +582,12 @@
             </div>
         </div>
 
-        <!-- Invoice Title -->
+        <!-- Invoice Title Row -->
         <div class="iv-title-row">
             <div class="iv-doc-title">
                 {{ $invoice->invoice_type === 'cash' ? 'CASH MEMO' : 'TAX INVOICE' }}
             </div>
-            <div>
+            <div class="iv-invoice-meta">
                 <div class="iv-invoice-number">{{ $invoice->invoice_number }}</div>
                 <div class="iv-invoice-date">Date: {{ $invoice->invoice_date->format('d/m/Y') }}</div>
                 @if($invoice->due_date)
@@ -473,25 +600,27 @@
         <div class="iv-party-grid">
             <div class="iv-party-block">
                 <div class="iv-party-block-title">Bill To</div>
-                <div style="font-weight:600;margin-bottom:5px;">{{ $party->name ?? 'N/A' }}</div>
-                <div style="font-size:11px;color:#4b5563;margin-bottom:5px;">{{ $invoice->billing_address ?? '' }}</div>
+                <div style="font-weight:600;margin-bottom:4px;font-size:13px;">{{ $party->name ?? 'N/A' }}</div>
+                <div style="font-size:11px;color:#4b5563;margin-bottom:4px;line-height:1.5;">{{ $invoice->billing_address ?? '' }}</div>
                 <div style="font-size:11px;color:#4b5563;">Phone: {{ $party->phone ?? 'N/A' }}</div>
                 @if($party?->email)
-                <div style="font-size:11px;color:#4b5563;">Email: {{ $party->email }}</div>
+                <div style="font-size:11px;color:#4b5563;"> Email: {{ $party->email }}</div>
                 @endif
                 @if($showGST && $party?->gst_number)
-                <div style="font-size:11px;font-weight:600;margin-top:5px;">GSTIN: {{ $party->gst_number }}</div>
+                <div style="font-size:11px;font-weight:600;margin-top:6px;background:#f0fdf4;padding:3px 6px;border-radius:4px;display:inline-block;">
+                    GSTIN: {{ $party->gst_number }}
+                </div>
                 @endif
             </div>
             <div class="iv-party-block">
                 <div class="iv-party-block-title">Ship To</div>
                 @if($invoice->shipping_address && $invoice->shipping_address !== $invoice->billing_address)
-                    <div style="font-size:11px;color:#4b5563;">{{ $invoice->shipping_address }}</div>
+                    <div style="font-size:11px;color:#4b5563;line-height:1.5;">{{ $invoice->shipping_address }}</div>
                 @else
-                    <div style="font-size:11px;color:#4b5563;">Same as billing address</div>
+                    <div style="font-size:11px;color:#6b7280;font-style:italic;">Same as billing address</div>
                 @endif
                 @if($invoice->warehouse)
-                <div style="margin-top:8px;font-size:11px;">
+                <div style="margin-top:8px;font-size:11px;background:#f9fafb;padding:5px 8px;border-radius:4px;border:1px solid #e5e7eb;">
                     <strong>Dispatched From:</strong> {{ $invoice->warehouse->name ?? 'Main Warehouse' }}
                 </div>
                 @endif
@@ -500,59 +629,107 @@
 
         <!-- Items Table -->
         <div class="iv-items-section">
-            <table class="iv-table">
-                <thead>
-                    <tr>
-                        <th width="30">S.No</th>
-                        <th>Product</th>
-                        @if($showGST)<th>HSN</th>@endif
-                        <th>Qty</th>
-                        <th>Unit</th>
-                        <th>MRP</th>
-                        <th>Disc%</th>
-                        <th>Rate</th>
-                        @if($showGST)<th>Tax%</th>@endif
-                        <th>Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @php $totalAmount = 0; @endphp
-                    @foreach($invoice->items as $idx => $item)
-                    @php
-                        $lineTotal = $item->quantity * $item->price;
-                        if ($showGST) $lineTotal += $item->tax_amount ?? 0;
-                        $totalAmount += $lineTotal;
-                    @endphp
-                    <tr>
-                        <td>{{ $idx + 1 }}</td>
-                        <td style="text-align:left;">
-                            <strong>{{ $item->product_name }}</strong>
+
+            {{-- Desktop Table --}}
+            <div class="iv-table-wrap">
+                <table class="iv-table">
+                    <thead>
+                        <tr>
+                            <th width="30">S.No</th>
+                            <th style="text-align:left;">Product</th>
+                            @if($showGST)<th>HSN</th>@endif
+                            <th>Qty</th>
+                            <th>Unit</th>
+                            <th>MRP</th>
+                            <th>Disc%</th>
+                            <th>Rate</th>
+                            @if($showGST)<th>Tax%</th>@endif
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @php $totalAmount = 0; @endphp
+                        @foreach($invoice->items as $idx => $item)
+                        @php
+                            $lineTotal = $item->quantity * $item->price;
+                            if ($showGST) $lineTotal += $item->tax_amount ?? 0;
+                            $totalAmount += $lineTotal;
+                        @endphp
+                        <tr>
+                            <td>{{ $idx + 1 }}</td>
+                            <td style="text-align:left;">
+                                <strong>{{ $item->product_name }}</strong>
+                                @if($item->variant_name)
+                                    <div style="font-size:9px;color:#6b7280;">{{ $item->variant_name }}</div>
+                                @endif
+                            </td>
+                            @if($showGST)<td>{{ $item->hsn_sac ?: '—' }}</td>@endif
+                            <td>{{ number_format($item->quantity, 2) }}</td>
+                            <td>{{ $item->unit }}</td>
+                            <td>₹{{ number_format($item->mrp_price, 2) }}</td>
+                            <td>{{ $item->discount > 0 ? number_format($item->discount, 1).'%' : '—' }}</td>
+                            <td>₹{{ number_format($item->price, 2) }}</td>
+                            @if($showGST)<td>{{ number_format($item->tax_percent, 0) }}%</td>@endif
+                            <td>₹{{ number_format($lineTotal, 2) }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="{{ $showGST ? '9' : '7' }}" style="text-align:right;font-size:11px;">Total</td>
+                            <td><strong>₹{{ number_format($totalAmount, 2) }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            {{-- Mobile Cards --}}
+            <div class="iv-items-mobile">
+                @php $totalAmountMobile = 0; @endphp
+                @foreach($invoice->items as $idx => $item)
+                @php
+                    $lineTotal = $item->quantity * $item->price;
+                    if ($showGST) $lineTotal += $item->tax_amount ?? 0;
+                    $totalAmountMobile += $lineTotal;
+                @endphp
+                <div class="iv-item-card">
+                    <div class="iv-item-card-header">
+                        <div>
+                            <div class="iv-item-name">{{ $idx + 1 }}. {{ $item->product_name }}</div>
                             @if($item->variant_name)
-                                <div style="font-size:9px;color:#6b7280;">{{ $item->variant_name }}</div>
+                                <div class="iv-item-variant">{{ $item->variant_name }}</div>
                             @endif
-                        </td>
-                        @if($showGST)<td>{{ $item->hsn_sac ?: '—' }}</td>@endif
-                        <td>{{ number_format($item->quantity, 2) }}</td>
-                        <td>{{ $item->unit }}</td>
-                        <td>₹ {{ number_format($item->mrp_price, 2) }}</td>
-                        <td>{{ $item->discount > 0 ? number_format($item->discount, 1).'%' : '—' }}</td>
-                        <td>₹ {{ number_format($item->price, 2) }}</td>
-                        @if($showGST)<td>{{ number_format($item->tax_percent, 0) }}%</td>@endif
-                        <td>₹ {{ number_format($lineTotal, 2) }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="{{ $showGST ? '9' : '7' }}" style="text-align:right;">Total</td>
-                        <td><strong>₹ {{ number_format($totalAmount, 2) }}</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
+                        </div>
+                        <div class="iv-item-total">₹{{ number_format($lineTotal, 2) }}</div>
+                    </div>
+                    <div class="iv-item-row">
+                        <div class="iv-item-pill">Qty: <strong>{{ number_format($item->quantity, 2) }} {{ $item->unit }}</strong></div>
+                        <div class="iv-item-pill">MRP: <strong>₹{{ number_format($item->mrp_price, 2) }}</strong></div>
+                        <div class="iv-item-pill">Rate: <strong>₹{{ number_format($item->price, 2) }}</strong></div>
+                        @if($item->discount > 0)
+                        <div class="iv-item-pill" style="background:#fef3c7;">Disc: <strong>{{ number_format($item->discount, 1) }}%</strong></div>
+                        @endif
+                        @if($showGST)
+                        <div class="iv-item-pill">Tax: <strong>{{ number_format($item->tax_percent, 0) }}%</strong></div>
+                        @if($item->hsn_sac)
+                        <div class="iv-item-pill">HSN: <strong>{{ $item->hsn_sac }}</strong></div>
+                        @endif
+                        @endif
+                    </div>
+                </div>
+                @endforeach
+
+                <div class="iv-items-total-bar">
+                    <span>Items Total</span>
+                    <span>₹{{ number_format($totalAmountMobile, 2) }}</span>
+                </div>
+            </div>
         </div>
 
         <!-- Bottom: Notes + Summary -->
         <div class="iv-bottom-grid">
+
+            {{-- Left: Notes / Bank / Terms --}}
             <div class="iv-left-panel">
                 @if($invoice->notes)
                 <div class="iv-panel-title">Notes</div>
@@ -560,7 +737,7 @@
                 @endif
 
                 @if($settings && ($settings?->bank_name || $settings?->account_number))
-                <div class="iv-panel-title" style="margin-top:{{ $invoice->notes ? '15px' : '0' }};">Bank Details</div>
+                <div class="iv-panel-title" @if($invoice->notes) style="margin-top:14px;" @endif>Bank Details</div>
                 @if($settings->bank_name)
                 <div class="iv-bank-row"><span class="iv-bank-label">Bank:</span><span class="iv-bank-value">{{ $settings->bank_name }}</span></div>
                 @endif
@@ -576,17 +753,22 @@
                 @endif
 
                 @if($settings?->terms_and_conditions)
-                <div class="iv-panel-title" style="margin-top:15px;">Terms</div>
+                <div class="iv-panel-title" style="margin-top:14px;">Terms</div>
                 <div class="iv-notes">{{ $settings->terms_and_conditions }}</div>
+                @endif
+
+                @if(!$invoice->notes && !($settings && ($settings?->bank_name || $settings?->account_number)) && !$settings?->terms_and_conditions)
+                <div style="font-size:11px;color:#9ca3af;font-style:italic;">No additional details.</div>
                 @endif
             </div>
 
+            {{-- Right: Amount Summary --}}
             <div class="iv-right-panel">
                 <div class="iv-panel-title">Amount Summary</div>
 
                 <div class="iv-total-row">
                     <span>Subtotal</span>
-                    <span>₹ {{ number_format($invoice->subtotal, 2) }}</span>
+                    <span>₹{{ number_format($invoice->subtotal, 2) }}</span>
                 </div>
 
                 @if($invoice->extra_discount > 0)
@@ -596,7 +778,7 @@
                         @if($invoice->extra_discount_type === 'percent')
                             {{ number_format($invoice->extra_discount, 1) }}%
                         @else
-                            - ₹ {{ number_format($invoice->extra_discount, 2) }}
+                            - ₹{{ number_format($invoice->extra_discount, 2) }}
                         @endif
                     </span>
                 </div>
@@ -605,38 +787,38 @@
                 @if($showGST)
                 <div class="iv-total-row">
                     <span>Tax</span>
-                    <span>+ ₹ {{ number_format($invoice->tax_total, 2) }}</span>
+                    <span>+ ₹{{ number_format($invoice->tax_total, 2) }}</span>
                 </div>
                 @endif
 
                 @if($invoice->extra_charge > 0)
                 <div class="iv-total-row">
                     <span>{{ $invoice->charge_name ?? 'Extra Charge' }}</span>
-                    <span>+ ₹ {{ number_format($invoice->extra_charge, 2) }}</span>
+                    <span>+ ₹{{ number_format($invoice->extra_charge, 2) }}</span>
                 </div>
                 @endif
 
                 @if($invoice->round_off != 0)
                 <div class="iv-total-row">
                     <span>Round Off</span>
-                    <span>₹ {{ number_format($invoice->round_off, 2) }}</span>
+                    <span>₹{{ number_format($invoice->round_off, 2) }}</span>
                 </div>
                 @endif
 
                 <div class="iv-total-row grand">
                     <span>Grand Total</span>
-                    <span>₹ {{ number_format($invoice->grand_total, 2) }}</span>
+                    <span class="iv-total-value">₹{{ number_format($invoice->grand_total, 2) }}</span>
                 </div>
 
                 @if($invoice->total_paid > 0)
-                <div style="margin-top:15px;">
+                <div style="margin-top:12px;">
                     <div class="iv-total-row">
                         <span>Paid</span>
-                        <span>₹ {{ number_format($invoice->total_paid, 2) }}</span>
+                        <span style="color:#16a34a;font-weight:600;">₹{{ number_format($invoice->total_paid, 2) }}</span>
                     </div>
                     <div class="iv-total-row" style="color:#dc2626;">
                         <span>Balance Due</span>
-                        <span>₹ {{ number_format($invoice->balance_amount, 2) }}</span>
+                        <span style="font-weight:700;">₹{{ number_format($invoice->balance_amount, 2) }}</span>
                     </div>
                 </div>
                 @endif
@@ -662,6 +844,12 @@ function downloadPDF() {
     btn.disabled = true;
     btn.innerHTML = '⏳ Generating...';
 
+    // Hide mobile cards, show table for PDF
+    const mobileItems = document.querySelector('.iv-items-mobile');
+    const tableWrap   = document.querySelector('.iv-table-wrap');
+    if (mobileItems) mobileItems.style.display = 'none';
+    if (tableWrap)   tableWrap.style.display = 'block';
+
     html2pdf().set({
         margin: [0.3, 0.3, 0.3, 0.3],
         filename: 'Invoice_{{ $invoice->invoice_number }}.pdf',
@@ -673,9 +861,14 @@ function downloadPDF() {
     .save()
     .then(() => {
         btn.disabled = false;
-        btn.innerHTML = '⬇️ Download PDF';
+        btn.innerHTML = '⬇️ <span class="btn-label">Download PDF</span>';
+        // Restore mobile layout
+        if (window.innerWidth <= 640) {
+            if (mobileItems) mobileItems.style.display = 'block';
+            if (tableWrap)   tableWrap.style.display = 'none';
+        }
     });
 }
 </script>
 </body>
-</html>
+</html> 

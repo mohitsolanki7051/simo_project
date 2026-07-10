@@ -38,10 +38,12 @@ class SimpleProduct extends Model
         'base_image',
         'gallery_images',
         'description',
+        'cost_history',
     ];
 
     protected $casts = [
         'gallery_images' => 'array',
+        'cost_history' => 'array',
         'cost_price' => 'decimal:2',
         'sale_price' => 'decimal:2',
         'mrp_price' => 'decimal:2',
@@ -64,6 +66,11 @@ class SimpleProduct extends Model
     public function getTotalStockAttribute()
     {
         return WarehouseStock::where('product_id', $this->_id)->sum('quantity');
+    }
+
+    public function getCurrentStockAttribute()
+    {
+        return $this->total_stock;
     }
 
     public function hasVariants()
@@ -129,6 +136,39 @@ class SimpleProduct extends Model
             return 0;
         }
     }
+    public function getCostPriceAtDate($dateStr)
+    {
+        $costHistory = $this->cost_history ?? [];
+        if (empty($costHistory)) {
+            return $this->convertToFloat($this->cost_price ?? 0);
+        }
+
+        // Sort cost history by date ASC
+        usort($costHistory, function($a, $b) {
+            return strcmp($a['date'], $b['date']);
+        });
+
+        // Find the closest cost price where entry date <= target date
+        $lastCost = null;
+        foreach ($costHistory as $entry) {
+            if (strcmp($entry['date'], $dateStr) <= 0) {
+                $lastCost = $this->convertToFloat($entry['cost_price']);
+            } else {
+                break;
+            }
+        }
+
+        return $lastCost !== null ? $lastCost : $this->convertToFloat($this->cost_price ?? 0);
+    }
+
+    private function convertToFloat($value)
+    {
+        if ($value instanceof \MongoDB\BSON\Decimal128) {
+            return (float) $value->__toString();
+        }
+        return (float) $value;
+    }
+
     public function warehouseStocks()
     {
         return $this->hasMany(WarehouseStock::class, 'product_id');

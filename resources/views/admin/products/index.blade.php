@@ -7,10 +7,10 @@
 <div class="products-container">
     <!-- Header with Action Buttons -->
     <div class="page-header">
-        <div class="header-left">
+        <div class="pro-header-left">
             <h2 class="page-title">Product List</h2>
         </div>
-        <div class="header-right">
+        <div class="pro-header-right">
             <button type="button" class="btn-pricing" onclick="openPricingModal()">
                 <span>Set Dealer %</span>
             </button>
@@ -576,7 +576,7 @@
         padding: 0px 5px;
     }
 
-    .header-left {
+    .pro-header {
         display: flex;
         align-items: center;
         gap: 16px;
@@ -589,7 +589,7 @@
         margin: 0;
     }
 
-    .header-right {
+    .pro-header-right {
         display: flex;
         align-items: center;
         gap: 12px;
@@ -1555,7 +1555,7 @@
             gap: 10px;
         }
 
-        .header-right {
+        .pro-header-right {
             width: 100%;
             flex-direction: column;
         }
@@ -1569,9 +1569,12 @@
             grid-template-columns: 1fr;
         }
 
+        /* Filter Tabs and Actions Compression */
         .table-filters {
             flex-direction: column;
             align-items: stretch;
+            gap: 10px;
+            padding: 12px;
         }
 
         .search-box {
@@ -1579,12 +1582,30 @@
         }
 
         .filter-tabs {
-            justify-content: center;
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            gap: 4px;
+            padding-bottom: 2px;
+            width: 100%;
+            -webkit-overflow-scrolling: touch;
+        }
+        .filter-tabs::-webkit-scrollbar { display: none; }
+        .filter-tab {
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-size: 11px;
+            padding: 6px 12px;
         }
 
         .bulk-actions {
             margin-left: 0;
             width: 100%;
+            display: flex;
+            gap: 8px;
+        }
+        .bulk-select {
+            flex: 1;
         }
 
         .table-footer {
@@ -1595,6 +1616,181 @@
         .pagination-controls {
             flex-direction: column;
             gap: 12px;
+        }
+
+        /* Table -> Compact Dense Cards */
+        .table-wrapper {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            overflow-x: visible;
+        }
+        .products-table {
+            min-width: 100%;
+            display: block;
+            border: none;
+        }
+        .products-table thead {
+            display: none;
+        }
+        .products-table tbody {
+            display: block;
+            width: 100%;
+        }
+        
+        .products-table .table-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            background: #fff;
+            border-radius: 8px;
+            padding: 12px 14px 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+        .products-table .table-row:hover td {
+            background: transparent;
+        }
+
+        .products-table td {
+            border: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Row 1: Checkbox (td 1), Image (td 3), Name (td 4) */
+        .products-table td:nth-child(1) {
+            width: 30px;
+            order: 1;
+        }
+        .products-table td:nth-child(2) {
+            display: none; /* Hide S.No */
+        }
+        .products-table td:nth-child(3) {
+            width: 50px;
+            order: 2;
+            margin-right: 10px;
+        }
+        .products-table td:nth-child(4) {
+            flex: 1;
+            min-width: 0;
+            order: 3;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+        }
+        .product-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.3;
+        }
+
+        /* Status Badge (td 9) - Pushed to absolute top-right */
+        .products-table td:nth-child(9) {
+            width: auto;
+            order: 4;
+            position: absolute;
+            top: 12px;
+            right: 14px;
+        }
+        .status-badge {
+            font-size: 9px;
+            padding: 2px 7px;
+        }
+
+        /* Row 2: Type badge (td 5) */
+        .products-table td:nth-child(5) {
+            width: auto;
+            order: 5;
+            margin-right: 8px;
+            margin-top: 6px;
+        }
+        .type-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+        }
+
+        /* Row 3: MRP (td 6), Sale Price (td 7), Stock (td 8) */
+        .products-table td:nth-child(6) {
+            width: 33.33%;
+            order: 6;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
+        .products-table td:nth-child(6)::before {
+            content: "MRP";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+        .price-cell {
+            font-size: 11.5px;
+        }
+
+        .products-table td:nth-child(7) {
+            width: 33.33%;
+            order: 7;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
+        .products-table td:nth-child(7)::before {
+            content: "Sale Price";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        .products-table td:nth-child(8) {
+            width: 33.33%;
+            order: 8;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 8px;
+        }
+        .products-table td:nth-child(8)::before {
+            content: "Stock";
+            font-size: 8px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+        .stock-info {
+            font-size: 11.5px;
+        }
+
+        /* Row 4: Actions (td 10) */
+        .products-table td:nth-child(10) {
+            width: 100%;
+            order: 10;
+            margin-top: 8px;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 8px;
+            justify-content: flex-end;
+        }
+        .action-icons {
+            gap: 8px;
+        }
+        .action-btn {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
         }
     }
 </style>

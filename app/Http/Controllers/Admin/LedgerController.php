@@ -12,6 +12,7 @@ use App\Models\PurchasePayment;
 use App\Models\CreditNote;
 use App\Models\DebitNote;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use MongoDB\BSON\Decimal128;
 
 class LedgerController extends Controller
@@ -22,70 +23,647 @@ class LedgerController extends Controller
 
     public function show(Request $request, string $partyType, string $id)
     {
-        if ($partyType === 'vendor') {
-            $party = Vendor::with('addresses')->findOrFail($id);
-        } else {
-            $party = Customer::with('addresses')->findOrFail($id);
-        }
+        $party = $this->resolveParty($partyType, $id);
 
-        $transactions = $this->buildTransactions($partyType, $id);
-        $ledger       = $this->buildLedger($partyType, $id, $party);
-        $itemReport   = $this->buildItemReport($partyType, $id);
-        $profile      = $this->buildProfile($partyType, $party);
-        $summary      = $this->buildSummary($ledger);
+        $ledger     = $this->buildLedger($partyType, $id, $party);
+        $itemReport = $this->buildItemReport($partyType, $id);
+        $profile    = $this->buildProfile($partyType, $party);
+        $summary    = $this->buildSummary($ledger, $partyType);
 
         return view('admin.ledger.show', compact(
             'party', 'partyType',
-            'transactions', 'ledger',
-            'itemReport', 'profile',
-            'summary'
+            'ledger', 'itemReport',
+            'profile', 'summary'
         ));
     }
 
     // =========================================================
-    //  HELPER: Payment number resolve karo
+    //  LIGHTWEIGHT CLOSING BALANCE  (for list pages / dashboards)
     //
-    //  - Agar payment_number hai → woh dikhao (SalesPaymentController se)
-    //  - Agar nahi hai (invoice-time payment) → invoice number dikhao
-    //  - invoiceNumberMap: [ invoice_id => invoice_number ]
+    //  Same debit/credit rules as buildLedger(), but only sums totals
+    //  instead of building every row — much cheaper when you need the
+    //  balance for many parties at once (e.g. the parties index table).
+    //  Positive = Dr (party owes the business), Negative = Cr (business
+    //  owes the party) — same convention as the full ledger.
     // =========================================================
 
-    private function resolvePaymentVoucherNumber($pmt, array $invoiceNumberMap, string $invoiceField): string
+    public static function getClosingBalance(string $partyType, string $id): float
     {
-        // Has its own payment number — use it
-        if (!empty($pmt->payment_number)) {
-            return $pmt->payment_number;
+        $controller = new self();
+        $party      = $controller->resolveParty($partyType, $id);
+        $balance    = $controller->toFloat($party->opening_balance ?? 0);
+
+        if (in_array($partyType, ['customer', 'dealer', 'distributor'])) {
+            $balance += SalesInvoice::where('party_id', $id)
+                ->where('status', '!=', 'draft')
+                ->where('status', '!=', 'cancelled')
+                ->get()
+                ->sum(fn($inv) => $controller->toFloat($inv->grand_total));
+
+            $balance -= $controller->getSalesPaymentsIn($id)
+                ->sum(fn($pmt) => $controller->toFloat($pmt->amount) + $controller->toFloat($pmt->discount ?? 0));
+
+            $balance -= CreditNote::where('party_id', $id)->get()
+                ->sum(fn($cn) => $controller->toFloat($cn->amount));
+
+            $balance += PurchasePayment::where('party_id', $id)
+                ->where('payment_subtype', 'credit_refund')
+                ->get()
+                ->sum(fn($pmt) => $controller->toFloat($pmt->amount));
         }
 
-        // Invoice-time payment — find invoice number from allocations first
-        $allocations = $this->parseAllocations($pmt->allocations);
-        foreach ($allocations as $alloc) {
-            if (($alloc['type'] ?? '') === 'invoice' && !empty($alloc['invoice_id'])) {
-                $invId = (string) $alloc['invoice_id'];
-                if (!empty($invoiceNumberMap[$invId])) {
-                    return $invoiceNumberMap[$invId];
-                }
-            }
-            // Also check invoice_number stored directly in allocation
-            if (($alloc['type'] ?? '') === 'invoice' && !empty($alloc['invoice_number'])) {
-                return $alloc['invoice_number'];
-            }
+        if (in_array($partyType, ['vendor', 'dealer', 'distributor'])) {
+            $balance -= PurchaseInvoice::where('party_id', $id)
+                ->where('status', '!=', 'draft')
+                ->where('status', '!=', 'cancelled')
+                ->get()
+                ->sum(fn($inv) => $controller->toFloat($inv->grand_total));
+
+            $balance += $controller->getPurchasePaymentsOut($id)
+                ->sum(fn($pmt) => $controller->toFloat($pmt->amount));
+
+            $balance -= DebitNote::where('party_id', $id)->get()
+                ->sum(fn($dn) => $controller->toFloat($dn->amount));
+
+            $balance += SalesPayment::where('party_id', $id)
+                ->where('payment_subtype', 'debit_refund')
+                ->get()
+                ->sum(fn($pmt) => $controller->toFloat($pmt->amount));
         }
 
-        // Fallback: direct invoice_id field on payment record
-        $directInvId = (string)($pmt->{$invoiceField} ?? '');
-        if ($directInvId && !empty($invoiceNumberMap[$directInvId])) {
-            return $invoiceNumberMap[$directInvId];
+        return round($balance, 2);
+    }
+
+    // Batch version — avoids N+1 if you're rendering a list of many parties.
+    // Returns [ party_id => closing_balance ].
+    public static function getClosingBalancesBatch(string $partyType, array $partyIds): array
+    {
+        $balances = [];
+        foreach ($partyIds as $id) {
+            $balances[(string) $id] = self::getClosingBalance($partyType, (string) $id);
+        }
+        return $balances;
+    }
+
+    public function print(Request $request, string $partyType, string $id)
+    {
+        $party = $this->resolveParty($partyType, $id);
+
+        $fullLedger = $this->buildLedger($partyType, $id, $party);
+
+        $fromDateRaw   = $request->get('from_date');   // e.g. 2026-04-01 (HTML date input format)
+        $toDateRaw     = $request->get('to_date');     // e.g. 2026-06-27
+        $invoiceType   = $request->get('invoice_type'); // 'gst' | 'cash' | null (= all)
+
+        $ledger = $this->filterLedgerByDateRange($fullLedger, $fromDateRaw, $toDateRaw);
+
+        if ($invoiceType && in_array($invoiceType, ['gst', 'cash'])) {
+            $ledger = $this->filterLedgerByInvoiceType($ledger, $invoiceType);
         }
 
-        // Last resort fallback (should never reach here after fixes)
-        return '—';
+        $summary = $this->buildSummary($ledger, $partyType);
+
+        $fromDate = $fromDateRaw ? Carbon::parse($fromDateRaw)->format('d-m-Y') : 'Opening';
+        $toDate   = $toDateRaw   ? Carbon::parse($toDateRaw)->format('d-m-Y')   : now()->format('d-m-Y');
+
+        return view('admin.ledger.print', compact(
+            'party', 'partyType', 'ledger', 'summary', 'fromDate', 'toDate', 'invoiceType'
+        ));
     }
 
     // =========================================================
-    //  HELPER: Get all SalesPayments for a party
-    //  Handles both old records (no payment_type) and new records
-    //  Excludes debit_refund subtype (those are vendor-side)
+    //  INVOICE-TYPE FILTER  (for "show me only GST" / "only Cash Memo")
+    //
+    //  Unlike the date-range filter, this does NOT carry forward an
+    //  adjusted opening balance — a bill-type ledger is a different view
+    //  of the SAME party, not a different time window. Opening balance
+    //  stays at the party's original opening_balance (tagged 'all', so
+    //  it's kept), and only rows matching the requested type — plus rows
+    //  tagged 'all' (standalone payments, mixed allocations) — are kept.
+    //  The closing balance therefore reads as "net effect of GST-only
+    //  (or Cash-only) activity plus the original opening balance", which
+    //  is the closest honest equivalent to a single-type ledger here.
+    // =========================================================
+
+    private function filterLedgerByInvoiceType(\Illuminate\Support\Collection $ledger, string $invoiceType): \Illuminate\Support\Collection
+    {
+        $kept = $ledger->filter(function ($row) use ($invoiceType) {
+            $rowType = $row['invoice_type'] ?? 'all';
+            return $rowType === 'all' || $rowType === $invoiceType;
+        })->values();
+
+        // Recompute running balance over just the kept rows.
+        $result  = collect();
+        $balance = 0.0;
+
+        foreach ($kept as $row) {
+            if ($row['is_opening']) {
+                $balance = $row['balance'];
+                $result->push($row);
+                continue;
+            }
+            if ($row['is_closing']) {
+                $row['balance'] = $balance;
+                $result->push($row);
+                continue;
+            }
+            $balance = round($balance + $row['debit'] - $row['credit'], 2);
+            $row['balance'] = $balance;
+            $result->push($row);
+        }
+
+        return $result;
+    }
+
+    // =========================================================
+    //  DATE RANGE FILTER  (for print/PDF with custom period)
+    //
+    //  Opening Balance row gets recalculated to absorb every
+    //  transaction that happened BEFORE `from`, so the running
+    //  balance inside the selected window stays accurate — exactly
+    //  how Tally / MyBillBook period-based statements behave.
+    //  Transactions AFTER `to` are simply dropped; the Closing
+    //  Balance row reflects the balance at the end of the window.
+    // =========================================================
+
+    private function filterLedgerByDateRange(\Illuminate\Support\Collection $fullLedger, ?string $fromDateRaw, ?string $toDateRaw): \Illuminate\Support\Collection
+    {
+        if (!$fromDateRaw && !$toDateRaw) {
+            return $fullLedger;
+        }
+
+        $from = $fromDateRaw ? Carbon::parse($fromDateRaw)->startOfDay() : null;
+        $to   = $toDateRaw   ? Carbon::parse($toDateRaw)->endOfDay()     : null;
+
+        $openingBalance = 0.0;
+        $windowRows      = collect();
+
+        foreach ($fullLedger as $row) {
+            if ($row['is_opening'] || $row['is_closing']) {
+                continue; // we rebuild these ourselves below
+            }
+
+            $rowDate = $row['raw_date'] ? Carbon::parse($this->sortableDate($row['raw_date'])) : null;
+
+            if ($from && $rowDate && $rowDate->lt($from)) {
+                // Happened before the window — absorb into opening balance
+                $openingBalance += $row['debit'] - $row['credit'];
+                continue;
+            }
+
+            if ($to && $rowDate && $rowDate->gt($to)) {
+                continue; // happened after the window — drop entirely
+            }
+
+            $windowRows->push($row);
+        }
+
+        // The very first ledger row carries the party's true opening_balance;
+        // fold that in so totals stay correct even with no prior transactions.
+        $trueOpeningBalance = $fullLedger->first()['balance'] ?? 0.0;
+        $openingBalance += $trueOpeningBalance;
+
+        $result  = collect();
+        $balance = round($openingBalance, 2);
+
+        $result->push([
+            'date' => null, 'raw_date' => null, 'voucher_type' => 'Opening Balance',
+            'sr_no' => '—', 'payment_mode' => '—', 'reference_number' => null,
+            'debit' => 0.0, 'credit' => 0.0, 'balance' => $balance,
+            'due_date' => null, 'due_status' => null, 'invoice_type' => 'all',
+            'is_opening' => true, 'is_closing' => false,
+        ]);
+
+        // IMPORTANT: re-derive each row's running balance against the NEW
+        // windowed opening balance — the value stored on $row['balance'] was
+        // computed against the full-history opening and would be wrong here.
+        foreach ($windowRows as $row) {
+            $balance = round($balance + $row['debit'] - $row['credit'], 2);
+            $row['balance'] = $balance;
+            $result->push($row);
+        }
+
+        $result->push([
+            'date' => null, 'raw_date' => null, 'voucher_type' => 'Closing Balance',
+            'sr_no' => '—', 'payment_mode' => '—', 'reference_number' => null,
+            'debit' => 0.0, 'credit' => 0.0,
+            'balance' => $balance,
+            'due_date' => null, 'due_status' => null, 'invoice_type' => 'all',
+            'is_opening' => false, 'is_closing' => true,
+        ]);
+
+        return $result;
+    }
+
+    private function resolveParty(string $partyType, string $id)
+    {
+        return $partyType === 'vendor'
+            ? Vendor::with('addresses')->findOrFail($id)
+            : Customer::with('addresses')->findOrFail($id);
+    }
+
+    // =========================================================
+    //  CORE LEDGER BUILDER  (Tally / MyBillBook style)
+    //
+    //  Rules:
+    //  - ONE row per voucher (invoice, payment, credit/debit note, refund)
+    //  - No splitting a payment into "opening balance" + "invoice" rows
+    //  - Running balance = balance + debit - credit  (party's "amount due"
+    //    convention — works the same whether party is customer or vendor,
+    //    because each voucher type already carries the correct debit/credit)
+    //  - Opening Balance row's `balance` IS the opening balance itself
+    //    (not zero), matching MyBillBook.
+    //  - Sale Invoice / Refund Payment / Debit Note  -> DEBIT  (raises due)
+    //  - Purchase Invoice / Payment-in / Credit Note  -> CREDIT (lowers due)
+    //    (signs flip appropriately for vendor side, see below)
+    // =========================================================
+
+    private function buildLedger(string $partyType, string $id, $party): \Illuminate\Support\Collection
+    {
+        $openingBalance = $this->toFloat($party->opening_balance ?? 0);
+        $entries        = [];
+
+        if (in_array($partyType, ['customer', 'dealer', 'distributor'])) {
+            $entries = array_merge($entries, $this->buildSalesSideEntries($id));
+        }
+
+        if (in_array($partyType, ['vendor', 'dealer', 'distributor'])) {
+            $entries = array_merge($entries, $this->buildPurchaseSideEntries($id));
+        }
+
+        // Date ASC, and within same date keep invoices before their payments
+        // (stable secondary sort by a type-priority so ledger reads naturally)
+        usort($entries, function ($a, $b) {
+            $dateCmp = strcmp($this->sortableDate($a['raw_date'] ?? null), $this->sortableDate($b['raw_date'] ?? null));
+            if ($dateCmp !== 0) return $dateCmp;
+            return ($a['_sort_priority'] ?? 9) <=> ($b['_sort_priority'] ?? 9);
+        });
+
+        $result  = collect();
+        $balance = $openingBalance;
+
+        $result->push([
+            'date'            => null,
+            'raw_date'        => null,
+            'voucher_type'    => 'Opening Balance',
+            'sr_no'           => '—',
+            'payment_mode'    => '—',
+            'reference_number'=> null,
+            'debit'           => 0.0,
+            'credit'          => 0.0,
+            'balance'         => round($balance, 2),
+            'due_date'        => null,
+            'due_status'      => null,
+            'invoice_type'    => 'all', // always visible regardless of GST/Cash filter
+            'is_opening'      => true,
+            'is_closing'      => false,
+        ]);
+
+        foreach ($entries as $entry) {
+            $balance = round($balance + $entry['debit'] - $entry['credit'], 2);
+
+            $result->push([
+                'date'            => $entry['date'],
+                'raw_date'        => $entry['raw_date'],
+                'voucher_type'    => $entry['voucher_type'],
+                'sr_no'           => $entry['sr_no'],
+                'payment_mode'    => $entry['payment_mode'],
+                'reference_number'=> $entry['reference_number'],
+                'debit'           => $entry['debit'],
+                'credit'          => $entry['credit'],
+                'balance'         => $balance,
+                'due_date'        => $entry['due_date'] ?? null,
+                'due_status'      => $entry['due_status'] ?? null,
+                'invoice_type'    => $entry['invoice_type'] ?? 'all',
+                'is_opening'      => false,
+                'is_closing'      => false,
+            ]);
+        }
+
+        // Closing balance row — mirrors MyBillBook's final summary line
+        $result->push([
+            'date'            => null,
+            'raw_date'        => null,
+            'voucher_type'    => 'Closing Balance',
+            'sr_no'           => '—',
+            'payment_mode'    => '—',
+            'reference_number'=> null,
+            'debit'           => 0.0,
+            'credit'          => 0.0,
+            'balance'         => $balance,
+            'due_date'        => null,
+            'due_status'      => null,
+            'invoice_type'    => 'all', // always visible regardless of GST/Cash filter
+            'is_opening'      => false,
+            'is_closing'      => true,
+        ]);
+
+        return $result;
+    }
+
+    // ---------------------------------------------------------
+    //  SALES SIDE — customer ko jo invoices/payments/notes apply hote hain
+    // ---------------------------------------------------------
+    private function buildSalesSideEntries(string $id): array
+    {
+        $rows = [];
+
+        $salesInvoices = SalesInvoice::where('party_id', $id)
+            ->where('status', '!=', 'draft')
+            ->where('status', '!=', 'cancelled')
+            ->get();
+
+        // invoice_id (string) => invoice_type ('gst' | 'cash'), used to tag
+        // payments/credit-notes that are linked to a specific invoice.
+        $invoiceTypeMap = $salesInvoices->mapWithKeys(
+            fn($inv) => [(string) $inv->_id => $inv->invoice_type ?? 'gst']
+        )->toArray();
+
+        foreach ($salesInvoices as $inv) {
+            [$dueStatus, $dueDateStr] = $this->resolveInvoiceDueStatus($inv);
+
+            $rows[] = [
+                'raw_date'         => $inv->invoice_date,
+                'date'             => $this->formatDate($inv->invoice_date),
+                'voucher_type'     => 'Sale Invoice',
+                'sr_no'            => $inv->invoice_number,
+                'payment_mode'     => '—',
+                'reference_number' => null,
+                'debit'            => $this->toFloat($inv->grand_total),
+                'credit'           => 0.0,
+                'due_date'         => $dueDateStr,
+                'due_status'       => $dueStatus,
+                'invoice_type'     => $inv->invoice_type ?? 'gst',
+                '_sort_priority'   => 1, // invoices first on a given date
+            ];
+        }
+
+        foreach ($this->getSalesPaymentsIn($id) as $pmt) {
+            $rows[] = [
+                'raw_date'         => $pmt->payment_date,
+                'date'             => $this->formatDate($pmt->payment_date),
+                'voucher_type'     => 'Payment-in',
+                'sr_no'            => $pmt->payment_number ?? '—',
+                'payment_mode'     => $this->formatPaymentMode($pmt),
+                'reference_number' => $pmt->reference_no ?? null,
+                'debit'            => 0.0,
+                'credit'           => $this->toFloat($pmt->amount),
+                'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
+                '_sort_priority'   => 2,
+            ];
+
+            $discountVal = $this->toFloat($pmt->discount ?? 0);
+            if ($discountVal > 0) {
+                $rows[] = [
+                    'raw_date'         => $pmt->payment_date,
+                    'date'             => $this->formatDate($pmt->payment_date),
+                    'voucher_type'     => 'Discount Allowed',
+                    'sr_no'            => ($pmt->payment_number ? $pmt->payment_number . '-D' : '—'),
+                    'payment_mode'     => '—',
+                    'reference_number' => null,
+                    'debit'            => 0.0,
+                    'credit'           => $discountVal,
+                    'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
+                    '_sort_priority'   => 2.5,
+                ];
+            }
+        }
+
+        foreach (CreditNote::where('party_id', $id)->get() as $cn) {
+            $linkedInvId = (string) ($cn->sales_invoice_id ?? '');
+            $rows[] = [
+                'raw_date'         => $cn->credit_date,
+                'date'             => $this->formatDate($cn->credit_date),
+                'voucher_type'     => 'Credit Note',
+                'sr_no'            => $cn->credit_note_number,
+                'payment_mode'     => '—',
+                'reference_number' => null,
+                'debit'            => 0.0,
+                'credit'           => $this->toFloat($cn->amount),
+                // Credit note inherits its parent invoice's type; if it isn't
+                // linked to a specific invoice, treat it as visible in both.
+                'invoice_type'     => $invoiceTypeMap[$linkedInvId] ?? 'all',
+                '_sort_priority'   => 3,
+            ];
+        }
+
+        // Refund TO customer (credit note refunded via PurchasePayment with credit_refund subtype)
+        $refunds = PurchasePayment::where('party_id', $id)
+            ->where('payment_subtype', 'credit_refund')
+            ->get();
+
+        foreach ($refunds as $pmt) {
+            $rows[] = [
+                'raw_date'         => $pmt->payment_date,
+                'date'             => $this->formatDate($pmt->payment_date),
+                'voucher_type'     => 'Refund Payment',
+                'sr_no'            => $pmt->payment_number ?? '—',
+                'payment_mode'     => $this->formatPaymentMode($pmt),
+                'reference_number' => $pmt->reference_no ?? null,
+                'debit'            => $this->toFloat($pmt->amount),
+                'credit'           => 0.0,
+                'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
+                '_sort_priority'   => 4,
+            ];
+        }
+
+        return $rows;
+    }
+
+    // =========================================================
+    //  INVOICE-TYPE RESOLUTION FOR PAYMENTS
+    //
+    //  A payment's `allocations` array links it to one or more invoices.
+    //  - If every linked invoice shares the same type (gst/cash) → tag with
+    //    that type, so the GST/Cash filter can hide-or-show it correctly.
+    //  - If it's linked to invoices of BOTH types, or to no invoice at all
+    //    (e.g. a standalone advance / opening-balance payment) → tag as
+    //    'all' so it stays visible regardless of which filter is active.
+    //    This keeps the running balance correct under either filter instead
+    //    of silently hiding money that did move.
+    // =========================================================
+
+    private function resolvePaymentInvoiceType($pmt, array $invoiceTypeMap): string
+    {
+        $allocations = $this->parseAllocations($pmt->allocations);
+        $linkedTypes = [];
+
+        foreach ($allocations as $alloc) {
+            if (($alloc['type'] ?? '') === 'invoice' && !empty($alloc['invoice_id'])) {
+                $invId = (string) $alloc['invoice_id'];
+                if (isset($invoiceTypeMap[$invId])) {
+                    $linkedTypes[$invoiceTypeMap[$invId]] = true;
+                }
+            }
+        }
+
+        // Fallback: direct invoice_id field on the payment (invoice-time payments)
+        if (empty($linkedTypes)) {
+            $directInvId = (string) ($pmt->sales_invoice_id ?? $pmt->purchase_invoice_id ?? '');
+            if ($directInvId && isset($invoiceTypeMap[$directInvId])) {
+                $linkedTypes[$invoiceTypeMap[$directInvId]] = true;
+            }
+        }
+
+        if (empty($linkedTypes)) {
+            return 'all'; // standalone payment, not tied to any specific invoice
+        }
+
+        if (count($linkedTypes) > 1) {
+            return 'all'; // touches both gst and cash invoices — keep visible always
+        }
+
+        return array_key_first($linkedTypes);
+    }
+
+    // ---------------------------------------------------------
+    //  PURCHASE SIDE — vendor ko jo invoices/payments/notes apply hote hain
+    // ---------------------------------------------------------
+    private function buildPurchaseSideEntries(string $id): array
+    {
+        $rows = [];
+
+        $purchaseInvoices = PurchaseInvoice::where('party_id', $id)
+            ->where('status', '!=', 'draft')
+            ->where('status', '!=', 'cancelled')
+            ->get();
+
+        // NOTE: falls back to 'gst' if PurchaseInvoice doesn't have an
+        // invoice_type field — keeps these always visible under the GST
+        // filter rather than silently disappearing.
+        $invoiceTypeMap = $purchaseInvoices->mapWithKeys(
+            fn($inv) => [(string) $inv->_id => $inv->invoice_type ?? 'gst']
+        )->toArray();
+
+        foreach ($purchaseInvoices as $inv) {
+            [$dueStatus, $dueDateStr] = $this->resolveInvoiceDueStatus($inv);
+
+            $rows[] = [
+                'raw_date'         => $inv->invoice_date,
+                'date'             => $this->formatDate($inv->invoice_date),
+                'voucher_type'     => 'Purchase Invoice',
+                'sr_no'            => $inv->invoice_number,
+                'payment_mode'     => '—',
+                'reference_number' => null,
+                'debit'            => 0.0,
+                'credit'           => $this->toFloat($inv->grand_total),
+                'due_date'         => $dueDateStr,
+                'due_status'       => $dueStatus,
+                'invoice_type'     => $inv->invoice_type ?? 'gst',
+                '_sort_priority'   => 1,
+            ];
+        }
+
+        foreach ($this->getPurchasePaymentsOut($id) as $pmt) {
+            $rows[] = [
+                'raw_date'         => $pmt->payment_date,
+                'date'             => $this->formatDate($pmt->payment_date),
+                'voucher_type'     => 'Payment-out',
+                'sr_no'            => $pmt->payment_number ?? '—',
+                'payment_mode'     => $this->formatPaymentMode($pmt),
+                'reference_number' => $pmt->reference_no ?? null,
+                'debit'            => $this->toFloat($pmt->amount),
+                'credit'           => 0.0,
+                'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
+                '_sort_priority'   => 2,
+            ];
+        }
+
+        foreach (DebitNote::where('party_id', $id)->get() as $dn) {
+            $linkedInvId = (string) ($dn->purchase_invoice_id ?? '');
+            $rows[] = [
+                'raw_date'         => $dn->debit_date,
+                'date'             => $this->formatDate($dn->debit_date),
+                'voucher_type'     => 'Debit Note',
+                'sr_no'            => $dn->debit_note_number,
+                'payment_mode'     => '—',
+                'reference_number' => null,
+                'debit'            => $this->toFloat($dn->amount),
+                'credit'           => 0.0,
+                'invoice_type'     => $invoiceTypeMap[$linkedInvId] ?? 'all',
+                '_sort_priority'   => 3,
+            ];
+        }
+
+        // Refund FROM vendor (debit note refunded via SalesPayment with debit_refund subtype)
+        $refunds = SalesPayment::where('party_id', $id)
+            ->where('payment_subtype', 'debit_refund')
+            ->get();
+
+        foreach ($refunds as $pmt) {
+            $rows[] = [
+                'raw_date'         => $pmt->payment_date,
+                'date'             => $this->formatDate($pmt->payment_date),
+                'voucher_type'     => 'Refund Received',
+                'sr_no'            => $pmt->payment_number ?? '—',
+                'payment_mode'     => $this->formatPaymentMode($pmt),
+                'reference_number' => $pmt->reference_no ?? null,
+                'debit'            => 0.0,
+                'credit'           => $this->toFloat($pmt->amount),
+                'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
+                '_sort_priority'   => 4,
+            ];
+        }
+
+        return $rows;
+    }
+
+    // =========================================================
+    //  DUE STATUS  (Paid / Partially Paid / Unpaid + overdue days)
+    // =========================================================
+
+    private function resolveInvoiceDueStatus($inv): array
+    {
+        $balanceAmount = $this->toFloat($inv->balance_amount ?? 0);
+        $dueDateRaw    = $inv->due_date ?? null;
+        $dueDateStr    = $dueDateRaw ? $this->formatDate($dueDateRaw) : null;
+
+        if ($balanceAmount <= 0.001) {
+            return ['Paid', $dueDateStr];
+        }
+
+        $grandTotal = $this->toFloat($inv->grand_total ?? 0);
+        $isPartial  = $grandTotal > 0 && $balanceAmount < $grandTotal;
+
+        $overdueSuffix = '';
+        if ($dueDateRaw) {
+            try {
+                $due   = Carbon::parse($this->sortableDate($dueDateRaw));
+                $today = Carbon::today();
+                if ($today->gt($due)) {
+                    $overdueSuffix = ' (' . $today->diffInDays($due) . ')';
+                }
+            } catch (\Exception $e) {
+                // leave suffix blank if date parsing fails
+            }
+        }
+
+        $label = $isPartial ? 'Partially Paid' : 'Unpaid';
+
+        return [$label . $overdueSuffix, $dueDateStr];
+    }
+
+    // =========================================================
+    //  PAYMENT MODE FORMATTER  ->  "Upi (TXN12345)" / "Cash"
+    //
+    //  NOTE: actual DB column is `payment_method` (not `payment_mode`),
+    //  and reference column is `reference_no` (not `reference_number`).
+    //  Uses the model's payment_method_text accessor when available so
+    //  labels stay in sync with SalesPayment::getPaymentMethodTextAttribute().
+    // =========================================================
+
+    private function formatPaymentMode($pmt): string
+    {
+        if (!empty($pmt->payment_method_text)) {
+            return $pmt->payment_method_text;
+        }
+
+        $method = $pmt->payment_method ?? null;
+        return $method ? ucfirst($method) : '—';
+    }
+
+    // =========================================================
+    //  PAYMENT QUERIES
     // =========================================================
 
     private function getSalesPaymentsIn(string $partyId): \Illuminate\Support\Collection
@@ -100,13 +678,9 @@ class LedgerController extends Controller
                 $q->where('payment_subtype', '!=', 'debit_refund')
                   ->orWhereNull('payment_subtype');
             })
+            ->orderBy('payment_date')
             ->get();
     }
-
-    // =========================================================
-    //  HELPER: Get all PurchasePayments for a party
-    //  Excludes credit_refund subtype
-    // =========================================================
 
     private function getPurchasePaymentsOut(string $partyId): \Illuminate\Support\Collection
     {
@@ -120,793 +694,25 @@ class LedgerController extends Controller
                 $q->where('payment_subtype', '!=', 'credit_refund')
                   ->orWhereNull('payment_subtype');
             })
+            ->orderBy('payment_date')
             ->get();
     }
 
     // =========================================================
-    //  HELPER: Find which invoice a payment belongs to
-    //  Returns: [ invoice_id => amount, ... ]
-    // =========================================================
-
-    private function resolvePaymentInvoiceMap($pmt, string $invoiceField): array
-    {
-        $allocations      = $this->parseAllocations($pmt->allocations);
-        $linkedInvoiceIds = [];
-
-        foreach ($allocations as $alloc) {
-            if (($alloc['type'] ?? '') === 'invoice' && !empty($alloc['invoice_id'])) {
-                $linkedInvoiceIds[(string)$alloc['invoice_id']] =
-                    $this->toFloat($alloc['amount'] ?? $pmt->amount);
-            }
-        }
-
-        // Fallback: direct invoice_id field
-        if (empty($linkedInvoiceIds)) {
-            $directId = (string)($pmt->{$invoiceField} ?? '');
-            if ($directId) {
-                $linkedInvoiceIds[$directId] = $this->toFloat($pmt->amount);
-            }
-        }
-
-        return $linkedInvoiceIds;
-    }
-
-    // =========================================================
-    //  TAB 1 — TRANSACTIONS
-    // =========================================================
-
-    private function buildTransactions(string $partyType, string $id): \Illuminate\Support\Collection
-    {
-        $rows = collect();
-
-        // ── SALES SIDE ──────────────────────────────────────────────
-        if (in_array($partyType, ['customer', 'dealer', 'distributor'])) {
-
-            $salesInvoices = SalesInvoice::where('party_id', $id)
-                ->where('status', '!=', 'draft')
-                ->where('status', '!=', 'cancelled')  // ye add karo
-                ->orderBy('invoice_date', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            // Build invoice number map for quick lookup
-            $invoiceNumberMap = $salesInvoices->pluck('invoice_number', '_id')
-                ->mapWithKeys(fn($num, $id) => [(string)$id => $num])
-                ->toArray();
-
-            $allPaymentsIn  = $this->getSalesPaymentsIn($id);
-            $allCreditNotes = CreditNote::where('party_id', $id)->get();
-
-            $paymentsByInvoice  = [];
-            $standalonePayments = [];
-
-            foreach ($allPaymentsIn as $pmt) {
-                $map = $this->resolvePaymentInvoiceMap($pmt, 'sales_invoice_id');
-
-                // Voucher number: payment_number if exists, else invoice number
-                $voucherNo = $this->resolvePaymentVoucherNumber($pmt, $invoiceNumberMap, 'sales_invoice_id');
-
-                if (!empty($map)) {
-                    foreach ($map as $invId => $amount) {
-                        $paymentsByInvoice[$invId][] = [
-                            'raw_date'    => $pmt->payment_date,
-                            'date'        => $this->formatDate($pmt->payment_date),
-                            'type'        => 'Payment In',
-                            'type_badge'  => 'payment_in',
-                            'number'      => $voucherNo,
-                            'amount'      => $amount,
-                            'amount_type' => 'credit',
-                            'status'      => $pmt->status ?? 'completed',
-                            'is_child'    => true,
-                            'is_parent'   => false,
-                        ];
-                    }
-                } else {
-                    $standalonePayments[] = [
-                        'raw_date'    => $pmt->payment_date,
-                        'date'        => $this->formatDate($pmt->payment_date),
-                        'type'        => 'Payment In',
-                        'type_badge'  => 'payment_in',
-                        'number'      => $voucherNo,
-                        'amount'      => $this->toFloat($pmt->amount),
-                        'amount_type' => 'credit',
-                        'status'      => $pmt->status ?? 'completed',
-                        'is_child'    => false,
-                        'is_parent'   => false,
-                    ];
-                }
-            }
-
-            // Credit notes by invoice
-            $cnByInvoice = [];
-            foreach ($allCreditNotes as $cn) {
-                $invId = (string)($cn->sales_invoice_id ?? '');
-                if ($invId) {
-                    $cnByInvoice[$invId][] = [
-                        'raw_date'    => $cn->credit_date,
-                        'date'        => $this->formatDate($cn->credit_date),
-                        'type'        => 'Credit Note',
-                        'type_badge'  => 'credit_note',
-                        'number'      => $cn->credit_note_number,
-                        'amount'      => $this->toFloat($cn->amount),
-                        'amount_type' => 'credit',
-                        'status'      => $cn->status,
-                        'is_child'    => true,
-                        'is_parent'   => false,
-                    ];
-                }
-            }
-
-            // Build flat rows: latest invoice first, children date ASC below it
-            foreach ($salesInvoices as $inv) {
-                $invId = (string) $inv->_id;
-
-                $rows->push([
-                    'date'        => $this->formatDate($inv->invoice_date),
-                    'raw_date'    => $inv->invoice_date,
-                    'type'        => 'Sale Invoice',
-                    'type_badge'  => 'sale',
-                    'number'      => $inv->invoice_number,
-                    'amount'      => $this->toFloat($inv->grand_total),
-                    'amount_type' => 'debit',
-                    'status'      => $inv->payment_status ?? $inv->status,
-                    'is_child'    => false,
-                    'is_parent'   => true,
-                    'balance'     => $this->toFloat($inv->balance_amount),
-                ]);
-
-                $children = collect();
-                foreach ($paymentsByInvoice[$invId] ?? [] as $c) { $children->push($c); }
-                foreach ($cnByInvoice[$invId]        ?? [] as $c) { $children->push($c); }
-
-                foreach ($children->sortBy(fn($c) => $this->sortableDate($c['raw_date'])) as $child) {
-                    $rows->push($child);
-                }
-            }
-
-            foreach ($standalonePayments as $sp) {
-                $rows->push($sp);
-            }
-        }
-
-        // ── PURCHASE SIDE ────────────────────────────────────────────
-        if (in_array($partyType, ['vendor', 'dealer', 'distributor'])) {
-
-            $purchaseInvoices = PurchaseInvoice::where('party_id', $id)
-                ->where('status', '!=', 'draft')
-                ->where('status', '!=', 'cancelled')
-                ->orderBy('invoice_date', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            // Build invoice number map
-            $invoiceNumberMap = $purchaseInvoices->pluck('invoice_number', '_id')
-                ->mapWithKeys(fn($num, $id) => [(string)$id => $num])
-                ->toArray();
-
-            $allPaymentsOut  = $this->getPurchasePaymentsOut($id);
-            $allDebitNotes   = DebitNote::where('party_id', $id)->get();
-            $allDebitRefunds = SalesPayment::where('party_id', $id)
-                ->where('payment_subtype', 'debit_refund')
-                ->get();
-
-            $paymentsOutByInvoice  = [];
-            $standalonePaymentsOut = [];
-
-            foreach ($allPaymentsOut as $pmt) {
-                $map = $this->resolvePaymentInvoiceMap($pmt, 'purchase_invoice_id');
-
-                $voucherNo = $this->resolvePaymentVoucherNumber($pmt, $invoiceNumberMap, 'purchase_invoice_id');
-
-                if (!empty($map)) {
-                    foreach ($map as $invId => $amount) {
-                        $paymentsOutByInvoice[$invId][] = [
-                            'raw_date'    => $pmt->payment_date,
-                            'date'        => $this->formatDate($pmt->payment_date),
-                            'type'        => 'Payment Out',
-                            'type_badge'  => 'payment_out',
-                            'number'      => $voucherNo,
-                            'amount'      => $amount,
-                            'amount_type' => 'debit',
-                            'status'      => $pmt->status ?? 'completed',
-                            'is_child'    => true,
-                            'is_parent'   => false,
-                        ];
-                    }
-                } else {
-                    $standalonePaymentsOut[] = [
-                        'raw_date'    => $pmt->payment_date,
-                        'date'        => $this->formatDate($pmt->payment_date),
-                        'type'        => 'Payment Out',
-                        'type_badge'  => 'payment_out',
-                        'number'      => $voucherNo,
-                        'amount'      => $this->toFloat($pmt->amount),
-                        'amount_type' => 'debit',
-                        'status'      => $pmt->status ?? 'completed',
-                        'is_child'    => false,
-                        'is_parent'   => false,
-                    ];
-                }
-            }
-
-            // Debit notes + their refunds by invoice
-            $dnByInvoice = [];
-            foreach ($allDebitNotes as $dn) {
-                $invId = (string)($dn->purchase_invoice_id ?? '');
-                if (!$invId) continue;
-
-                $dnByInvoice[$invId][] = [
-                    'raw_date'    => $dn->debit_date,
-                    'date'        => $this->formatDate($dn->debit_date),
-                    'type'        => 'Debit Note',
-                    'type_badge'  => 'debit_note',
-                    'number'      => $dn->debit_note_number,
-                    'amount'      => $this->toFloat($dn->amount),
-                    'amount_type' => 'debit',
-                    'status'      => $dn->status,
-                    'is_child'    => true,
-                    'is_parent'   => false,
-                ];
-
-                foreach ($allDebitRefunds as $refund) {
-                    $refAllocs = $this->parseAllocations($refund->allocations);
-                    foreach ($refAllocs as $ra) {
-                        if (($ra['type'] ?? '') === 'debit_note'
-                            && (string)($ra['debit_note_id'] ?? '') === (string)$dn->_id) {
-                            $dnByInvoice[$invId][] = [
-                                'raw_date'    => $refund->payment_date,
-                                'date'        => $this->formatDate($refund->payment_date),
-                                'type'        => 'Debit Refund',
-                                'type_badge'  => 'payment_in',
-                                'number'      => $refund->payment_number,
-                                'amount'      => $this->toFloat($ra['amount'] ?? $refund->amount),
-                                'amount_type' => 'credit',
-                                'status'      => $refund->status,
-                                'is_child'    => true,
-                                'is_parent'   => false,
-                            ];
-                            break;
-                        }
-                    }
-                }
-            }
-
-            foreach ($purchaseInvoices as $inv) {
-                $invId = (string) $inv->_id;
-
-                $rows->push([
-                    'date'        => $this->formatDate($inv->invoice_date),
-                    'raw_date'    => $inv->invoice_date,
-                    'type'        => 'Purchase Invoice',
-                    'type_badge'  => 'purchase',
-                    'number'      => $inv->invoice_number,
-                    'amount'      => $this->toFloat($inv->grand_total),
-                    'amount_type' => 'credit',
-                    'status'      => $inv->payment_status ?? $inv->status,
-                    'is_child'    => false,
-                    'is_parent'   => true,
-                    'balance'     => $this->toFloat($inv->balance_amount),
-                ]);
-
-                $children = collect();
-                foreach ($paymentsOutByInvoice[$invId] ?? [] as $c) { $children->push($c); }
-                foreach ($dnByInvoice[$invId]           ?? [] as $c) { $children->push($c); }
-
-                foreach ($children->sortBy(fn($c) => $this->sortableDate($c['raw_date'])) as $child) {
-                    $rows->push($child);
-                }
-            }
-
-            foreach ($standalonePaymentsOut as $sp) {
-                $rows->push($sp);
-            }
-        }
-
-        return $rows;
-    }
-
-    // =========================================================
-    //  TAB 2 — LEDGER STATEMENT (running balance, date ASC)
-    // =========================================================
-
-private function buildLedger(string $partyType, string $id, $party): \Illuminate\Support\Collection
-{
-    $entries = collect();
-    $openingBalance = $this->toFloat($party->opening_balance ?? 0);
-
-    // For grouping invoices with their related entries
-    $groupedEntries = [];
-
-    // ── SALES SIDE (Customer, Dealer, Distributor) ──
-    if (in_array($partyType, ['customer', 'dealer', 'distributor'])) {
-        $salesInvoices = SalesInvoice::where('party_id', $id)
-            ->where('status', '!=', 'draft')
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('invoice_date', 'asc')
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        $invNumMap = $salesInvoices->pluck('invoice_number', '_id')
-            ->mapWithKeys(fn($num, $id) => [(string)$id => $num])
-            ->toArray();
-
-        // ✅ Regular payments (money received from customer) - CREDIT
-        $regularPayments = $this->getSalesPaymentsIn($id);
-
-        // ✅ Refund payments to customer - DEBIT (because we are paying them back)
-        // Ye PurchasePayment table mein hai with credit_refund
-        $refundPayments = PurchasePayment::where('party_id', $id)
-            ->where('payment_subtype', 'credit_refund')
-            ->get();
-
-        $creditNotes = CreditNote::where('party_id', $id)->get();
-
-        // Group regular payments by invoice (CREDIT entries)
-       // Group regular payments by invoice (CREDIT entries)
-        $paymentsByInvoice = [];
-        foreach ($regularPayments as $pmt) {
-            $map = $this->resolvePaymentInvoiceMap($pmt, 'sales_invoice_id');
-            $voucherNo = $this->resolvePaymentVoucherNumber($pmt, $invNumMap, 'sales_invoice_id');
-
-            if (!empty($map)) {
-                foreach ($map as $invId => $amount) {
-                    $paymentsByInvoice[$invId][] = [
-                        'raw_date' => $pmt->payment_date,
-                        'date' => $this->formatDate($pmt->payment_date),
-                        'voucher_type' => 'Payment Received',
-                        'voucher_no' => $voucherNo,
-                        'debit' => 0.0,
-                        'credit' => $this->toFloat($amount),
-                        'tds_by_party' => $this->extractTDS($this->parseAllocations($pmt->allocations), 'tds_by_party'),
-                        'tds_by_self' => $this->extractTDS($this->parseAllocations($pmt->allocations), 'tds_by_self'),
-                        'is_child' => true,
-                        'parent_id' => $invId,
-                        'is_refund' => false,
-                    ];
-                }
-            }
-
-            // ✅ Opening balance allocation check karo
-            $allocations = $this->parseAllocations($pmt->allocations);
-            foreach ($allocations as $alloc) {
-                if (($alloc['type'] ?? '') === 'opening_balance') {
-                    $groupedEntries[] = [
-                        'raw_date' => $pmt->payment_date,
-                        'date' => $this->formatDate($pmt->payment_date),
-                        'voucher_type' => 'Opening Balance Payment',
-                        'voucher_no' => $pmt->payment_number ?? '—',
-                        'debit' => 0.0,
-                        'credit' => $this->toFloat($alloc['amount'] ?? 0),
-                        'tds_by_party' => 0.0,
-                        'tds_by_self' => 0.0,
-                        'is_parent' => false,
-                        'is_child' => false,
-                        'is_refund' => false,
-                        'parent_id' => null,
-                    ];
-                }
-            }
-        }
-
-        // Initialize arrays for credit notes
-        $creditNotesByInvoice = [];
-        $standaloneCreditNotes = [];
-
-        // Build credit note entries (CREDIT entries - we owe customer)
-        foreach ($creditNotes as $cn) {
-            $invId = (string)($cn->sales_invoice_id ?? '');
-            $cnAmount = $this->toFloat($cn->amount);
-
-            // Credit note as parent entry - CREDIT
-            $creditNoteEntry = [
-                'raw_date' => $cn->credit_date,
-                'date' => $this->formatDate($cn->credit_date),
-                'voucher_type' => 'Credit Note',
-                'voucher_no' => $cn->credit_note_number,
-                'debit' => 0.0,
-                'credit' => $cnAmount,  // ✅ CREDIT - We owe customer
-                'tds_by_party' => 0.0,
-                'tds_by_self' => 0.0,
-                'is_child' => false,
-                'is_parent' => true,
-                'is_credit_note' => true,
-                'parent_id' => $invId,
-            ];
-
-            if ($invId) {
-                if (!isset($creditNotesByInvoice[$invId])) {
-                    $creditNotesByInvoice[$invId] = [];
-                }
-                $creditNotesByInvoice[$invId][] = $creditNoteEntry;
-
-                // Find refund payments linked to this credit note - DEBIT
-                foreach ($refundPayments as $pmt) {
-                    $allocations = $this->parseAllocations($pmt->allocations);
-                    foreach ($allocations as $alloc) {
-                        if (($alloc['type'] ?? '') === 'credit_note' &&
-                            (string)($alloc['credit_note_id'] ?? '') === (string)$cn->_id) {
-
-                            // Refund as child entry under credit note - DEBIT (we pay them)
-                            $creditNotesByInvoice[$invId][] = [
-                                'raw_date' => $pmt->payment_date,
-                                'date' => $this->formatDate($pmt->payment_date),
-                                'voucher_type' => 'Refund Payment',
-                                'voucher_no' => $pmt->payment_number ?? '—',
-                                'debit' => $this->toFloat($alloc['amount'] ?? $pmt->amount),  // ✅ DEBIT - We pay back
-                                'credit' => 0.0,
-                                'tds_by_party' => 0.0,
-                                'tds_by_self' => 0.0,
-                                'is_child' => true,
-                                'is_parent' => false,
-                                'is_refund' => true,
-                                'parent_id' => $invId,
-                            ];
-                        }
-                    }
-                }
-            } else {
-                $standaloneCreditNotes[] = $creditNoteEntry;
-
-                // Add refunds under standalone credit note - DEBIT
-                foreach ($refundPayments as $pmt) {
-                    $allocations = $this->parseAllocations($pmt->allocations);
-                    foreach ($allocations as $alloc) {
-                        if (($alloc['type'] ?? '') === 'credit_note' &&
-                            (string)($alloc['credit_note_id'] ?? '') === (string)$cn->_id) {
-
-                            $standaloneCreditNotes[] = [
-                                'raw_date' => $pmt->payment_date,
-                                'date' => $this->formatDate($pmt->payment_date),
-                                'voucher_type' => 'Refund Payment',
-                                'voucher_no' => $pmt->payment_number ?? '—',
-                                'debit' => $this->toFloat($alloc['amount'] ?? $pmt->amount),  // ✅ DEBIT - We pay back
-                                'credit' => 0.0,
-                                'tds_by_party' => 0.0,
-                                'tds_by_self' => 0.0,
-                                'is_child' => true,
-                                'is_parent' => false,
-                                'is_refund' => true,
-                                'parent_id' => null,
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-
-        // Build grouped entries for invoices
-        foreach ($salesInvoices as $inv) {
-            $invId = (string)$inv->_id;
-
-            // Sale Invoice - DEBIT
-            $groupedEntries[] = [
-                'raw_date' => $inv->invoice_date,
-                'date' => $this->formatDate($inv->invoice_date),
-                'voucher_type' => 'Sale Invoice',
-                'voucher_no' => $inv->invoice_number,
-                'debit' => $this->toFloat($inv->grand_total),  // ✅ DEBIT - Customer owes us
-                'credit' => 0.0,
-                'tds_by_party' => 0.0,
-                'tds_by_self' => 0.0,
-                'is_parent' => true,
-                'parent_id' => $invId,
-                'is_refund' => false,
-            ];
-
-            $children = [];
-            if (isset($paymentsByInvoice[$invId])) {
-                $children = array_merge($children, $paymentsByInvoice[$invId]);
-            }
-            if (isset($creditNotesByInvoice[$invId])) {
-                $children = array_merge($children, $creditNotesByInvoice[$invId]);
-            }
-
-            usort($children, function($a, $b) {
-                return strtotime($a['raw_date']) - strtotime($b['raw_date']);
-            });
-
-            foreach ($children as $child) {
-                $groupedEntries[] = $child;
-            }
-        }
-
-        // Add standalone credit notes
-        if (count($standaloneCreditNotes) > 0) {
-            foreach ($standaloneCreditNotes as $cn) {
-                $groupedEntries[] = $cn;
-            }
-        }
-
-        // Add standalone refunds (not linked to any credit note)
-        $usedRefundIds = [];
-        foreach ($groupedEntries as $entry) {
-            if (($entry['is_refund'] ?? false) && isset($entry['voucher_no']) && $entry['voucher_no'] !== '—') {
-                $usedRefundIds[] = $entry['voucher_no'];
-            }
-        }
-
-        foreach ($refundPayments as $pmt) {
-            $voucherNo = $pmt->payment_number ?? '—';
-            if (!in_array($voucherNo, $usedRefundIds)) {
-                $groupedEntries[] = [
-                    'raw_date' => $pmt->payment_date,
-                    'date' => $this->formatDate($pmt->payment_date),
-                    'voucher_type' => 'Refund Payment',
-                    'voucher_no' => $voucherNo,
-                    'debit' => $this->toFloat($pmt->amount),  // ✅ DEBIT - We pay back
-                    'credit' => 0.0,
-                    'tds_by_party' => 0.0,
-                    'tds_by_self' => 0.0,
-                    'is_child' => false,
-                    'is_parent' => false,
-                    'is_refund' => true,
-                    'parent_id' => null,
-                ];
-            }
-        }
-    }
-
-    // ── PURCHASE SIDE (Vendor, Dealer, Distributor) ──
-    if (in_array($partyType, ['vendor', 'dealer', 'distributor'])) {
-        $purchaseInvoices = PurchaseInvoice::where('party_id', $id)
-            ->where('status', '!=', 'draft')
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('invoice_date', 'asc')
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        $invNumMap = $purchaseInvoices->pluck('invoice_number', '_id')
-            ->mapWithKeys(fn($num, $id) => [(string)$id => $num])
-            ->toArray();
-
-        // ✅ Regular payments (money paid to vendor) - DEBIT
-        $regularPayments = $this->getPurchasePaymentsOut($id);
-
-        // ✅ Refund payments received from vendor - CREDIT (vendor pays us back)
-        // Ye SalesPayment table mein hai with debit_refund
-        $refundPayments = SalesPayment::where('party_id', $id)
-            ->where('payment_subtype', 'debit_refund')
-            ->get();
-
-        $debitNotes = DebitNote::where('party_id', $id)->get();
-
-        // Group regular payments by invoice (DEBIT entries)
-        $paymentsByInvoice = [];
-        foreach ($regularPayments as $pmt) {
-            $map = $this->resolvePaymentInvoiceMap($pmt, 'purchase_invoice_id');
-            $voucherNo = $this->resolvePaymentVoucherNumber($pmt, $invNumMap, 'purchase_invoice_id');
-
-            if (!empty($map)) {
-                foreach ($map as $invId => $amount) {
-                    $paymentsByInvoice[$invId][] = [
-                        'raw_date' => $pmt->payment_date,
-                        'date' => $this->formatDate($pmt->payment_date),
-                        'voucher_type' => 'Payment Made',
-                        'voucher_no' => $voucherNo,
-                        'debit' => $this->toFloat($amount),  // ✅ DEBIT - We paid vendor
-                        'credit' => 0.0,
-                        'tds_by_party' => $this->extractTDS($this->parseAllocations($pmt->allocations), 'tds_by_party'),
-                        'tds_by_self' => $this->extractTDS($this->parseAllocations($pmt->allocations), 'tds_by_self'),
-                        'is_child' => true,
-                        'parent_id' => $invId,
-                        'is_refund' => false,
-                    ];
-                }
-            }
-        }
-
-        // Initialize arrays for debit notes
-        $debitNotesByInvoice = [];
-        $standaloneDebitNotes = [];
-
-        // Build debit note entries (DEBIT entries - vendor owes us)
-        foreach ($debitNotes as $dn) {
-            $invId = (string)($dn->purchase_invoice_id ?? '');
-            $dnAmount = $this->toFloat($dn->amount);
-
-            $debitNoteEntry = [
-                'raw_date' => $dn->debit_date,
-                'date' => $this->formatDate($dn->debit_date),
-                'voucher_type' => 'Debit Note',
-                'voucher_no' => $dn->debit_note_number,
-                'debit' => $dnAmount,  // ✅ DEBIT - Vendor owes us
-                'credit' => 0.0,
-                'tds_by_party' => 0.0,
-                'tds_by_self' => 0.0,
-                'is_child' => false,
-                'is_parent' => true,
-                'is_debit_note' => true,
-                'parent_id' => $invId,
-            ];
-
-            if ($invId) {
-                if (!isset($debitNotesByInvoice[$invId])) {
-                    $debitNotesByInvoice[$invId] = [];
-                }
-                $debitNotesByInvoice[$invId][] = $debitNoteEntry;
-
-                // Find refund payments linked to this debit note - CREDIT (vendor pays us back)
-                foreach ($refundPayments as $pmt) {
-                    $allocations = $this->parseAllocations($pmt->allocations);
-                    foreach ($allocations as $alloc) {
-                        if (($alloc['type'] ?? '') === 'debit_note' &&
-                            (string)($alloc['debit_note_id'] ?? '') === (string)$dn->_id) {
-
-                            // Refund as child entry under debit note - CREDIT
-                            $debitNotesByInvoice[$invId][] = [
-                                'raw_date' => $pmt->payment_date,
-                                'date' => $this->formatDate($pmt->payment_date),
-                                'voucher_type' => 'Refund Received',
-                                'voucher_no' => $pmt->payment_number ?? '—',
-                                'debit' => 0.0,
-                                'credit' => $this->toFloat($alloc['amount'] ?? $pmt->amount),  // ✅ CREDIT - Vendor pays us
-                                'tds_by_party' => 0.0,
-                                'tds_by_self' => 0.0,
-                                'is_child' => true,
-                                'is_parent' => false,
-                                'is_refund' => true,
-                                'parent_id' => $invId,
-                            ];
-                        }
-                    }
-                }
-            } else {
-                $standaloneDebitNotes[] = $debitNoteEntry;
-
-                // Add refunds under standalone debit note - CREDIT
-                foreach ($refundPayments as $pmt) {
-                    $allocations = $this->parseAllocations($pmt->allocations);
-                    foreach ($allocations as $alloc) {
-                        if (($alloc['type'] ?? '') === 'debit_note' &&
-                            (string)($alloc['debit_note_id'] ?? '') === (string)$dn->_id) {
-
-                            $standaloneDebitNotes[] = [
-                                'raw_date' => $pmt->payment_date,
-                                'date' => $this->formatDate($pmt->payment_date),
-                                'voucher_type' => 'Refund Received',
-                                'voucher_no' => $pmt->payment_number ?? '—',
-                                'debit' => 0.0,
-                                'credit' => $this->toFloat($alloc['amount'] ?? $pmt->amount),  // ✅ CREDIT - Vendor pays us
-                                'tds_by_party' => 0.0,
-                                'tds_by_self' => 0.0,
-                                'is_child' => true,
-                                'is_parent' => false,
-                                'is_refund' => true,
-                                'parent_id' => null,
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-
-        // Build grouped entries for invoices
-        foreach ($purchaseInvoices as $inv) {
-            $invId = (string)$inv->_id;
-
-            // Purchase Invoice - CREDIT
-            $groupedEntries[] = [
-                'raw_date' => $inv->invoice_date,
-                'date' => $this->formatDate($inv->invoice_date),
-                'voucher_type' => 'Purchase Invoice',
-                'voucher_no' => $inv->invoice_number,
-                'debit' => 0.0,
-                'credit' => $this->toFloat($inv->grand_total),  // ✅ CREDIT - We owe vendor
-                'tds_by_party' => 0.0,
-                'tds_by_self' => 0.0,
-                'is_parent' => true,
-                'parent_id' => $invId,
-                'is_refund' => false,
-            ];
-
-            $children = [];
-            if (isset($paymentsByInvoice[$invId])) {
-                $children = array_merge($children, $paymentsByInvoice[$invId]);
-            }
-            if (isset($debitNotesByInvoice[$invId])) {
-                $children = array_merge($children, $debitNotesByInvoice[$invId]);
-            }
-
-            usort($children, function($a, $b) {
-                return strtotime($a['raw_date']) - strtotime($b['raw_date']);
-            });
-
-            foreach ($children as $child) {
-                $groupedEntries[] = $child;
-            }
-        }
-
-        // Add standalone debit notes
-        if (count($standaloneDebitNotes) > 0) {
-            foreach ($standaloneDebitNotes as $dn) {
-                $groupedEntries[] = $dn;
-            }
-        }
-
-        // Add standalone refunds (not linked to any debit note)
-        $usedRefundIds = [];
-        foreach ($groupedEntries as $entry) {
-            if (($entry['is_refund'] ?? false) && isset($entry['voucher_no']) && $entry['voucher_no'] !== '—') {
-                $usedRefundIds[] = $entry['voucher_no'];
-            }
-        }
-
-        foreach ($refundPayments as $pmt) {
-            $voucherNo = $pmt->payment_number ?? '—';
-            if (!in_array($voucherNo, $usedRefundIds)) {
-                $groupedEntries[] = [
-                    'raw_date' => $pmt->payment_date,
-                    'date' => $this->formatDate($pmt->payment_date),
-                    'voucher_type' => 'Refund Received',
-                    'voucher_no' => $voucherNo,
-                    'debit' => 0.0,
-                    'credit' => $this->toFloat($pmt->amount),  // ✅ CREDIT - Vendor pays us
-                    'tds_by_party' => 0.0,
-                    'tds_by_self' => 0.0,
-                    'is_child' => false,
-                    'is_parent' => false,
-                    'is_refund' => true,
-                    'parent_id' => null,
-                ];
-            }
-        }
-    }
-
-    // Now add opening balance and calculate running balance
-    $result = collect();
-    $balance = $openingBalance;
-
-    // Add opening balance
-    $result->push([
-        'date' => null,
-        'raw_date' => null,
-        'voucher_type' => 'Opening Balance',
-        'voucher_no' => '—',
-        'debit' => 0.0,
-        'credit' => 0.0,
-        'tds_by_party' => 0.0,
-        'tds_by_self' => 0.0,
-        'balance' => $balance,
-        'is_opening' => true,
-        'is_parent' => false,
-    ]);
-    usort($groupedEntries, function($a, $b) {
-        return strtotime($a['raw_date'] ?? '0') - strtotime($b['raw_date'] ?? '0');
-    });
-
-    // Process entries in the order they were added
-    foreach ($groupedEntries as $entry) {
-        $balance = round($balance + $entry['debit'] - $entry['credit'], 2);
-        $result->push([
-            'date' => $entry['date'],
-            'raw_date' => $entry['raw_date'],
-            'voucher_type' => $entry['voucher_type'],
-            'voucher_no' => $entry['voucher_no'],
-            'debit' => $entry['debit'],
-            'credit' => $entry['credit'],
-            'tds_by_party' => $entry['tds_by_party'],
-            'tds_by_self' => $entry['tds_by_self'],
-            'balance' => $balance,
-            'is_opening' => false,
-            'is_parent' => $entry['is_parent'] ?? false,
-            'is_child' => $entry['is_child'] ?? false,
-        ]);
-    }
-
-    return $result;
-}
-
-    // =========================================================
-    //  TAB 3 — PROFILE
+    //  PROFILE TAB
     // =========================================================
 
     private function buildProfile(string $partyType, $party): array
     {
+        $billingType  = 'billing';
+        $shippingType = 'shipping';
+
+        $billing  = $party->addresses->where('type', $billingType)->where('is_default', true)->first()
+                 ?? $party->addresses->where('type', $billingType)->first();
+        $shipping = $party->addresses->where('type', $shippingType)->where('is_default', true)->first()
+                 ?? $party->addresses->where('type', $shippingType)->first();
+
         if ($partyType === 'vendor') {
-            $billing  = $party->addresses->where('type', 'billing')->where('is_default', true)->first()
-                     ?? $party->addresses->where('type', 'billing')->first();
-            $shipping = $party->addresses->where('type', 'shipping')->where('is_default', true)->first()
-                     ?? $party->addresses->where('type', 'shipping')->first();
             return [
                 'name'             => $party->company_name,
                 'contact_person'   => $party->name,
@@ -927,10 +733,6 @@ private function buildLedger(string $partyType, string $id, $party): \Illuminate
             ];
         }
 
-        $billing  = $party->addresses->where('type', 'billing')->where('is_default', true)->first()
-                 ?? $party->addresses->where('type', 'billing')->first();
-        $shipping = $party->addresses->where('type', 'shipping')->where('is_default', true)->first()
-                 ?? $party->addresses->where('type', 'shipping')->first();
         return [
             'name'             => $party->name,
             'contact_person'   => null,
@@ -958,43 +760,8 @@ private function buildLedger(string $partyType, string $id, $party): \Illuminate
         ]));
     }
 
-    // Add this helper method to check if a payment is a refund
-private function isPaymentRefund($payment, string $type): bool
-{
-    if ($type === 'sales_payment') {
-        // For SalesPayment (payment_in) - refunds have debit_refund subtype
-        return ($payment->payment_subtype ?? '') === 'debit_refund';
-    } else {
-        // For PurchasePayment (payment_out) - refunds have credit_refund subtype
-        return ($payment->payment_subtype ?? '') === 'credit_refund';
-    }
-}
-
-// Add this to check if a payment is linked to credit note (refund to customer)
-private function isLinkedToCreditNote($payment): bool
-{
-    $allocations = $this->parseAllocations($payment->allocations);
-    foreach ($allocations as $alloc) {
-        if (($alloc['type'] ?? '') === 'credit_note') {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Add this to check if a payment is linked to debit note (refund from vendor)
-private function isLinkedToDebitNote($payment): bool
-{
-    $allocations = $this->parseAllocations($payment->allocations);
-    foreach ($allocations as $alloc) {
-        if (($alloc['type'] ?? '') === 'debit_note') {
-            return true;
-        }
-    }
-    return false;
-}
     // =========================================================
-    //  TAB 4 — ITEM WISE REPORT
+    //  ITEM WISE REPORT TAB
     // =========================================================
 
     private function buildItemReport(string $partyType, string $id): \Illuminate\Support\Collection
@@ -1006,9 +773,12 @@ private function isLinkedToDebitNote($payment): bool
                 foreach ($inv->items as $item) {
                     $key  = $item->sku ?: ((string)($item->product_id ?? '') . '_' . ((string)($item->variant_id ?? '')));
                     $name = $item->variant_name ? $item->product_name . ' - ' . $item->variant_name : $item->product_name;
-                    if (!isset($productMap[$key])) {
-                        $productMap[$key] = ['product_name' => $name, 'sku' => $item->sku ?? '—', 'hsn' => $item->hsn_sac ?? '—', 'sale_qty' => 0.0, 'sale_amount' => 0.0, 'purchase_qty' => 0.0, 'purchase_amount' => 0.0];
-                    }
+
+                    $productMap[$key] ??= [
+                        'product_name' => $name, 'sku' => $item->sku ?? '—', 'hsn' => $item->hsn_sac ?? '—',
+                        'sale_qty' => 0.0, 'sale_amount' => 0.0, 'purchase_qty' => 0.0, 'purchase_amount' => 0.0,
+                    ];
+
                     $productMap[$key]['sale_qty']    += (float) $item->quantity;
                     $productMap[$key]['sale_amount'] += $this->toFloat($item->total);
                 }
@@ -1019,9 +789,12 @@ private function isLinkedToDebitNote($payment): bool
             foreach (PurchaseInvoice::where('party_id', $id)->where('status', '!=', 'draft')->with('items')->get() as $inv) {
                 foreach ($inv->items as $item) {
                     $key = $item->sku ?: ((string)($item->product_id ?? '') . '_' . ((string)($item->variant_id ?? '')));
-                    if (!isset($productMap[$key])) {
-                        $productMap[$key] = ['product_name' => $item->product_name, 'sku' => $item->sku ?? '—', 'hsn' => $item->hsn_sac ?? '—', 'sale_qty' => 0.0, 'sale_amount' => 0.0, 'purchase_qty' => 0.0, 'purchase_amount' => 0.0];
-                    }
+
+                    $productMap[$key] ??= [
+                        'product_name' => $item->product_name, 'sku' => $item->sku ?? '—', 'hsn' => $item->hsn_sac ?? '—',
+                        'sale_qty' => 0.0, 'sale_amount' => 0.0, 'purchase_qty' => 0.0, 'purchase_amount' => 0.0,
+                    ];
+
                     $productMap[$key]['purchase_qty']    += (float) $item->quantity;
                     $productMap[$key]['purchase_amount'] += $this->toFloat($item->total);
                 }
@@ -1034,35 +807,60 @@ private function isLinkedToDebitNote($payment): bool
     }
 
     // =========================================================
-    //  SUMMARY
+    //  SUMMARY  (matches MyBillBook header block)
+    //
+    //  total_sales       -> sum of all Sale/Purchase Invoice debit/credit
+    //  total_received    -> sum of all Payment-in / Payment-out credit/debit
+    //  total_receivable  -> closing balance (what party currently owes/owed)
+    //  overdue_amount    -> sum of balance_amount on invoices past due_date
     // =========================================================
 
-    private function buildSummary(\Illuminate\Support\Collection $ledger): array
+    private function buildSummary(\Illuminate\Support\Collection $ledger, string $partyType): array
     {
-        $non = $ledger->where('is_opening', false);
+        $movementRows = $ledger->where('is_opening', false)->where('is_closing', false);
+
+        // "Sales" side = Sale Invoice rows, "Purchase" side = Purchase Invoice rows.
+        // For dealer/distributor (both sides active) we add both together.
+        $totalSales = $movementRows
+            ->whereIn('voucher_type', ['Sale Invoice', 'Purchase Invoice'])
+            ->sum(fn($r) => $r['debit'] + $r['credit']);
+
+        $totalReceived = $movementRows
+            ->whereIn('voucher_type', ['Payment-in', 'Payment-out'])
+            ->sum(fn($r) => $r['debit'] + $r['credit']);
+
+        // Overdue = sum of unpaid/partially-paid invoice rows whose due date has passed.
+        // due_status carries "Unpaid (N)" / "Partially Paid (N)" once overdue, plain
+        // "Unpaid" / "Partially Paid" if not yet overdue, or "Paid" / null otherwise.
+        $overdueAmount = $movementRows
+            ->filter(function ($r) {
+                $status = (string) ($r['due_status'] ?? '');
+                return preg_match('/^(Unpaid|Partially Paid).*\(\d+\)$/', $status) === 1;
+            })
+            ->sum(fn($r) => $r['debit'] - $r['credit']);
+
         return [
-            'total_debit'     => round($non->sum('debit'), 2),
-            'total_credit'    => round($non->sum('credit'), 2),
-            'closing_balance' => round($ledger->last()['balance'] ?? 0, 2),
-            'opening_balance' => round($ledger->first()['balance'] ?? 0, 2),
+            'total_debit'      => round($movementRows->sum('debit'), 2),
+            'total_credit'     => round($movementRows->sum('credit'), 2),
+            'opening_balance'  => round($ledger->first()['balance'] ?? 0, 2),
+            'closing_balance'  => round($ledger->last()['balance'] ?? 0, 2),
+            'total_sales'      => round($totalSales, 2),
+            'total_received'   => round($totalReceived, 2),
+            'overdue_amount'   => round($overdueAmount, 2),
         ];
     }
 
     // =========================================================
-    //  HELPERS
+    //  GENERIC HELPERS
     // =========================================================
 
+    // Kept for future use (e.g. if you later want to show which invoice a
+    // payment's allocations point to in a tooltip). Not used in the current
+    // flat single-row-per-voucher ledger.
     private function parseAllocations($allocations): array
     {
         if (is_string($allocations)) return json_decode($allocations, true) ?? [];
         return is_array($allocations) ? $allocations : [];
-    }
-
-    private function extractTDS(array $allocations, string $key): float
-    {
-        return collect($allocations)
-            ->filter(fn($a) => isset($a['type']) && $a['type'] === $key)
-            ->sum('amount');
     }
 
     private function sortableDate($date): string
@@ -1070,7 +868,7 @@ private function isLinkedToDebitNote($payment): bool
         if (!$date) return '0000-00-00';
         if ($date instanceof \Carbon\Carbon)            return $date->format('Y-m-d H:i:s');
         if ($date instanceof \MongoDB\BSON\UTCDateTime) return $date->toDateTime()->format('Y-m-d H:i:s');
-        try { return \Carbon\Carbon::parse($date)->format('Y-m-d H:i:s'); }
+        try { return Carbon::parse($date)->format('Y-m-d H:i:s'); }
         catch (\Exception $e) { return (string) $date; }
     }
 
@@ -1083,28 +881,9 @@ private function isLinkedToDebitNote($payment): bool
     private function formatDate($date): string
     {
         if (!$date) return '—';
-        if ($date instanceof \Carbon\Carbon)            return $date->format('d-m-Y');
-        if ($date instanceof \MongoDB\BSON\UTCDateTime) return $date->toDateTime()->format('d-m-Y');
-        try { return \Carbon\Carbon::parse($date)->format('d-m-Y'); }
+        if ($date instanceof \Carbon\Carbon)            return $date->format('d M Y');
+        if ($date instanceof \MongoDB\BSON\UTCDateTime) return $date->toDateTime()->format('d M Y');
+        try { return Carbon::parse($date)->format('d M Y'); }
         catch (\Exception $e) { return (string) $date; }
     }
-    public function print(Request $request, string $partyType, string $id)
-{
-    if ($partyType === 'vendor') {
-        $party = Vendor::with('addresses')->findOrFail($id);
-    } else {
-        $party = Customer::with('addresses')->findOrFail($id);
-    }
-
-    $ledger = $this->buildLedger($partyType, $id, $party);
-    $summary = $this->buildSummary($ledger);
-
-    // Date range (optional)
-    $fromDate = $request->get('from_date', 'Opening');
-    $toDate = $request->get('to_date', now()->format('d-m-Y'));
-
-    return view('admin.ledger.print', compact(
-        'party', 'partyType', 'ledger', 'summary', 'fromDate', 'toDate'
-    ));
-}
 }

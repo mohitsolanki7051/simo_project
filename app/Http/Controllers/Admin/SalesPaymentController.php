@@ -177,11 +177,21 @@ class SalesPaymentController extends Controller
             ->values()
             ->toArray();
 
-        if (empty($partyIdsWithInvoices)) {
+        $partyIdsWithOpening = Customer::whereNotNull('opening_balance')
+            ->whereNotIn('opening_balance', ['', '0', '0.00', 0, 0.0])
+            ->pluck('id')
+            ->map(fn($id) => (string) $id)
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $allowedPartyIds = array_values(array_unique(array_merge($partyIdsWithInvoices, $partyIdsWithOpening)));
+
+        if (empty($allowedPartyIds)) {
             return response()->json(['success' => true, 'parties' => []]);
         }
 
-        $parties = Customer::whereIn('_id', $partyIdsWithInvoices)
+        $parties = Customer::whereIn('_id', $allowedPartyIds)
             ->where(function ($query) use ($search) {
                 $query->where('name', 'like', '%' . $search . '%')
                       ->orWhere('phone', 'like', '%' . $search . '%')
@@ -417,6 +427,7 @@ class SalesPaymentController extends Controller
         $request->validate([
             'party_id'       => 'required',
             'amount'         => 'required|numeric|min:0',
+            'discount'       => 'nullable|numeric|min:0',
             'payment_date'   => 'required|date',
             'payment_method' => 'required|in:cash,upi,bank_transfer,cheque,card'
         ]);
@@ -424,12 +435,14 @@ class SalesPaymentController extends Controller
         try {
             $party      = Customer::findOrFail($request->party_id);
             $cashAmount = (float) $request->amount;
+            $discount   = (float) $request->input('discount', 0);
+            $totalPaidPool = $cashAmount + $discount;
             $dueDetails = $this->getPartyDueDetails($party);
 
-            if ($cashAmount > ($dueDetails['net_payable'] + 0.01)) {
+            if ($totalPaidPool > ($dueDetails['net_payable'] + 0.01)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Payment amount (₹ ' . number_format($cashAmount, 2) .
+                    'message' => 'Total paid amount (₹ ' . number_format($totalPaidPool, 2) .
                                  ') cannot exceed net payable (₹ ' . number_format($dueDetails['net_payable'], 2) . ')'
                 ], 422);
             }
@@ -468,8 +481,7 @@ class SalesPaymentController extends Controller
                 $creditUsedTotal += $toUse;
             }
 
-            $allocations   = array_merge($allocations, $creditAllocations);
-            $pool          = $creditUsedTotal + $cashAmount;
+            $pool          = $creditUsedTotal + $cashAmount + $discount;
             $remainingPool = $pool;
 
             // PASS 2: Opening balance
@@ -521,11 +533,12 @@ class SalesPaymentController extends Controller
             }
 
             // PASS 4: Save cash payment record
-            if ($cashAmount > 0.001) {
+            if ($cashAmount > 0.001 || $discount > 0.001) {
                 SalesPayment::create([
                     'payment_number'   => $paymentNumber,
                     'party_id'         => $request->party_id,
                     'amount'           => round($cashAmount, 2),
+                    'discount'         => round($discount, 2),
                     'payment_method'   => $request->payment_method,
                     'payment_date'     => $request->payment_date,
                     'status'           => 'completed',
@@ -702,6 +715,7 @@ $partyPhone = $party['phone'] ?? '—';
                     'party_type'       => ucfirst($partyType),
                     'party_phone'      => $partyPhone,
                     'amount'           => $amount,
+                    'discount'         => $this->decimalToFloat($payment->discount),
                     'payment_method'   => $payment->payment_method_text,
                     'reference_no'     => $payment->reference_no ?: '—',
                     'notes'            => $payment->notes ?: '—',

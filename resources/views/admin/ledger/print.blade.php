@@ -138,11 +138,14 @@
         border-bottom: 1px solid #e5e7eb;
         display: flex;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
     .summary-item {
         text-align: center;
         flex: 1;
+        min-width: 110px;
     }
 
     .summary-label {
@@ -211,22 +214,15 @@
         border-right: none;
     }
 
-    /* Parent/Child Styling */
-    .ledger-table tbody tr.parent-row {
-        background: #fafbff;
-        font-weight: 500;
-    }
-
-    .ledger-table tbody tr.child-row td:first-child {
-        padding-left: 8px;
-        position: relative;
-    }
-
-
-
     .ledger-table tbody tr.opening-row {
         background: #fffdf5;
         font-style: italic;
+    }
+
+    .ledger-table tbody tr.closing-row {
+        background: #f9fafb;
+        font-weight: 600;
+        border-top: 2px solid #e5e7eb;
     }
 
     /* Balance Colors */
@@ -235,6 +231,19 @@
     .amount-dr { color: #b91c1c; font-weight: 600; }
     .amount-cr { color: #15803d; font-weight: 600; }
     .text-muted { color: #9ca3af; }
+
+    .due-status {
+        display: inline-block;
+        font-size: 8px;
+        font-weight: 600;
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-top: 2px;
+        white-space: nowrap;
+    }
+    .due-status.paid     { background: #f0fdf4; color: #15803d; }
+    .due-status.unpaid   { background: #fef2f2; color: #b91c1c; }
+    .due-status.partial  { background: #fffbeb; color: #92400e; }
 
     /* Footer */
     .ledger-footer {
@@ -313,7 +322,14 @@
 
     <!-- Title -->
     <div class="title-row">
-        <div class="doc-title">LEDGER STATEMENT</div>
+        <div class="doc-title">
+            LEDGER STATEMENT
+            @if(($invoiceType ?? null) === 'gst')
+                <span style="font-size:11px;font-weight:600;color:#1d4ed8;background:#eff6ff;padding:2px 8px;border-radius:4px;margin-left:8px;vertical-align:middle;">GST INVOICE ONLY</span>
+            @elseif(($invoiceType ?? null) === 'cash')
+                <span style="font-size:11px;font-weight:600;color:#c2410c;background:#fff7ed;padding:2px 8px;border-radius:4px;margin-left:8px;vertical-align:middle;">CASH MEMO ONLY</span>
+            @endif
+        </div>
         <div class="date-range">
             <div>{{ $fromDate ?? 'Opening' }} to {{ $toDate ?? now()->format('d-m-Y') }}</div>
         </div>
@@ -351,12 +367,16 @@
             </div>
         </div>
         <div class="summary-item">
-            <div class="summary-label">Total Debit</div>
-            <div class="summary-value dr">₹ {{ number_format($summary['total_debit'], 2) }}</div>
+            <div class="summary-label">Total Sales</div>
+            <div class="summary-value">₹ {{ number_format($summary['total_sales'], 2) }}</div>
         </div>
         <div class="summary-item">
-            <div class="summary-label">Total Credit</div>
-            <div class="summary-value cr">₹ {{ number_format($summary['total_credit'], 2) }}</div>
+            <div class="summary-label">Total Received</div>
+            <div class="summary-value">₹ {{ number_format($summary['total_received'], 2) }}</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Overdue Amount</div>
+            <div class="summary-value {{ $summary['overdue_amount'] > 0 ? 'dr' : '' }}">₹ {{ number_format($summary['overdue_amount'], 2) }}</div>
         </div>
         <div class="summary-item">
             <div class="summary-label">Closing Balance</div>
@@ -372,27 +392,36 @@
         <table class="ledger-table">
             <thead>
                 <tr>
-                    <th style="width: 85px">Date</th>
-                    <th style="width: 140px">Voucher Type</th>
-                    <th style="width: 130px">Voucher No.</th>
-                    <th style="width: 100px" class="ta-r">Debit (₹)</th>
-                    <th style="width: 100px" class="ta-r">Credit (₹)</th>
-                    <th style="width: 110px" class="ta-r">Balance (₹)</th>
+                    <th style="width: 75px">Date</th>
+                    <th style="width: 110px">Voucher Type</th>
+                    <th style="width: 100px">Sr No.</th>
+                    <th style="width: 110px">Payment Mode</th>
+                    <th style="width: 90px" class="ta-r">Debit (₹)</th>
+                    <th style="width: 90px" class="ta-r">Credit (₹)</th>
+                    <th style="width: 100px" class="ta-r">Balance (₹)</th>
+                    <th style="width: 110px">Due Date</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($ledger as $entry)
-                <tr class="@if($entry['is_opening'] ?? false) opening-row
-                           @elseif($entry['is_parent'] ?? false) parent-row
-                           @elseif($entry['is_child'] ?? false) child-row
-                           @endif">
+                <tr class="@if($entry['is_opening'] ?? false) opening-row @elseif($entry['is_closing'] ?? false) closing-row @endif">
                     <td class="{{ $entry['is_opening'] ? 'text-muted' : '' }}">
-                        {{ $entry['is_opening'] ? 'Opening' : $entry['date'] }}
+                        {{ $entry['is_opening'] ? 'Opening' : ($entry['is_closing'] ? '' : $entry['date']) }}
                     </td>
                     <td>
                         <strong>{{ $entry['voucher_type'] }}</strong>
                     </td>
-                    <td class="mono">{{ $entry['voucher_no'] }}</td>
+                    <td class="mono">{{ $entry['sr_no'] }}</td>
+                    <td>
+                        @if(($entry['payment_mode'] ?? '—') !== '—')
+                            {{ $entry['payment_mode'] }}
+                            @if(!empty($entry['reference_number']))
+                                <br><span class="text-muted">({{ $entry['reference_number'] }})</span>
+                            @endif
+                        @else
+                            <span class="text-muted">—</span>
+                        @endif
+                    </td>
                     <td class="ta-r">
                         @if($entry['debit'] > 0)
                             <span class="amount-dr">₹ {{ number_format($entry['debit'], 2) }}</span>
@@ -416,14 +445,27 @@
                             <span class="text-muted">₹ 0.00</span>
                         @endif
                     </td>
+                    <td>
+                        @if($entry['due_date'])
+                            {{ $entry['due_date'] }}
+                            @if($entry['due_status'])
+                                <br>
+                                <span class="due-status {{ Str::startsWith($entry['due_status'], 'Paid') ? 'paid' : (Str::startsWith($entry['due_status'], 'Partially') ? 'partial' : 'unpaid') }}">
+                                    {{ $entry['due_status'] }}
+                                </span>
+                            @endif
+                        @else
+                            <span class="text-muted">—</span>
+                        @endif
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
             <tfoot style="background: #f9fafb; font-weight: 600; border-top: 1px solid #e5e7eb;">
                 <tr>
-                    <td colspan="3" class="fw6" style="padding-left: 50px;">Total</td>
-                    <td class="ta-r amount-dr">₹ {{ number_format($ledger->where('is_opening', false)->sum('debit'), 2) }}</td>
-                    <td class="ta-r amount-cr">₹ {{ number_format($ledger->where('is_opening', false)->sum('credit'), 2) }}</td>
+                    <td colspan="4" class="fw6">Total</td>
+                    <td class="ta-r amount-dr">₹ {{ number_format($ledger->where('is_opening', false)->where('is_closing', false)->sum('debit'), 2) }}</td>
+                    <td class="ta-r amount-cr">₹ {{ number_format($ledger->where('is_opening', false)->where('is_closing', false)->sum('credit'), 2) }}</td>
                     <td class="ta-r fw6">
                         @if($summary['closing_balance'] > 0)
                             <span class="balance-dr">₹ {{ number_format($summary['closing_balance'], 2) }} Dr</span>
@@ -433,6 +475,7 @@
                             <span>₹ 0.00</span>
                         @endif
                     </td>
+                    <td></td>
                 </tr>
             </tfoot>
         </table>

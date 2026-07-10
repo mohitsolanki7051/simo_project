@@ -259,7 +259,7 @@
             <table class="pi-table">
                 <thead>
                     <tr>
-                        <th class="tc-no">S No.</th>
+                        <th class="tc-no hide-mob">S No.</th>
                         <th class="tc-date">Date</th>
                         <th class="tc-inv">Invoice No.</th>
                         <th class="tc-type">Type</th>
@@ -277,14 +277,17 @@
                     <tr class="pi-tr" data-id="{{ $invoice->id }}">
 
                         {{-- S.No. --}}
-                        <td class="tc-no">
+                        <td class="tc-no hide-mob">
                             <span class="td-serial">{{ ($invoices->currentPage() - 1) * $invoices->perPage() + $index + 1 }}</span>
                         </td>
 
                         {{-- Date --}}
                         <td class="tc-date">
-                            <div class="td-date-main">{{ \Carbon\Carbon::parse($invoice->invoice_date)->format('d M Y') }}</div>
-                            <div class="td-date-sub">{{ \Carbon\Carbon::parse($invoice->invoice_date)->format('D') }}</div>
+                            <div class="td-date-main">
+                                <svg class="mob-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                {{ \Carbon\Carbon::parse($invoice->invoice_date)->format('d M Y') }}
+                            </div>
+                            <div class="td-date-sub hide-mob">{{ \Carbon\Carbon::parse($invoice->invoice_date)->format('D') }}</div>
                         </td>
 
                         {{-- Invoice No. --}}
@@ -318,9 +321,12 @@
                                 $partyName = $invoice->party_name ?? 'N/A';
                                 $partyType = ucfirst($invoice->party_type ?? '');
                             @endphp
-                            <div class="td-vendor-name" title="{{ $partyName }}">{{ $partyName }}</div>
+                            <div class="td-vendor-name" title="{{ $partyName }}">
+                                <svg class="mob-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                {{ $partyName }}
+                            </div>
                             @if($partyType)
-                                <span class="td-vendor-contact">{{ $partyType }}</span>
+                                <span class="td-vendor-contact hide-mob">{{ $partyType }}</span>
                             @endif
                         </td>
 
@@ -500,6 +506,15 @@
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                         </svg>
                                     </button>
+                                @else
+                                    @if(auth()->guard('admin')->check())
+                                        <a href="{{ route('admin.purchases.edit', $invoice->id) }}"
+                                           class="pi-act pi-act--edit" title="Edit Invoice">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                                            </svg>
+                                        </a>
+                                    @endif
                                 @endif
 
                                 @if($invoice->status === 'confirmed' && $invoice->payment_status === 'unpaid')
@@ -879,17 +894,84 @@
 @keyframes alertIn { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
 .pi-alert-success { background:#f0fdf4; color:#166534; border-left:3px solid #22c55e; }
 .pi-alert-error   { background:#fef2f2; color:#991b1b; border-left:3px solid #ef4444; }
-@media (max-width:1024px) { .pi-stats { grid-template-columns:repeat(2,1fr); } }
-@media (max-width:768px) {
-    .pi-wrap { padding:10px; }
-    .pi-header { flex-direction:column; align-items:flex-start; }
-    .pi-stats { grid-template-columns:1fr; }
-    .pi-filter-row { flex-direction:column; }
-    .pi-filter-group { width:100%; }
-    .pi-filter-btns { width:100%; }
-    .pi-btn-filter,.pi-btn-reset { flex:1; }
-    .pi-pagination { flex-direction:column; align-items:flex-start; }
-    .pi-pages { justify-content:center; width:100%; }
+@media (min-width: 769px) {
+    .mob-icon { display: none !important; }
+}
+
+@media (max-width: 1024px) {
+    .pi-stats { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width: 768px) {
+    .hide-mob { display: none !important; }
+    
+    .mob-icon { display: inline-block; vertical-align: middle; margin-right: 5px; width: 13px; height: 13px; color: var(--c-muted); }
+
+    .pi-wrap { padding: 8px; background: #f3f4f6; min-height: 100vh;}
+    .pi-header { background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 12px; flex-direction: column; align-items: flex-start; }
+    
+    .pi-stats { display: flex; flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; margin-bottom: 12px; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+    .pi-stat { flex: 0 0 88%; scroll-snap-align: center; padding: 10px 14px; }
+    .pi-stats::-webkit-scrollbar { display: none; }
+    
+    .pi-filters { padding: 12px; margin-bottom: 12px; }
+    .pi-filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .full-width-mobile { grid-column: span 2; }
+    .pi-filter-group { min-width: 100%; flex: 1 1 100%; }
+    .pi-filter-btns { justify-content: space-between; margin-top: 4px; width: 100%; grid-column: span 2; display: flex; gap: 6px; }
+    .pi-btn-filter, .pi-btn-reset { flex: 1; justify-content: center; }
+
+    /* Table -> Compact Dense Cards */
+    .pi-table-card { background: transparent; border: none; box-shadow: none; }
+    .pi-table-topbar { background: transparent; padding: 0 4px 6px; border: none; }
+    .pi-table { min-width: 100%; display: block; border: none; }
+    .pi-table thead { display: none; }
+    .pi-table tbody { display: block; width: 100%; }
+    
+    .pi-tr {
+        display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center;
+        background: #fff !important; border-radius: 8px;
+        padding: 12px 14px 10px; margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;
+        position: relative;
+    }
+    .pi-tr:hover td { background: transparent; }
+    .pi-table td { border: none; padding: 0; display: flex; align-items: center; }
+
+    /* Row 1: Vendor (Left), Amount (Right) */
+    .tc-vendor { width: calc(100% - 130px); order: 1; margin-bottom: 6px; }
+    .td-vendor-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: flex; align-items: center; }
+    
+    .tc-amount { width: 130px; order: 2; margin-bottom: 6px; justify-content: flex-end; }
+    .amount-display { align-items: flex-end; gap: 1px;}
+    .amount-main { font-size: 14px; }
+    .amt-row { width: 100%; justify-content: flex-end; gap: 6px; }
+    .amt-label { font-size: 9px; } .amt-val { font-size: 9.5px; }
+    
+    /* Row 2: Invoice (Left), Date (Right) */
+    .tc-inv { width: 55%; order: 3; margin-bottom: 10px; }
+    .pi-inv-chip { font-size: 10px; padding: 2px 6px; }
+    
+    .tc-date { width: 45%; order: 4; margin-bottom: 10px; justify-content: flex-end; }
+    .td-date-main { display: flex; align-items: center; font-size: 11px; color: #4b5563; font-weight: 600;}
+    
+    /* Row 3: Badges Collection (Left-flowing) */
+    .tc-type, .tc-wh, .tc-pe, .tc-payment, .tc-status {
+        width: auto !important; order: 5; margin-right: 6px; margin-bottom: 4px;
+    }
+    
+    .pi-type-badge, .pi-wh-badge, .pe-badge, .pi-badge, .pi-inv-status {
+        font-size: 8.5px; padding: 2px 5px; border-radius: 4px;
+    }
+
+    /* Row 4: Actions */
+    .tc-actions { width: 100%; order: 10; margin-left: auto; margin-top: 4px; border-top: 1px dashed #e5e7eb; padding-top: 10px; justify-content: flex-end; }
+    .pi-act-grp { justify-content: flex-end; gap: 5px; }
+    .pi-act { width: 26px; height: 26px; border-radius: 5px; }
+
+    .pi-table td.pi-empty-cell { width: 100%; display: block; text-align: center; }
+    .pi-pagination { flex-direction: column; align-items: center; background: transparent; border: none; padding: 0; }
+    .pi-pages { justify-content: center; width: 100%; margin-top: 10px; }
 }
 </style>
 @endpush

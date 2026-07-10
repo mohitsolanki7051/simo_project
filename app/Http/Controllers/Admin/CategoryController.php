@@ -75,13 +75,30 @@ public function store(Request $request)
             $validated['image'] = $imagePath;
         }
 
-        Category::create($validated);
+        $category = Category::create($validated);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Category created successfully!',
+                'category' => [
+                    'id' => (string) $category->id,
+                    'name' => $category->name
+                ]
+            ]);
+        }
 
         return redirect()->route('admin.categories.index')
             ->with('success', 'Category created successfully!');
 
     } catch (\Exception $e) {
         Log::error('Category creation failed: ' . $e->getMessage());
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create category. Please try again: ' . $e->getMessage()
+            ], 500);
+        }
         return back()->withInput()
             ->with('error', 'Failed to create category. Please try again.');
     }
