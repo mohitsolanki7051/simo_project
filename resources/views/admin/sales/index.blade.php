@@ -52,7 +52,7 @@
                 <div class="si-stat-hint">Amount received</div>
             </div>
         </div>
-        <div class="si-stat si-stat--orange">
+        <a href="{{ route('admin.reports.outstanding') }}" class="si-stat si-stat--orange" style="text-decoration: none; cursor: pointer;">
             <div class="si-stat-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
@@ -61,7 +61,7 @@
                 <div class="si-stat-value">₹ {{ number_format($totalUnpaid, 2) }}</div>
                 <div class="si-stat-hint">Pending collection</div>
             </div>
-        </div>
+        </a>
     </div>
 
     {{-- ── Filters ── --}}

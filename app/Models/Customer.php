@@ -25,13 +25,15 @@ class Customer extends Model
         'status',
         'notes',
         'advance_balance',
-        'advance_payable'
+        'advance_payable',
+        'opening_balance_date'
     ];
 
     protected $casts = [
         'status' => 'string',
         'opening_balance' => 'float',
         'credit_limit' => 'float',
+        'opening_balance_date' => 'datetime'
     ];
 
     // Relationships

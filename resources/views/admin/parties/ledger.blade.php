@@ -326,7 +326,7 @@
                     <tr class="{{ $entry['is_opening'] ? 'opening-balance-row' : '' }}">
                         <td class="td-date">
                             @if($entry['is_opening'])
-                                -
+                                {{ $entry['date'] ? \Carbon\Carbon::parse($entry['date'])->format('d-m-Y') : 'Opening' }}
                             @else
                                 {{ \Carbon\Carbon::parse($entry['date'])->format('d-m-Y') }}
                             @endif

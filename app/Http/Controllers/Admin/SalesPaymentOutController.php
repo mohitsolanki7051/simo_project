@@ -889,7 +889,7 @@ class SalesPaymentOutController extends Controller
                 }
             }
 
-            return response()->json([
+            $responseData = [
                 'success' => true,
                 'payment' => [
                     'payment_number'   => $payment->payment_number ?? '—',
@@ -906,7 +906,13 @@ class SalesPaymentOutController extends Controller
                     'notes'            => $payment->notes ?: '—',
                     'allocations'      => $enrichedAllocations,
                 ],
-            ]);
+            ];
+
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json($responseData);
+            }
+
+            return view('admin.payments-out.show', ['payment' => $responseData['payment']]);
 
         } catch (\Exception $e) {
             Log::error('show payment: ' . $e->getMessage());

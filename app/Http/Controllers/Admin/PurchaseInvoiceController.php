@@ -1441,6 +1441,59 @@ public function getPartyDetails($id, Request $request)
                 'notes'                 => $request->notes,
             ]);
 
+            // Sync PurchasePayment records if the invoice is already confirmed/completed
+            if ($isConfirmed) {
+                $existingPayments = PurchasePayment::where('purchase_invoice_id', $invoice->id)->get();
+                if ($paid <= 0) {
+                    foreach ($existingPayments as $payment) {
+                        $payment->delete();
+                    }
+                } else {
+                    $allocations = [
+                        [
+                            'type'           => 'invoice',
+                            'invoice_id'     => (string) $invoice->id,
+                            'invoice_number' => $invoice->invoice_number,
+                            'amount'         => round($paid, 2),
+                            'description'    => 'Invoice payment at time of generation',
+                        ]
+                    ];
+
+                    if ($existingPayments->count() > 0) {
+                        $firstPayment = $existingPayments->first();
+                        $firstPayment->update([
+                            'party_id'        => $invoice->party_id,
+                            'amount'          => round($paid, 2),
+                            'payment_method'  => $request->payment_method ?? $firstPayment->payment_method ?? 'cash',
+                            'payment_date'    => $invoice->invoice_date,
+                            'notes'           => "Cash paid: ₹" . number_format($paid, 2) . " (updated during invoice edit)",
+                            'allocations'     => $allocations,
+                            'payment_type'    => 'payment_out',
+                            'payment_subtype' => 'purchase_payment',
+                        ]);
+
+                        for ($i = 1; $i < $existingPayments->count(); $i++) {
+                            $existingPayments[$i]->delete();
+                        }
+                    } else {
+                        PurchasePayment::create([
+                            'payment_number'      => null,
+                            'purchase_invoice_id' => $invoice->id,
+                            'party_id'            => $invoice->party_id,
+                            'amount'              => round($paid, 2),
+                            'payment_method'      => $request->payment_method ?? 'cash',
+                            'payment_date'        => $invoice->invoice_date,
+                            'status'              => 'completed',
+                            'notes'               => "Cash paid: ₹" . number_format($paid, 2) . " (created during invoice edit)",
+                            'payment_type'        => 'payment_out',
+                            'payment_subtype'     => 'purchase_payment',
+                            'allocations'         => $allocations,
+                            'created_by'          => Auth::guard('admin')->id(),
+                        ]);
+                    }
+                }
+            }
+
             foreach ($request->items as $item) {
                 $qty             = (float) $item['quantity'];
                 $price           = (float) $item['purchase_price'];

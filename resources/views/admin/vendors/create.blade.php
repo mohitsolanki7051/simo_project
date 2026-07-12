@@ -104,6 +104,14 @@
                         </div>
 
                         <div class="form-group">
+                            <label class="form-label">Opening Balance Date</label>
+                            <input type="date" class="form-input" name="opening_balance_date" value="{{ old('opening_balance_date', date('Y-m-d')) }}">
+                            @error('opening_balance_date')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="form-group">
                             <label class="form-label">Credit Limit</label>
                             <input type="number" step="0.01" min="0" class="form-input" name="credit_limit" value="{{ old('credit_limit') }}" placeholder="e.g., 50000">
                             <div class="input-hint">Maximum credit amount</div>

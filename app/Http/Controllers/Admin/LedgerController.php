@@ -227,7 +227,9 @@ class LedgerController extends Controller
         $balance = round($openingBalance, 2);
 
         $result->push([
-            'date' => null, 'raw_date' => null, 'voucher_type' => 'Opening Balance',
+            'date' => $from ? $from->format('d M Y') : null,
+            'raw_date' => $from ? $from->toDateString() : null,
+            'voucher_type' => 'Opening Balance',
             'sr_no' => '—', 'payment_mode' => '—', 'reference_number' => null,
             'debit' => 0.0, 'credit' => 0.0, 'balance' => $balance,
             'due_date' => null, 'due_status' => null, 'invoice_type' => 'all',
@@ -303,8 +305,8 @@ class LedgerController extends Controller
         $balance = $openingBalance;
 
         $result->push([
-            'date'            => null,
-            'raw_date'        => null,
+            'date'            => $party->opening_balance_date ? \Illuminate\Support\Carbon::parse($party->opening_balance_date)->format('d M Y') : null,
+            'raw_date'        => $party->opening_balance_date ? \Illuminate\Support\Carbon::parse($party->opening_balance_date)->toDateString() : null,
             'voucher_type'    => 'Opening Balance',
             'sr_no'           => '—',
             'payment_mode'    => '—',
@@ -317,6 +319,7 @@ class LedgerController extends Controller
             'invoice_type'    => 'all', // always visible regardless of GST/Cash filter
             'is_opening'      => true,
             'is_closing'      => false,
+            'url'             => null,
         ]);
 
         foreach ($entries as $entry) {
@@ -337,6 +340,7 @@ class LedgerController extends Controller
                 'invoice_type'    => $entry['invoice_type'] ?? 'all',
                 'is_opening'      => false,
                 'is_closing'      => false,
+                'url'             => $entry['url'] ?? null,
             ]);
         }
 
@@ -350,12 +354,13 @@ class LedgerController extends Controller
             'reference_number'=> null,
             'debit'           => 0.0,
             'credit'          => 0.0,
-            'balance'         => $balance,
+            'balance'         => round($balance, 2),
             'due_date'        => null,
             'due_status'      => null,
             'invoice_type'    => 'all', // always visible regardless of GST/Cash filter
             'is_opening'      => false,
             'is_closing'      => true,
+            'url'             => null,
         ]);
 
         return $result;
@@ -395,6 +400,7 @@ class LedgerController extends Controller
                 'due_status'       => $dueStatus,
                 'invoice_type'     => $inv->invoice_type ?? 'gst',
                 '_sort_priority'   => 1, // invoices first on a given date
+                'url'              => route('admin.sales.show', $inv->id),
             ];
         }
 
@@ -410,6 +416,7 @@ class LedgerController extends Controller
                 'credit'           => $this->toFloat($pmt->amount),
                 'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
                 '_sort_priority'   => 2,
+                'url'              => route('admin.payments.show', $pmt->id),
             ];
 
             $discountVal = $this->toFloat($pmt->discount ?? 0);
@@ -425,6 +432,7 @@ class LedgerController extends Controller
                     'credit'           => $discountVal,
                     'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
                     '_sort_priority'   => 2.5,
+                    'url'              => route('admin.payments.show', $pmt->id),
                 ];
             }
         }
@@ -444,6 +452,7 @@ class LedgerController extends Controller
                 // linked to a specific invoice, treat it as visible in both.
                 'invoice_type'     => $invoiceTypeMap[$linkedInvId] ?? 'all',
                 '_sort_priority'   => 3,
+                'url'              => route('admin.credit-notes.show', $cn->id),
             ];
         }
 
@@ -460,10 +469,11 @@ class LedgerController extends Controller
                 'sr_no'            => $pmt->payment_number ?? '—',
                 'payment_mode'     => $this->formatPaymentMode($pmt),
                 'reference_number' => $pmt->reference_no ?? null,
-                'debit'            => $this->toFloat($pmt->amount),
+                'debit'            => $pmt->amount,
                 'credit'           => 0.0,
                 'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
                 '_sort_priority'   => 4,
+                'url'              => route('admin.payments-out.show', $pmt->id),
             ];
         }
 
@@ -551,6 +561,7 @@ class LedgerController extends Controller
                 'due_status'       => $dueStatus,
                 'invoice_type'     => $inv->invoice_type ?? 'gst',
                 '_sort_priority'   => 1,
+                'url'              => route('admin.purchases.show', $inv->id),
             ];
         }
 
@@ -566,6 +577,7 @@ class LedgerController extends Controller
                 'credit'           => 0.0,
                 'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
                 '_sort_priority'   => 2,
+                'url'              => route('admin.payments-out.show', $pmt->id),
             ];
         }
 
@@ -582,6 +594,7 @@ class LedgerController extends Controller
                 'credit'           => 0.0,
                 'invoice_type'     => $invoiceTypeMap[$linkedInvId] ?? 'all',
                 '_sort_priority'   => 3,
+                'url'              => route('admin.debit-notes.show', $dn->id),
             ];
         }
 
@@ -602,6 +615,7 @@ class LedgerController extends Controller
                 'credit'           => $this->toFloat($pmt->amount),
                 'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
                 '_sort_priority'   => 4,
+                'url'              => route('admin.payments.show', $pmt->id),
             ];
         }
 

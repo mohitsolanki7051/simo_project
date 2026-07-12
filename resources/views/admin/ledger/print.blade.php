@@ -406,7 +406,7 @@
                 @foreach($ledger as $entry)
                 <tr class="@if($entry['is_opening'] ?? false) opening-row @elseif($entry['is_closing'] ?? false) closing-row @endif">
                     <td class="{{ $entry['is_opening'] ? 'text-muted' : '' }}">
-                        {{ $entry['is_opening'] ? 'Opening' : ($entry['is_closing'] ? '' : $entry['date']) }}
+                        {{ $entry['is_opening'] ? ($entry['date'] ?? 'Opening') : ($entry['is_closing'] ? '' : $entry['date']) }}
                     </td>
                     <td>
                         <strong>{{ $entry['voucher_type'] }}</strong>

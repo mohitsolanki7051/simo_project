@@ -84,6 +84,7 @@ class VendorController extends Controller
                 'unique:vendors,pan_number'
             ],
             'opening_balance' => 'nullable|numeric|min:0',
+            'opening_balance_date' => 'nullable|date',
             'credit_limit' => 'nullable|numeric|min:0',
             'bank_name' => 'nullable|string|max:100',
             'account_number' => 'nullable|string|max:50',
@@ -112,6 +113,7 @@ class VendorController extends Controller
                 'gst_number' => strtoupper($request->gst_number),
                 'pan_number' => strtoupper($request->pan_number),
                 'opening_balance' => $request->opening_balance ?? 0,
+                'opening_balance_date' => $request->opening_balance_date ? \Illuminate\Support\Carbon::parse($request->opening_balance_date) : null,
                 'credit_limit' => $request->credit_limit,
                 'bank_name' => $request->bank_name,
                 'account_number' => $request->account_number,
@@ -297,6 +299,7 @@ class VendorController extends Controller
                 'unique:vendors,pan_number,' . $id
             ],
             'opening_balance' => 'nullable|numeric|min:0',
+            'opening_balance_date' => 'nullable|date',
             'credit_limit' => 'nullable|numeric|min:0',
             'bank_name' => 'nullable|string|max:100',
             'account_number' => 'nullable|string|max:50',
@@ -322,6 +325,7 @@ class VendorController extends Controller
                 'gst_number' => strtoupper($request->gst_number),
                 'pan_number' => strtoupper($request->pan_number),
                 'opening_balance' => $request->opening_balance ?? 0,
+                'opening_balance_date' => $request->opening_balance_date ? \Illuminate\Support\Carbon::parse($request->opening_balance_date) : null,
                 'credit_limit' => $request->credit_limit,
                 'bank_name' => $request->bank_name,
                 'account_number' => $request->account_number,
@@ -360,7 +364,7 @@ class VendorController extends Controller
 
         // Add opening balance as first entry
         $ledgerEntries->push([
-            'date' => null,
+            'date' => $vendor->opening_balance_date ? \Illuminate\Support\Carbon::parse($vendor->opening_balance_date)->toDateString() : null,
             'voucher_type' => 'Opening Balance',
             'voucher_no' => '-',
             'debit' => 0,

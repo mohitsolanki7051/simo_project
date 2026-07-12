@@ -27,6 +27,8 @@ use App\Http\Controllers\Admin\PurchaseInvoiceController;
 use App\Http\Controllers\Admin\PurchaseReturnController;
 use App\Http\Controllers\Admin\DebitNoteController;
 use App\Http\Controllers\Admin\LedgerController;
+use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\ExpenseController;
 // Redirect root URL based on authentication status
 Route::get('/', function () {
     if (Auth::guard('admin')->check()) {
@@ -459,6 +461,27 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->name('ledger.show')
             ->where('partyType', 'customer|dealer|distributor|vendor');
         Route::get('/ledger/{partyType}/{id}/print', [LedgerController::class, 'print'])->name('ledger.print');
+
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/outstanding', [ReportController::class, 'outstanding'])->name('outstanding');
+            Route::get('/outstanding/pdf', [ReportController::class, 'outstandingPdf'])->name('outstanding.pdf');
+            Route::get('/stock-valuation', [ReportController::class, 'stockValuation'])->name('stock-valuation');
+            Route::get('/low-stock', [ReportController::class, 'lowStock'])->name('low-stock');
+            Route::get('/low-stock/pdf', [ReportController::class, 'lowStockPdf'])->name('low-stock.pdf');
+            Route::get('/view/{reportKey}', [ReportController::class, 'showMockReport'])->name('view-mock');
+        });
+
+        // Expenses Routes
+        Route::prefix('expenses')->name('expenses.')->group(function () {
+            Route::get('/', [ExpenseController::class, 'index'])->name('index');
+            Route::get('/create', [ExpenseController::class, 'create'])->name('create');
+            Route::post('/', [ExpenseController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [ExpenseController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [ExpenseController::class, 'update'])->name('update');
+            Route::delete('/{id}', [ExpenseController::class, 'destroy'])->name('destroy');
+            Route::get('/report/pdf', [ExpenseController::class, 'pdf'])->name('pdf');
+        });
 
 
     });

@@ -703,7 +703,7 @@ $partyName  = $party['name'] ?? '—';
 $partyType  = $party['party_type'] ?? '—';
 $partyPhone = $party['phone'] ?? '—';
 
-            return response()->json([
+            $responseData = [
                 'success' => true,
                 'payment' => [
                     'payment_number'   => $payment->payment_number ?? '—',
@@ -721,7 +721,13 @@ $partyPhone = $party['phone'] ?? '—';
                     'notes'            => $payment->notes ?: '—',
                     'allocations'      => $enrichedAllocations,
                 ],
-            ]);
+            ];
+
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json($responseData);
+            }
+
+            return view('admin.payments.show', ['payment' => $responseData['payment']]);
 
         } catch (\Exception $e) {
             Log::error('show payment: ' . $e->getMessage());

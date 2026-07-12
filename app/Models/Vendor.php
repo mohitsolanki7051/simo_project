@@ -26,11 +26,13 @@ class Vendor extends Model
         'purchase_executive_id',
         'status',
         'notes',
+        'opening_balance_date',
     ];
 
     protected $casts = [
         'opening_balance' => 'float',
         'credit_limit' => 'float',
+        'opening_balance_date' => 'datetime'
     ];
 
     // Relationships

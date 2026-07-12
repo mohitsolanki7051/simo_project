@@ -402,89 +402,94 @@
 
     .mobile-bottom-nav{
         position:fixed;
-        left:50%;
-        bottom:12px;
-        transform:translateX(-50%);
-
-        width:92%;
-        max-width:390px;
-        height:68px;
-
-        background:#111827;
-
-        border-radius:22px;
-
+        left:0;
+        bottom:0;
+        width:100%;
+        height:60px;
+        background:#ffffff;
+        border-top: 1px solid #e5e7eb;
         display:flex;
         align-items:center;
-        justify-content:space-between;
-
-        padding:0 12px;
-
+        justify-content:space-around;
+        padding:0 8px;
         z-index:9999;
-
-        box-shadow:
-        0 10px 30px rgba(0,0,0,.18);
+        box-shadow: 0 -4px 12px rgba(0,0,0,.05);
     }
 
     .mobile-nav-item{
-        width:60px;
-
+        flex:1;
+        height:100%;
         text-decoration:none;
-
-        color:#ffffff;
-
+        color:#64748b;
         display:flex;
         flex-direction:column;
         align-items:center;
         justify-content:center;
-
         gap:3px;
+        transition:all .2s ease-in-out;
+        position:relative;
+    }
 
-        transition:.25s;
+    .mobile-nav-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 3px;
+        background: #2563eb;
+        border-radius: 0 0 4px 4px;
+        transition: width 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mobile-nav-item.active::before {
+        width: 50%;
+        box-shadow: 0 0 10px rgba(37, 99, 235, 0.8), 0 0 20px rgba(37, 99, 235, 0.4);
+    }
+
+    .mobile-nav-item.active,
+    .mobile-nav-item:hover {
+        color: #2563eb;
     }
 
     .mobile-nav-item span{
         font-size:18px;
         line-height:1;
+        transition: transform 0.2s ease;
+    }
+    
+    .mobile-nav-item:active span {
+        transform: scale(0.9);
     }
 
     .mobile-nav-item small{
         font-size:10px;
-        opacity:.8;
-    }
-
-    .mobile-nav-item.active{
-        color:#f98824;
+        font-weight:600;
     }
 
     .fab-btn{
-        width: 45px;
+        width: 46px;
         height: 46px;
-
         border:none;
-        border-radius:60px;
-
-        background:#f98824;
-
+        border-radius:50%;
+        background: linear-gradient(135deg, #0ea5e9, #2563eb);
         color:#fff;
-
-        font-size:25px;
+        font-size:24px;
         font-weight:600;
-
         cursor:pointer;
-
         display:flex;
         align-items:center;
         justify-content:center;
-
-        box-shadow:
-        0 10px 25px rgba(249,136,36,.35);
-
-        transition:.35s ease;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        z-index: 10001;
+        margin-top: -15px;
     }
 
     .fab-btn:hover{
-        transform:scale(1.05);
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
     }
 
     .fab-menu{
@@ -773,11 +778,19 @@
         <div class="nav-section-label">More</div>
 
         <div class="nav-item">
-            <a href="#" class="nav-link {{ request()->is('admin/reports*') ? 'active' : '' }}">
+            <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->is('admin/reports') ? 'active' : '' }}">
                 <span class="nav-icon">📊</span>
                 <span class="nav-text">Reports</span>
             </a>
             <span class="nav-tooltip">Reports</span>
+        </div>
+
+        <div class="nav-item">
+            <a href="{{ route('admin.expenses.index') }}" class="nav-link {{ request()->is('admin/expenses*') ? 'active' : '' }}">
+                <span class="nav-icon">💸</span>
+                <span class="nav-text">Expenses</span>
+            </a>
+            <span class="nav-tooltip">Expenses</span>
         </div>
 
         <!-- ADMIN CONTROL - With Invoice Settings inside -->
@@ -856,12 +869,12 @@
 </div>
 <div class="mobile-bottom-nav">
 
-    <a href="/admin/dashboard" class="mobile-nav-item active">
+    <a href="/admin/dashboard" class="mobile-nav-item {{ request()->is('admin/dashboard*') ? 'active' : '' }}">
         <span>🏠</span>
         <small>Home</small>
     </a>
 
-    <a href="/admin/products" class="mobile-nav-item">
+    <a href="/admin/products" class="mobile-nav-item {{ request()->is('admin/products*') ? 'active' : '' }}">
         <span>📦</span>
         <small>Products</small>
     </a>
@@ -870,12 +883,12 @@
         +
     </button>
 
-    <a href="/admin/sales" class="mobile-nav-item">
+    <a href="/admin/sales" class="mobile-nav-item {{ request()->is('admin/sales*') ? 'active' : '' }}">
         <span>🧾</span>
         <small>Sales</small>
     </a>
 
-    <a href="/admin/profile" class="mobile-nav-item">
+    <a href="/admin/profile" class="mobile-nav-item {{ request()->is('admin/profile*') ? 'active' : '' }}">
         <span>👤</span>
         <small>Profile</small>
     </a>

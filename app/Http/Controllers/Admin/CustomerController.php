@@ -79,6 +79,7 @@ public function create(Request $request)
             'salesman_id' => 'nullable|exists:salesmen,_id',
             'party_type' => 'required|in:customer,dealer,distributor',
             'opening_balance' => 'nullable|numeric|min:0',
+            'opening_balance_date' => 'nullable|date',
             'credit_limit' => 'nullable|numeric|min:0',
             'parent_party_id' => 'nullable|exists:customers,_id',
             'gst_number' => [
@@ -109,12 +110,13 @@ public function create(Request $request)
                 'email' => $request->email,
                 'party_type' => $request->party_type,
                 'opening_balance' => $request->opening_balance ?? 0,
+                'opening_balance_date' => $request->opening_balance_date ? \Illuminate\Support\Carbon::parse($request->opening_balance_date) : null,
                 'credit_limit' => $request->credit_limit,
                 'salesman_id' => $request->salesman_id,
                 'parent_party_id' => $request->parent_party_id,
                 'gst_number' => strtoupper($request->gst_number),
                 'pan_number' => strtoupper($request->pan_number),
-                'status' => $request->status,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                'status' => $request->status,
                 'notes' => $request->notes
             ]);
 
@@ -232,6 +234,7 @@ public function edit($id)
             'email' => 'nullable|email|unique:customers,email,' . $id . ',_id',
             'salesman_id' => 'nullable|exists:salesmen,_id',
             'opening_balance' => 'nullable|numeric|min:0',
+            'opening_balance_date' => 'nullable|date',
             'credit_limit' => 'nullable|numeric|min:0',
             'parent_party_id' => 'nullable|exists:customers,_id',
             'gst_number' => [
@@ -258,6 +261,7 @@ public function edit($id)
                 'phone' => $request->phone,
                 'email' => $request->email,
                 'opening_balance' => $request->opening_balance ?? 0,
+                'opening_balance_date' => $request->opening_balance_date ? \Illuminate\Support\Carbon::parse($request->opening_balance_date) : null,
                 'credit_limit' => $request->credit_limit,
                 'salesman_id' => $request->salesman_id,
                 'parent_party_id' => $request->parent_party_id,
@@ -560,7 +564,7 @@ public function ledger($id)
 
     // Add opening balance as first entry
     $ledgerEntries->push([
-        'date' => null,
+        'date' => $party->opening_balance_date ? \Illuminate\Support\Carbon::parse($party->opening_balance_date)->toDateString() : null,
         'voucher_type' => 'Opening Balance',
         'voucher_no' => '-',
         'debit' => 0,

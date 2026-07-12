@@ -139,17 +139,18 @@
                 </thead>
                 <tbody>
                     @foreach($ledger as $entry)
-                    <tr class="{{ $entry['is_opening'] ? 'ldg-opening-row' : '' }} {{ $entry['is_closing'] ? 'ldg-closing-row' : '' }}"
+                    <tr class="{{ $entry['is_opening'] ? 'ldg-opening-row' : '' }} {{ $entry['is_closing'] ? 'ldg-closing-row' : '' }} {{ (!empty($entry['url']) && !$entry['is_opening'] && !$entry['is_closing']) ? 'ldg-clickable-row' : '' }}"
                         data-raw-date="{{ $entry['raw_date'] ? \Carbon\Carbon::parse($entry['raw_date'])->format('Y-m-d') : '' }}"
                         data-is-opening="{{ $entry['is_opening'] ? '1' : '0' }}"
                         data-is-closing="{{ $entry['is_closing'] ? '1' : '0' }}"
                         data-debit="{{ $entry['debit'] }}"
                         data-credit="{{ $entry['credit'] }}"
                         data-balance="{{ $entry['balance'] }}"
-                        data-invoice-type="{{ $entry['invoice_type'] ?? 'all' }}">
+                        data-invoice-type="{{ $entry['invoice_type'] ?? 'all' }}"
+                        @if(!empty($entry['url'])) data-url="{{ $entry['url'] }}" @endif>
 
                         <td class="ldg-date">
-                            {{ $entry['is_opening'] ? 'Opening' : ($entry['is_closing'] ? '' : $entry['date']) }}
+                            {{ $entry['is_opening'] ? ($entry['date'] ?? 'Opening') : ($entry['is_closing'] ? '' : $entry['date']) }}
                         </td>
 
                         <td>
@@ -227,11 +228,12 @@
             {{-- MOBILE CARD LAYOUT (shown instead of table below 768px) --}}
             <div class="ldg-mobile-cards" id="ledgerMobileCards">
                 @foreach($ledger as $entry)
-                <div class="ldg-mcard {{ $entry['is_opening'] ? 'is-opening' : '' }} {{ $entry['is_closing'] ? 'is-closing' : '' }}"
+                <div class="ldg-mcard {{ $entry['is_opening'] ? 'is-opening' : '' }} {{ $entry['is_closing'] ? 'is-closing' : '' }} {{ (!empty($entry['url']) && !$entry['is_opening'] && !$entry['is_closing']) ? 'ldg-clickable-card' : '' }}"
                      data-raw-date="{{ $entry['raw_date'] ? \Carbon\Carbon::parse($entry['raw_date'])->format('Y-m-d') : '' }}"
                      data-is-opening="{{ $entry['is_opening'] ? '1' : '0' }}"
                      data-is-closing="{{ $entry['is_closing'] ? '1' : '0' }}"
-                     data-invoice-type="{{ $entry['invoice_type'] ?? 'all' }}">
+                     data-invoice-type="{{ $entry['invoice_type'] ?? 'all' }}"
+                     @if(!empty($entry['url'])) data-url="{{ $entry['url'] }}" @endif>
 
                     <div class="ldg-mcard-top">
                         <div class="ldg-mcard-voucher">
@@ -241,7 +243,7 @@
                             @elseif(($entry['invoice_type'] ?? 'all') === 'cash')
                                 <span class="ldg-billtype-badge bt-cash">Cash</span>
                             @endif
-                            <span class="ldg-mcard-date">{{ $entry['is_opening'] ? 'Opening' : ($entry['is_closing'] ? '' : $entry['date']) }}</span>
+                            <span class="ldg-mcard-date">{{ $entry['is_opening'] ? ($entry['date'] ?? 'Opening') : ($entry['is_closing'] ? '' : $entry['date']) }}</span>
                             @if($entry['sr_no'] && $entry['sr_no'] !== '—')
                                 <span class="ldg-mcard-sr">{{ $entry['sr_no'] }}</span>
                             @endif
@@ -630,7 +632,7 @@
     .ldg-filter-row { flex-direction:column; align-items:stretch; width:100%; }
     .ldg-search, .ldg-input { width:100% !important; }
     .ldg-pills { overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; }
-    .ldg-daterange-row { flex-wrap:wrap; }
+    .ldg-daterange-row { width: 100%; }
     .ldg-daterange-row .ldg-input { width:calc(50% - 14px) !important; }
     .ldg-action-btns { width:100%; margin-left:0; }
     .ldg-action-btn { flex:1; justify-content:center; }
@@ -639,6 +641,10 @@
     .ldg-table-wrap #ledgerTable { display:none; }
     .ldg-mobile-cards { display:block; }
 }
+.ldg-clickable-row { cursor: pointer; transition: background 0.15s ease; }
+.ldg-clickable-row:hover { background-color: #f9fafb !important; }
+.ldg-clickable-card { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ldg-clickable-card:hover { transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
 @media print {
     .ldg-tabs,.ldg-toolbar,.ldg-topbar-right,.ldg-back,.ldg-print-btn { display:none !important; }
     .ldg-panel { display:block !important; }
@@ -651,6 +657,22 @@
 
 @push('scripts')
 <script>
+// Clickable rows and cards details navigation
+document.addEventListener('click', function(e) {
+    var clickableElement = e.target.closest('.ldg-clickable-row, .ldg-clickable-card');
+    if (!clickableElement) return;
+    
+    // If the click is on an interactive element, do not trigger the row navigation
+    if (e.target.closest('a, button, input, select, textarea')) {
+        return;
+    }
+    
+    var url = clickableElement.getAttribute('data-url');
+    if (url) {
+        window.location.href = url;
+    }
+});
+
 // Tab switching
 document.querySelectorAll('.ldg-tab').forEach(function(btn) {
     btn.addEventListener('click', function() {
