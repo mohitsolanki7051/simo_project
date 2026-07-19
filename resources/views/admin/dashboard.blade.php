@@ -78,6 +78,15 @@
     border-radius: 8px;
     padding: 8px 6px;
     text-align: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .2s;
+    display: block;
+}
+.db-qs:hover {
+    border-color: #2563eb;
+    background: #f0f9ff;
+    transform: translateY(-1px);
 }
 .db-qs-v {
     font-size: 16px;
@@ -129,6 +138,9 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     animation: up .4s ease both;
     overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    display: block;
 }
 .db-mc:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
 .db-mc::before {
@@ -297,6 +309,8 @@
     transition: box-shadow .2s, transform .2s;
     animation: up .5s ease both;
     position: relative; overflow: hidden;
+    color: inherit;
+    text-decoration: none;
 }
 .db-pc:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
 .db-pc::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; }
@@ -561,29 +575,29 @@
             <div class="db-date-line">{{ now()->format('l, d F Y') }} · Your business overview</div>
         </div>
         <div class="db-quick-stats">
-            <div class="db-qs">
+            <a href="{{ route('admin.sales.index') }}" class="db-qs">
                 <div class="db-qs-v">{{ $stats['total_invoices'] }}</div>
                 <div class="db-qs-l">Invoices</div>
-            </div>
-            <div class="db-qs">
+            </a>
+            <a href="{{ route('admin.sales.index', ['payment_status' => 'paid']) }}" class="db-qs">
                 <div class="db-qs-v" style="color:#16a34a">{{ $stats['paid_invoices'] }}</div>
                 <div class="db-qs-l">Paid</div>
-            </div>
-            <div class="db-qs">
+            </a>
+            <a href="{{ route('admin.sales.index', ['payment_status' => 'unpaid']) }}" class="db-qs">
                 <div class="db-qs-v" style="color:#dc2626">{{ $stats['unpaid_invoices'] }}</div>
                 <div class="db-qs-l">Unpaid</div>
-            </div>
-            <div class="db-qs">
+            </a>
+            <a href="{{ route('admin.sales.index', ['payment_status' => 'partial']) }}" class="db-qs">
                 <div class="db-qs-v" style="color:#d97706">{{ $stats['partial_invoices'] }}</div>
                 <div class="db-qs-l">Partial</div>
-            </div>
+            </a>
         </div>
     </div>
 
     {{-- KEY METRICS --}}
     <div class="db-sec">Key Metrics</div>
     <div class="db-metrics">
-        <div class="db-mc mc-blue">
+        <a href="{{ route('admin.products.index') }}" class="db-mc mc-blue">
             <div class="db-mc-top">
                 <div class="db-mc-icon">📦</div>
                 <span class="db-mc-badge badge-blue">All</span>
@@ -591,8 +605,8 @@
             <div class="db-mc-label">Products</div>
             <div class="db-mc-value">{{ number_format($stats['total_products']) }}</div>
             <div class="db-mc-sub"><b>{{ $stats['active_products'] }}</b> active · {{ $stats['inactive_products'] }} inactive</div>
-        </div>
-        <div class="db-mc mc-violet">
+        </a>
+        <a href="{{ route('admin.parties.index.type', ['type' => 'customer']) }}" class="db-mc mc-violet">
             <div class="db-mc-top">
                 <div class="db-mc-icon">🤝</div>
                 <span class="db-mc-badge badge-blue" style="background:#f5f3ff;color:#7c3aed;">All</span>
@@ -600,8 +614,8 @@
             <div class="db-mc-label">Total Parties</div>
             <div class="db-mc-value">{{ number_format($stats['total_parties']) }}</div>
             <div class="db-mc-sub">Customers, Dealers & Distributors</div>
-        </div>
-        <div class="db-mc mc-teal">
+        </a>
+        <a href="{{ route('admin.salesmen.index') }}" class="db-mc mc-teal">
             <div class="db-mc-top">
                 <div class="db-mc-icon">🧑‍💼</div>
                 <span class="db-mc-badge badge-green" style="background:#f0fdfa;color:#0d9488;">{{ $stats['active_salesmen'] }} Active</span>
@@ -609,8 +623,8 @@
             <div class="db-mc-label">Salesmen</div>
             <div class="db-mc-value">{{ number_format($stats['total_salesmen']) }}</div>
             <div class="db-mc-sub"><b>{{ $stats['active_salesmen'] }}</b> active · {{ $stats['inactive_salesmen'] }} inactive</div>
-        </div>
-        <div class="db-mc mc-orange">
+        </a>
+        <a href="{{ route('admin.warehouses.index') }}" class="db-mc mc-orange">
             <div class="db-mc-top">
                 <div class="db-mc-icon">🏭</div>
                 <span class="db-mc-badge badge-amber">{{ $stats['active_warehouses'] }} Active</span>
@@ -618,7 +632,7 @@
             <div class="db-mc-label">Warehouses</div>
             <div class="db-mc-value">{{ number_format($stats['total_warehouses']) }}</div>
             <div class="db-mc-sub">Main: <b>{{ $stats['main_warehouse'] ?? 'Not Set' }}</b></div>
-        </div>
+        </a>
     </div>
 
     {{-- SALES OVERVIEW --}}
@@ -729,7 +743,7 @@
 
         {{-- PAID / UNPAID MINI CARDS --}}
         <div class="db-sales-mini">
-            <div class="db-mc mc-green" style="border-radius:10px;padding:14px 16px;">
+            <a href="{{ route('admin.sales.index', ['payment_status' => 'paid']) }}" class="db-mc mc-green" style="border-radius:10px;padding:14px 16px;">
                 <div class="db-mc-top">
                     <div class="db-mc-icon">✅</div>
                     <span class="db-mc-badge badge-green">Cleared</span>
@@ -737,8 +751,8 @@
                 <div class="db-mc-label">Paid Invoices</div>
                 <div class="db-mc-value">{{ number_format($stats['paid_invoices']) }}</div>
                 <div class="db-mc-sub">{{ $stats['partial_invoices'] }} partially paid</div>
-            </div>
-            <div class="db-mc mc-red" style="border-radius:10px;padding:14px 16px;">
+            </a>
+            <a href="{{ route('admin.sales.index', ['payment_status' => 'unpaid']) }}" class="db-mc mc-red" style="border-radius:10px;padding:14px 16px;">
                 <div class="db-mc-top">
                     <div class="db-mc-icon">⚠️</div>
                     <span class="db-mc-badge badge-red">Pending</span>
@@ -746,7 +760,7 @@
                 <div class="db-mc-label">Unpaid Invoices</div>
                 <div class="db-mc-value">{{ number_format($stats['unpaid_invoices']) }}</div>
                 <div class="db-mc-sub">₹{{ number_format($stats['unpaid_amount'], 2) }} outstanding</div>
-            </div>
+            </a>
         </div>
 
     </div>
@@ -754,30 +768,30 @@
     {{-- PARTY BREAKDOWN --}}
     <div class="db-sec">Party Breakdown</div>
     <div class="db-parties">
-        <div class="db-pc pc-cust">
+        <a href="{{ route('admin.parties.index.type', ['type' => 'customer']) }}" class="db-pc pc-cust">
             <div class="db-pc-av">🛍️</div>
             <div>
                 <div class="db-pc-lbl">Customers</div>
                 <div class="db-pc-num">{{ number_format($stats['total_customers']) }}</div>
                 <div class="db-pc-act">Active: <span class="a">{{ $stats['active_customers'] }}</span></div>
             </div>
-        </div>
-        <div class="db-pc pc-deal">
+        </a>
+        <a href="{{ route('admin.parties.index.type', ['type' => 'dealer']) }}" class="db-pc pc-deal">
             <div class="db-pc-av">🏪</div>
             <div>
                 <div class="db-pc-lbl">Dealers</div>
                 <div class="db-pc-num">{{ number_format($stats['total_dealers']) }}</div>
                 <div class="db-pc-act">Active: <span class="a">{{ $stats['active_dealers'] }}</span></div>
             </div>
-        </div>
-        <div class="db-pc pc-dist">
+        </a>
+        <a href="{{ route('admin.parties.index.type', ['type' => 'distributor']) }}" class="db-pc pc-dist">
             <div class="db-pc-av">🏢</div>
             <div>
                 <div class="db-pc-lbl">Distributors</div>
                 <div class="db-pc-num">{{ number_format($stats['total_distributors']) }}</div>
                 <div class="db-pc-act">Active: <span class="a">{{ $stats['active_distributors'] }}</span></div>
             </div>
-        </div>
+        </a>
     </div>
 
     {{-- TOP SELLING PRODUCTS --}}

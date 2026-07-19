@@ -446,7 +446,7 @@
                         @endif
                     </td>
                     <td>
-                        @if($entry['due_date'])
+                        @if($entry['due_date'] && $entry['due_date'] !== '—')
                             {{ $entry['due_date'] }}
                             @if($entry['due_status'])
                                 <br>

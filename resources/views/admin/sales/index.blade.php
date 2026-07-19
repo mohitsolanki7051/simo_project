@@ -611,7 +611,8 @@
     /* Show tiny cute icons specifically added for mobile */
     .mob-icon { display: inline-block; vertical-align: middle; margin-right: 5px; width: 13px; height: 13px; color: var(--c-muted); }
 
-    .si-wrap { padding: 8px; background: #f3f4f6; min-height: 100vh;}
+    .dashboard-content { padding: 5px !important; }
+    .si-wrap { padding: 4px; background: #f3f4f6; min-height: 100vh;}
     .si-header { background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 12px; flex-direction: column; align-items: flex-start; }
     
     /* Stats & Filters Compression */

@@ -184,7 +184,7 @@ body { font-family: 'Inter', -apple-system, sans-serif; background:#f3f4f6; font
                 </tr>
             </thead>
             <tbody>
-                @foreach($creditNote->items as $idx => $item)
+                @forelse($creditNote->items as $idx => $item)
                 <tr>
                     <td>{{ $idx + 1 }}</td>
                     <td style="text-align:left;">
@@ -200,7 +200,13 @@ body { font-family: 'Inter', -apple-system, sans-serif; background:#f3f4f6; font
                     <td style="color:#f59e0b;">₹ {{ number_format($item->discount_amount ?? 0, 2) }}</td>
                     <td>₹ {{ number_format($item->total, 2) }}</td>
                 </tr>
-                @endforeach
+                @empty
+                <tr>
+                    <td colspan="8" style="text-align:center;color:#6b7280;padding:20px;">
+                        Financial Adjustment for Invoice Cancellation (No physical items returned)
+                    </td>
+                </tr>
+                @endforelse
             </tbody>
             <tfoot>
                 <tr>
@@ -284,16 +290,45 @@ function printCN() {
     window.print();
 }
 function downloadPDF() {
+    const original = document.getElementById('cnToPrint');
     showAlert('Generating PDF...', 'success');
+
+    // Create a temporary container to force desktop viewport layout
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '-9999px';
+    tempContainer.style.width = '1050px';
+
+    const clone = original.cloneNode(true);
+    clone.style.width = '1050px';
+    clone.style.minWidth = '1050px';
+    clone.style.display = 'block';
+
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
+    // Add print mode to body (if any print styles need it)
+    document.body.classList.add('iv-print-mode');
+
     html2pdf().set({
         margin: [0.3, 0.3, 0.3, 0.3],
         filename: '{{ $creditNote->credit_note_number }}.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, width: 1050 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    }).from(document.getElementById('cnToPrint')).save()
-    .then(() => showAlert('PDF downloaded!', 'success'))
-    .catch(() => showAlert('PDF failed!', 'error'));
+    }).from(clone).save()
+    .then(() => {
+        showAlert('PDF downloaded!', 'success');
+        tempContainer.remove();
+        document.body.classList.remove('iv-print-mode');
+    })
+    .catch((err) => {
+        console.error(err);
+        showAlert('PDF failed!', 'error');
+        tempContainer.remove();
+        document.body.classList.remove('iv-print-mode');
+    });
 }
 </script>
 @endpush

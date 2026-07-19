@@ -193,7 +193,7 @@
                         </td>
 
                         <td>
-                            @if($entry['due_date'])
+                            @if($entry['due_date'] && $entry['due_date'] !== '—')
                                 <div class="ldg-date">{{ $entry['due_date'] }}</div>
                                 @if($entry['due_status'])
                                     <span class="ldg-st {{ Str::startsWith($entry['due_status'], 'Paid') ? 'st-paid' : (Str::startsWith($entry['due_status'], 'Partially') ? 'st-partial' : 'st-unpaid') }}">
@@ -275,7 +275,7 @@
                     </div>
                     @endif
 
-                    @if($entry['due_date'])
+                    @if($entry['due_date'] && $entry['due_date'] !== '—')
                     <div class="ldg-mcard-due">
                         <span class="ldg-mcard-row-label">Due {{ $entry['due_date'] }}</span>
                         @if($entry['due_status'])

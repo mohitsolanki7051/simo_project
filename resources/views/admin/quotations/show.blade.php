@@ -1093,18 +1093,45 @@ function printQuotation() {
 }
 
 function downloadPDF() {
-    const element = document.getElementById('quotationToPrint');
+    const original = document.getElementById('quotationToPrint');
     showAlert('Generating PDF...', 'info');
+
+    // Create a temporary container to force desktop viewport layout
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '-9999px';
+    tempContainer.style.width = '1050px';
+
+    const clone = original.cloneNode(true);
+    clone.style.width = '1050px';
+    clone.style.minWidth = '1050px';
+    clone.style.display = 'block';
+
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
+    // Add print mode to body (if any print styles need it)
+    document.body.classList.add('iv-print-mode');
 
     html2pdf().set({
         margin: [0.3, 0.3, 0.3, 0.3],
         filename: '{{ $quotation->quotation_number }}.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, width: 1050 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    }).from(element).save()
-    .then(() => showAlert('PDF downloaded!', 'success'))
-    .catch(() => showAlert('PDF failed!', 'error'));
+    }).from(clone).save()
+    .then(() => {
+        showAlert('PDF downloaded!', 'success');
+        tempContainer.remove();
+        document.body.classList.remove('iv-print-mode');
+    })
+    .catch((err) => {
+        console.error(err);
+        showAlert('PDF failed!', 'error');
+        tempContainer.remove();
+        document.body.classList.remove('iv-print-mode');
+    });
 }
 
 function sendWhatsApp() {

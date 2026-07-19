@@ -652,23 +652,23 @@
 @media (max-width: 640px) {
 
     /* ACTION BAR - mobile stack */
-    .iv-actions-bar {
+    body:not(.iv-print-mode) .iv-actions-bar {
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 8px !important;
         padding: 10px !important;
     }
-    .iv-actions-left {
+    body:not(.iv-print-mode) .iv-actions-left {
         flex-wrap: wrap;
         gap: 6px;
     }
-    .iv-page-title { font-size: 13px !important; }
-    .iv-actions-right {
+    body:not(.iv-print-mode) .iv-page-title { font-size: 13px !important; }
+    body:not(.iv-print-mode) .iv-actions-right {
         display: grid !important;
         grid-template-columns: 1fr 1fr 1fr !important;
         gap: 6px !important;
     }
-    .iv-btn {
+    body:not(.iv-print-mode) .iv-btn {
         justify-content: center !important;
         padding: 8px 6px !important;
         font-size: 11px !important;
@@ -676,50 +676,50 @@
     }
 
     /* INVOICE CARD */
-    .iv-card { border-radius: 10px !important; }
+    body:not(.iv-print-mode) .iv-card { border-radius: 10px !important; }
 
     /* COMPANY HEADER */
-    .iv-header { padding: 12px !important; }
-    .iv-company-block { gap: 10px !important; }
-    .iv-logo-img { height: 44px !important; }
-    .iv-logo-placeholder { width: 44px !important; height: 44px !important; font-size: 18px !important; }
-    .iv-company-details h2 { font-size: 15px !important; }
-    .iv-company-details p { font-size: 10px !important; }
-    .iv-company-contact { flex-direction: column !important; gap: 2px !important; font-size: 10px !important; }
+    body:not(.iv-print-mode) .iv-header { padding: 12px !important; }
+    body:not(.iv-print-mode) .iv-company-block { gap: 10px !important; }
+    body:not(.iv-print-mode) .iv-logo-img { height: 44px !important; }
+    body:not(.iv-print-mode) .iv-logo-placeholder { width: 44px !important; height: 44px !important; font-size: 18px !important; }
+    body:not(.iv-print-mode) .iv-company-details h2 { font-size: 15px !important; }
+    body:not(.iv-print-mode) .iv-company-details p { font-size: 10px !important; }
+    body:not(.iv-print-mode) .iv-company-contact { flex-direction: column !important; gap: 2px !important; font-size: 10px !important; }
 
     /* TITLE ROW */
-    .iv-title-row { padding: 10px 12px 8px !important; }
-    .iv-doc-title { font-size: 14px !important; }
-    .iv-invoice-number { font-size: 12px !important; }
-    .iv-invoice-date { font-size: 10px !important; }
+    body:not(.iv-print-mode) .iv-title-row { padding: 10px 12px 8px !important; }
+    body:not(.iv-print-mode) .iv-doc-title { font-size: 14px !important; }
+    body:not(.iv-print-mode) .iv-invoice-number { font-size: 12px !important; }
+    body:not(.iv-print-mode) .iv-invoice-date { font-size: 10px !important; }
 
     /* PARTY GRID - 2 col on mobile */
-    .iv-party-grid {
+    body:not(.iv-print-mode) .iv-party-grid {
         grid-template-columns: 1fr 1fr !important;
         gap: 8px !important;
         padding: 8px !important;
     }
-    .iv-party-block { padding: 10px !important; }
-    .iv-party-block > div { font-size: 11px !important; }
+    body:not(.iv-print-mode) .iv-party-block { padding: 10px !important; }
+    body:not(.iv-print-mode) .iv-party-block > div { font-size: 11px !important; }
 
     /* HIDE TABLE, SHOW MOBILE CARDS */
-    .iv-items-section .iv-table { display: none !important; }
-    .iv-mobile-cards { display: block !important; }
+    body:not(.iv-print-mode) .iv-items-section .iv-table { display: none !important; }
+    body:not(.iv-print-mode) .iv-mobile-cards { display: block !important; }
 
     /* BOTTOM GRID - stack on mobile */
     /* BOTTOM GRID - full stack on mobile */
-    .iv-bottom-grid {
+    body:not(.iv-print-mode) .iv-bottom-grid {
         grid-template-columns: 1fr !important;
         gap: 10px !important;
         padding: 10px !important;
     }
 
     /* Left panel pehle, right panel baad mein */
-    .iv-left-panel {
+    body:not(.iv-print-mode) .iv-left-panel {
         order: 2 !important;
     }
 
-    .iv-right-panel {
+    body:not(.iv-print-mode) .iv-right-panel {
         order: 1 !important;
     }
 }
@@ -751,8 +751,8 @@
                 @endif
             @endif
 
-            {{-- ✅ FIX: Cancel button ONLY for unpaid invoices --}}
-            @if(($invoice->status === 'confirmed' || $invoice->status === 'completed') && $invoice->payment_status === 'unpaid')
+            {{-- Cancel button for confirmed or completed invoices (including paid/partial) --}}
+            @if(in_array($invoice->status, ['confirmed', 'completed']))
                 <button onclick="cancelInvoice()" class="iv-btn" style="background: #dc2626; color: white;">
                     🚫 Cancel
                 </button>
@@ -1338,18 +1338,45 @@ function printInvoice() {
 }
 
 function downloadPDF() {
-    const element = document.getElementById('invoiceToPrint');
+    const original = document.getElementById('invoiceToPrint');
     showAlert('Generating PDF...', 'info');
+
+    // Create a temporary container to force desktop viewport layout
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '-9999px';
+    tempContainer.style.width = '1050px';
+
+    const clone = original.cloneNode(true);
+    clone.style.width = '1050px';
+    clone.style.minWidth = '1050px';
+    clone.style.display = 'block';
+
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
+    // Add print mode to body to disable media queries
+    document.body.classList.add('iv-print-mode');
 
     html2pdf().set({
         margin: [0.3, 0.3, 0.3, 0.3],
         filename: '{{ $invoice->invoice_number }}.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, width: 1050 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    }).from(element).save()
-    .then(() => showAlert('PDF downloaded!', 'success'))
-    .catch(() => showAlert('PDF failed!', 'error'));
+    }).from(clone).save()
+    .then(() => {
+        showAlert('PDF downloaded!', 'success');
+        tempContainer.remove();
+        document.body.classList.remove('iv-print-mode');
+    })
+    .catch((err) => {
+        console.error(err);
+        showAlert('PDF failed!', 'error');
+        tempContainer.remove();
+        document.body.classList.remove('iv-print-mode');
+    });
 }
 
 function sendWhatsApp() {
