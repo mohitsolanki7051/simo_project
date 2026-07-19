@@ -414,59 +414,59 @@
         /* ─── RESPONSIVE ──────────────────────────────── */
         @media (max-width: 640px) {
             /* Topbar */
-            .pub-topbar {
+            body:not(.iv-print-mode) .pub-topbar {
                 padding: 10px 12px;
                 flex-wrap: wrap;
             }
-            .pub-topbar-left { flex: 1; min-width: 0; }
-            .pub-btn-group { flex-shrink: 0; }
-            .pub-btn { padding: 7px 10px; font-size: 11px; }
-            .pub-btn span.btn-label { display: none; }
+            body:not(.iv-print-mode) .pub-topbar-left { flex: 1; min-width: 0; }
+            body:not(.iv-print-mode) .pub-btn-group { flex-shrink: 0; }
+            body:not(.iv-print-mode) .pub-btn { padding: 7px 10px; font-size: 11px; }
+            body:not(.iv-print-mode) .pub-btn span.btn-label { display: none; }
 
             /* Wrap */
-            .pub-wrap { margin: 10px auto; padding: 0 8px 30px; }
+            body:not(.iv-print-mode) .pub-wrap { margin: 10px auto; padding: 0 8px 30px; }
 
             /* Header */
-            .iv-header { padding: 14px; }
-            .iv-company-details h2 { font-size: 14px; }
+            body:not(.iv-print-mode) .iv-header { padding: 14px; }
+            body:not(.iv-print-mode) .iv-company-details h2 { font-size: 14px; }
 
             /* Title row */
-            .iv-title-row {
+            body:not(.iv-print-mode) .iv-title-row {
                 padding: 10px 14px 6px;
                 flex-direction: column;
                 align-items: flex-start;
             }
-            .iv-invoice-meta { text-align: left; }
+            body:not(.iv-print-mode) .iv-invoice-meta { text-align: left; }
 
             /* Party grid: stack */
-            .iv-party-grid {
+            body:not(.iv-print-mode) .iv-party-grid {
                 grid-template-columns: 1fr;
                 padding: 10px 14px;
                 gap: 8px;
             }
 
             /* Items: hide table, show cards */
-            .iv-items-section { padding: 10px 14px; }
-            .iv-table-wrap { display: none; }
-            .iv-items-mobile { display: block; }
+            body:not(.iv-print-mode) .iv-items-section { padding: 10px 14px; }
+            body:not(.iv-print-mode) .iv-table-wrap { display: none; }
+            body:not(.iv-print-mode) .iv-items-mobile { display: block; }
 
             /* Bottom grid: stack */
-            .iv-bottom-grid {
+            body:not(.iv-print-mode) .iv-bottom-grid {
                 grid-template-columns: 1fr;
                 padding: 12px 14px;
                 gap: 10px;
             }
 
             /* Totals panel — make it prominent on mobile */
-            .iv-right-panel { order: -1; }
+            body:not(.iv-print-mode) .iv-right-panel { order: -1; }
 
-            .iv-total-row.grand { font-size: 15px; }
-            .iv-footer { padding: 10px 14px; }
+            body:not(.iv-print-mode) .iv-total-row.grand { font-size: 15px; }
+            body:not(.iv-print-mode) .iv-footer { padding: 10px 14px; }
         }
 
         @media (max-width: 360px) {
-            .pub-btn-group { gap: 4px; }
-            .pub-btn { padding: 6px 8px; }
+            body:not(.iv-print-mode) .pub-btn-group { gap: 4px; }
+            body:not(.iv-print-mode) .pub-btn { padding: 6px 8px; }
         }
 
         /* ─── PRINT ───────────────────────────────────── */
@@ -809,7 +809,6 @@
                     <span>Grand Total</span>
                     <span class="iv-total-value">₹{{ number_format($invoice->grand_total, 2) }}</span>
                 </div>
-
                 @if($invoice->total_paid > 0)
                 <div style="margin-top:12px;">
                     <div class="iv-total-row">
@@ -840,33 +839,57 @@
 
 <script>
 function downloadPDF() {
-    const btn = event.target.closest('button');
+    const btn = document.getElementById('dl-pdf-btn');
     btn.disabled = true;
     btn.innerHTML = '⏳ Generating...';
 
-    // Hide mobile cards, show table for PDF
-    const mobileItems = document.querySelector('.iv-items-mobile');
-    const tableWrap   = document.querySelector('.iv-table-wrap');
+    const original = document.getElementById('invoiceToPrint');
+
+    // Create a temporary container to force desktop viewport layout
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '-9999px';
+    tempContainer.style.width = '1050px';
+
+    const clone = original.cloneNode(true);
+    clone.style.width = '1050px';
+    clone.style.minWidth = '1050px';
+    clone.style.display = 'block';
+
+    // In clone, make sure table is visible and mobile card items are hidden
+    const mobileItems = clone.querySelector('.iv-items-mobile');
+    const tableWrap   = clone.querySelector('.iv-table-wrap');
     if (mobileItems) mobileItems.style.display = 'none';
     if (tableWrap)   tableWrap.style.display = 'block';
+
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
+    // Add print mode to body to disable media queries
+    document.body.classList.add('iv-print-mode');
 
     html2pdf().set({
         margin: [0.3, 0.3, 0.3, 0.3],
         filename: 'Invoice_{{ $invoice->invoice_number }}.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, width: 1050 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
     })
-    .from(document.getElementById('invoiceToPrint'))
+    .from(clone)
     .save()
     .then(() => {
         btn.disabled = false;
         btn.innerHTML = '⬇️ <span class="btn-label">Download PDF</span>';
-        // Restore mobile layout
-        if (window.innerWidth <= 640) {
-            if (mobileItems) mobileItems.style.display = 'block';
-            if (tableWrap)   tableWrap.style.display = 'none';
-        }
+        tempContainer.remove();
+        document.body.classList.remove('iv-print-mode');
+    })
+    .catch((err) => {
+        console.error(err);
+        btn.disabled = false;
+        btn.innerHTML = '⬇️ <span class="btn-label">Download PDF</span>';
+        tempContainer.remove();
+        document.body.classList.remove('iv-print-mode');
     });
 }
 </script>

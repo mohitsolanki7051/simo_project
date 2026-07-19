@@ -556,6 +556,7 @@
     }
 
     .dashboard-content{
+        padding: 5px !important;
         padding-bottom:110px !important;
     }
 }

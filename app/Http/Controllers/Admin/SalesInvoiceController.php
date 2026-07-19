@@ -15,6 +15,7 @@ use App\Models\Warehouse;
 use App\Models\WarehouseStock;
 use App\Models\WarehouseMovement;
 use App\Models\Salesman;
+use App\Models\CreditNote;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -204,6 +205,28 @@ private function generateInvoiceNumber(string $invoiceType = 'gst'): string
         return view('admin.sales.create', compact('invoiceNumber', 'parties', 'salesmen', 'warehouses', 'mainWarehouse', 'invoiceSetting'));
     }
 
+    /**
+     * Generate credit note number with format: SIM/CN/24-25/000001
+     */
+    private function generateCreditNoteNumber()
+    {
+        $financialYear = $this->getFinancialYear();
+
+        $lastNote = CreditNote::where('credit_note_number', 'regex', "/^SIM\/CN\/{$financialYear}\/\d+$/")
+            ->orderBy('credit_note_number', 'desc')
+            ->first();
+
+        if ($lastNote) {
+            preg_match('/(\d+)$/', $lastNote->credit_note_number, $matches);
+            $lastNumber = isset($matches[1]) ? (int)$matches[1] : 0;
+            $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
+        } else {
+            $newNumber = '000001';
+        }
+
+        return "SIM/CN/{$financialYear}/{$newNumber}";
+    }
+
 /**
  * Cancel invoice (revert stock and mark as cancelled)
  */
@@ -225,22 +248,6 @@ public function cancel($id)
             return response()->json([
                 'success' => false,
                 'message' => 'Invoice is already cancelled.'
-            ], 400);
-        }
-
-        // ✅ NEW: Check if invoice is fully paid
-        if ($invoice->payment_status === 'paid') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Paid invoices cannot be cancelled. Please process a refund or sales return instead.'
-            ], 400);
-        }
-
-        // ✅ NEW: Check if any payment has been made (partial payment)
-        if ($invoice->total_paid > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This invoice has received partial payment. Please process a refund or sales return instead.'
             ], 400);
         }
 
@@ -274,6 +281,29 @@ public function cancel($id)
             }
         }
 
+        // Create a Credit Note for any payments received on this invoice
+        $creditNoteMsg = '';
+        $totalPaid = $this->decimalToFloat($invoice->total_paid);
+        if ($totalPaid > 0) {
+            $creditNoteNumber = $this->generateCreditNoteNumber();
+            CreditNote::create([
+                'credit_note_number' => $creditNoteNumber,
+                'party_id'           => $invoice->party_id,
+                'sales_invoice_id'   => $invoice->_id,
+                'credit_date'        => now(),
+                'subtotal'           => $totalPaid,
+                'tax_amount'         => 0.0,
+                'discount_amount'    => 0.0,
+                'amount'             => $totalPaid,
+                'used_amount'        => 0.0,
+                'remaining_amount'   => $totalPaid,
+                'reason'             => "Invoice Cancelled: " . $invoice->invoice_number,
+                'status'             => 'active',
+                'created_by'         => Auth::guard('admin')->id() ?? Auth::id(),
+            ]);
+            $creditNoteMsg = " A Credit Note ({$creditNoteNumber}) of ₹" . number_format($totalPaid, 2) . " has been created for the customer.";
+        }
+
         // Update invoice status to cancelled
         $invoice->update([
             'status' => 'cancelled',
@@ -283,7 +313,7 @@ public function cancel($id)
 
         return response()->json([
             'success' => true,
-            'message' => 'Invoice cancelled successfully. Stock has been returned.'
+            'message' => 'Invoice cancelled successfully. Stock has been returned.' . $creditNoteMsg
         ]);
 
     } catch (\Exception $e) {

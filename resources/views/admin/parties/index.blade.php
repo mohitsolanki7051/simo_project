@@ -564,7 +564,8 @@
          RESPONSIVE (DENSE, PREMIUM MOBILE APP UI)
     ══════════════════════════════════════════════ */
     @media (max-width: 768px) {
-        .parties-container { padding: 8px; background: #f3f4f6; min-height: 100vh; }
+        .dashboard-content { padding: 5px !important; }
+        .parties-container { padding: 4px; background: #f3f4f6; min-height: 100vh; }
 
         .page-header { flex-direction: column; gap: 10px; align-items: stretch; background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: none; }
         .page-title { font-size: 18px; }
@@ -588,41 +589,43 @@
         .ldgp-desktop-only { display: none !important; }
         .ldgp-mobile-only  { display: block !important; }
 
-        .mobile-party-cards { display: flex; flex-direction: column; gap: 10px; }
+        .mobile-party-cards { display: flex; flex-direction: column; gap: 8px; }
 
         /* Premium Mobile Card Layout */
         .mp-card {
-            background: #fff; border-radius: 8px; padding: 12px 14px 10px; margin-bottom: 0px;
+            background: #fff; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;
         }
         
-        .mp-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+        .mp-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
         .mp-card-identity { flex: 1; min-width: 0; }
-        .mp-name { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: #1f2937; line-height: 1.3; }
-        .mp-checkbox { margin-top: 0; flex-shrink: 0; width: 16px; height: 16px; }
-        .mp-gst { font-size: 10.5px; color: #6b7280; margin-top: 3px; margin-left: 24px; font-family: monospace; }
+        .mp-name { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; color: #1f2937; line-height: 1.3; }
+        .mp-checkbox { margin-top: 0; flex-shrink: 0; width: 14px; height: 14px; }
+        .mp-gst { font-size: 9.5px; color: #6b7280; margin-top: 1px; margin-left: 20px; font-family: monospace; }
         
-        /* Fixed to always stay in ONE ROW */
-        .mp-card-balance-row { display: flex; flex-direction: row; gap: 8px; margin-bottom: 10px; background: transparent; padding: 0; border-radius: 0; }
-        .mp-balance-block { flex: 1; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; }
-        .mp-balance-label { font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 3px; }
-        .mp-balance-val { font-size: 14px; font-weight: 700; color: #0f172a; white-space: nowrap; }
-
+        /* Fixed to always stay in ONE ROW, inline styling */
+        .mp-card-balance-row { display: flex; flex-direction: row; gap: 12px; margin-bottom: 6px; background: transparent; padding: 0; border-radius: 0; }
+        .mp-balance-block { flex: none; background: transparent; border: none; padding: 0; display: flex; flex-direction: row; align-items: center; gap: 3px; }
+        .mp-balance-label { font-size: 9.5px; color: #64748b; font-weight: 600; text-transform: none; letter-spacing: 0; margin-bottom: 0; }
+        .mp-balance-label::after { content: ":"; }
+        .mp-balance-val { font-size: 11px; font-weight: 700; color: #0f172a; white-space: nowrap; }
+ 
         /* Inline Tags for Contact and Meta */
-        .mp-card-contact, .mp-card-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; padding: 0; border: none; }
-        .mp-contact-chip, .mp-meta-item { display: inline-flex; align-items: center; padding: 2px 6px; font-size: 10px; background: #f1f5f9; color: #475569; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: 500; }
+        .mp-card-contact, .mp-card-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; padding: 0; border: none; }
+        .mp-contact-chip, .mp-meta-item { display: inline-flex; align-items: center; padding: 1px 4px; font-size: 9.5px; background: #f1f5f9; color: #475569; border-radius: 3px; border: 1px solid #e2e8f0; font-weight: 500; }
         .mp-meta-item em { color: #059669; font-style: normal; margin-left: 2px; }
-
+ 
         /* Highlighted Action Buttons */
-        .mp-card-actions { border-top: 1px dashed #e2e8f0; margin-top: 10px; padding-top: 12px; display: flex; justify-content: space-between; gap: 10px; }
+        .mp-card-actions { border-top: 1px dashed #e2e8f0; margin-top: 6px; padding-top: 6px; display: flex; justify-content: space-between; gap: 8px; }
         .mp-action-btn { 
             display: inline-flex; align-items: center; justify-content: center; 
-            padding: 7px 8px; /* Increased padding for easy clicking */
-            border-radius: 8px; 
-            font-size: 12px; /* Slightly larger text */
+            padding: 4px 6px; 
+            border-radius: 4px; 
+            font-size: 11px; 
             font-weight: 600; 
-            flex: 1; /* Stretch to fill 50% width each */
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Added slight shadow */
+            flex: 1; 
+            box-shadow: none;
+            height: auto;
         }
         .mp-action-btn.ledger-btn { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
         .mp-action-btn.edit-btn { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }

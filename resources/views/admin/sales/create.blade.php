@@ -52,71 +52,69 @@
                                     </button>
                                 </div>
 
-                                <div class="section-body">
-                                    <div id="selectedPartyDetails" class="selected-customer-details" style="display: none;">
-                                        <div class="customer-header">
-                                            <h4 id="partyNameDisplay">Party Name</h4>
-                                            <span id="partyTypeBadge" class="party-type-badge"></span>
-                                            <button type="button" class="btn-change-customer" onclick="openSelectPartyModal()">
-                                                Change
-                                            </button>
-                                        </div>
+                                <div class="section-body selected-customer-details" id="selectedPartyDetails" style="display: none;">
+                                    <div class="customer-header">
+                                        <h4 id="partyNameDisplay">Party Name</h4>
+                                        <span id="partyTypeBadge" class="party-type-badge"></span>
+                                        <button type="button" class="btn-change-customer" onclick="openSelectPartyModal()">
+                                            Change
+                                        </button>
+                                    </div>
 
-                                        <div class="customer-info-grid">
-                                            <div class="info-column">
-                                                <div class="info-row">
-                                                    <span class="info-label">Phone:</span>
-                                                    <span id="partyPhone" class="info-value">-</span>
-                                                </div>
-                                                <div class="info-row">
-                                                    <span class="info-label">Email:</span>
-                                                    <span id="partyEmail" class="info-value">-</span>
-                                                </div>
-                                                <div class="info-row">
-                                                    <span class="info-label">GST:</span>
-                                                    <span id="partyGst" class="info-value">-</span>
-                                                </div>
+                                    <div class="customer-info-grid">
+                                        <div class="info-column">
+                                            <div class="info-row">
+                                                <span class="info-label">Phone:</span>
+                                                <span id="partyPhone" class="info-value">-</span>
                                             </div>
-                                            <div class="info-column">
-                                                <div class="info-row">
-                                                    <span class="info-label">Opening Bal:</span>
-                                                    <span id="partyOpeningBalance" class="info-value">-</span>
-                                                </div>
-                                                <div class="info-row">
-                                                    <span class="info-label">Credit Limit:</span>
-                                                    <span id="partyCreditLimit" class="info-value">-</span>
-                                                </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Email:</span>
+                                                <span id="partyEmail" class="info-value">-</span>
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">GST:</span>
+                                                <span id="partyGst" class="info-value">-</span>
                                             </div>
                                         </div>
+                                        <div class="info-column">
+                                            <div class="info-row">
+                                                <span class="info-label">Opening Bal:</span>
+                                                <span id="partyOpeningBalance" class="info-value">-</span>
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Credit Limit:</span>
+                                                <span id="partyCreditLimit" class="info-value">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                        <input type="hidden" name="party_id" id="partyIdInput">
-                                        <input type="hidden" name="party_type" id="partyTypeInput">
+                                    <input type="hidden" name="party_id" id="partyIdInput">
+                                    <input type="hidden" name="party_type" id="partyTypeInput">
 
-                                        <div class="address-section">
-                                            <div class="address-header">
-                                                <h5>Address Details</h5>
+                                    <div class="address-section">
+                                        <div class="address-header">
+                                            <h5>Address Details</h5>
+                                        </div>
+
+                                        <div class="address-grid">
+                                            <div class="address-card">
+                                                <div class="address-card-header">
+                                                    <span class="address-type">Billing Address</span>
+                                                </div>
+                                                <div class="address-content">
+                                                    <p id="billingAddressText">Select a party to view address</p>
+                                                </div>
+                                                <input type="hidden" name="billing_address" id="billingAddressInput">
                                             </div>
 
-                                            <div class="address-grid">
-                                                <div class="address-card">
-                                                    <div class="address-card-header">
-                                                        <span class="address-type">Billing Address</span>
-                                                    </div>
-                                                    <div class="address-content">
-                                                        <p id="billingAddressText">Select a party to view address</p>
-                                                    </div>
-                                                    <input type="hidden" name="billing_address" id="billingAddressInput">
+                                            <div class="address-card">
+                                                <div class="address-card-header">
+                                                    <span class="address-type">Shipping Address</span>
                                                 </div>
-
-                                                <div class="address-card">
-                                                    <div class="address-card-header">
-                                                        <span class="address-type">Shipping Address</span>
-                                                    </div>
-                                                    <div class="address-content">
-                                                        <p id="shippingAddressText">Select a party to view address</p>
-                                                    </div>
-                                                    <input type="hidden" name="shipping_address" id="shippingAddressInput">
+                                                <div class="address-content">
+                                                    <p id="shippingAddressText">Select a party to view address</p>
                                                 </div>
+                                                <input type="hidden" name="shipping_address" id="shippingAddressInput">
                                             </div>
                                         </div>
                                     </div>
@@ -263,6 +261,7 @@
                                     </tfoot>
                                 </table>
                             </div>
+                            <div class="mobile-items-container" id="mobileItemsContainer"></div>
                         </div>
                     </div>
 
@@ -426,11 +425,22 @@
             </div>
         </form>
     </div>
+    <!-- Mobile Sticky Bottom Bar (MyBillBook style) -->
+    <div class="mobile-sticky-bottom-bar">
+        <div class="mobile-sticky-total">
+            <span class="mobile-sticky-label">Grand Total</span>
+            <span class="mobile-sticky-val">₹ <span id="mobileStickyGrandTotal">0.00</span></span>
+        </div>
+        <button type="button" class="btn-mobile-save" onclick="$('#salesInvoiceForm').submit()">
+            💾 Save Invoice
+        </button>
+    </div>
+
 </div>
 
 <!-- Select Party Modal -->
 <div class="modal" id="selectPartyModal">
-    <div class="modal-overlay" onclick="closeSelectPartyModal()"></div>
+    <div class="modal-overlay"></div>
     <div class="modal-content modal-xl">
         <div class="modal-header">
             <div class="modal-icon">👥</div>
@@ -497,7 +507,7 @@
 
 <!-- Create Party Modal -->
 <div class="modal" id="createPartyModal">
-    <div class="modal-overlay" onclick="closeCreatePartyModal()"></div>
+    <div class="modal-overlay"></div>
     <div class="modal-content modal-lg">
         <div class="modal-header">
             <div class="modal-icon">👤</div>
@@ -644,7 +654,7 @@
 
 <!-- Add Item Modal -->
 <div class="modal" id="addItemModal">
-    <div class="modal-overlay" onclick="closeAddItemModal()"></div>
+    <div class="modal-overlay"></div>
     <div class="modal-content modal-lg">
         <div class="modal-header">
             <div class="modal-icon">🛒</div>
@@ -709,6 +719,7 @@
             </div>
         </div>
         <div class="modal-actions">
+            <button type="button" class="btn-modal btn-cancel" onclick="closeAddItemModal()">Cancel</button>
             <button type="button" class="btn-modal btn-primary" onclick="addSelectedProducts()">Done</button>
         </div>
     </div>
@@ -905,7 +916,7 @@
 .btn-submit-invoice:disabled { opacity:.6; cursor:not-allowed; }
 
 /* Modal */
-.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000; align-items:center; justify-content:center; }
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:20000; align-items:center; justify-content:center; }
 .modal-overlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.4); }
 .modal-content { position:relative; background:white; border-radius:6px; width:90%; max-width:800px; max-height:90vh; overflow-y:auto; animation:modalFadeIn .2s ease; box-shadow:0 4px 20px rgba(0,0,0,.15); }
 .modal-lg,.modal-xl { max-width:800px; }
@@ -976,10 +987,635 @@
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid rgba(255,255,255,.3); border-radius:50%; border-top-color:#fff; animation:spin .8s linear infinite; margin-right:5px; }
 #warehouseSelectSection { background:#f8f9fa; border:2px dashed #ddd; border-radius:8px; padding:30px 20px; margin-bottom:5px; }
 
-@media (max-width:768px) {
+.mobile-items-container {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+}
+.mobile-item-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 10px;
+}
+.mobile-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+.mobile-item-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.mobile-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+.mobile-item-sub {
+    font-size: 10px;
+    color: #666;
+}
+.btn-delete-mobile {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: #dc3545;
+    padding: 2px 6px;
+}
+.mobile-item-grid-prices {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.mobile-item-grid-qty {
+    display: grid;
+    grid-template-columns: 55% 45%;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: flex-end;
+}
+.mobile-item-col-qty {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mobile-qty-controls {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 28px;
+    background: #fff;
+}
+.mobile-qty-btn {
+    width: 30px;
+    height: 100%;
+    background: #f8f9fa;
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #fa8725;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    user-select: none;
+    padding: 0;
+    margin: 0;
+}
+.mobile-qty-btn:active {
+    background: #e9ecef;
+}
+.mobile-qty-controls .qty-edit-mobile {
+    flex: 1;
+    border: none !important;
+    border-left: 1px solid #ccc !important;
+    border-right: 1px solid #ccc !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.mobile-item-col-warranty {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mobile-item-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mobile-item-label {
+    font-size: 9px;
+    font-weight: 500;
+    color: #666;
+    text-transform: uppercase;
+}
+.mobile-item-input {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 11px;
+    text-align: center;
+    background: #fff;
+    box-sizing: border-box;
+}
+.mobile-item-input:focus {
+    outline: none;
+    border-color: #fa8725;
+}
+.mobile-item-footer-clean {
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 8px;
+    margin-top: 4px;
+}
+.mobile-warranty-inputs {
+    display: flex;
+    gap: 4px;
+}
+.mobile-warranty-inputs .w-period {
+    width: 35%;
+}
+.mobile-warranty-inputs .w-type {
+    width: 65%;
+    text-align: left;
+}
+.mobile-item-amount-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+.mobile-item-amount-label {
+    font-size: 9px;
+    color: #888;
+}
+.mobile-item-amount-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fa8725;
+}
+.mobile-sticky-bottom-bar {
+    display: none;
+    position: fixed;
+    bottom: 60px;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    border-top: 1px solid #e0e0e0;
+    box-shadow: 0 -3px 10px rgba(0,0,0,0.08);
+    padding: 10px 16px;
+    z-index: 9998;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+}
+.mobile-sticky-total {
+    display: flex;
+    flex-direction: column;
+}
+.mobile-sticky-label {
+    font-size: 10px;
+    color: #666;
+}
+.mobile-sticky-val {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fa8725;
+}
+.btn-mobile-save {
+    background: #fa8725;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(250,135,37,0.2);
+}
+.btn-mobile-save:active {
+    background: #e07212;
+}
+.product-sub-txt {
+    display: none;
+    font-size: 9px;
+    color: #666;
+    margin-top: 3px;
+}
+.product-qty-selector {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 24px;
+    width: 80px;
+    margin: 0 auto;
+    background: #fff;
+}
+.prod-qty-btn {
+    width: 22px;
+    height: 100%;
+    background: #f8f9fa;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #fa8725;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    user-select: none;
+}
+.prod-qty-btn:active {
+    background: #e9ecef;
+}
+.product-qty-selector .qty-input {
+    flex: 1;
+    border: none !important;
+    border-left: 1px solid #ccc !important;
+    border-right: 1px solid #ccc !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    text-align: center;
+    font-size: 11px;
+    width: 36px !important;
+}
+.row-selected-active {
+    background-color: #fff8f2 !important;
+}
+body.modal-open {
+    overflow: hidden !important;
+}
+
+@media (max-width: 768px) {
     .two-col-row,.invoice-row { flex-direction:column; }
     .col-50,.form-row .col-6 { width:100%; }
     .address-grid,.customer-info-grid { grid-template-columns:1fr; }
+    
+    /* Toggle table / mobile card views */
+    .items-table-container { display: none !important; }
+    .mobile-items-container { display: flex !important; }
+    
+    /* Sticky bottom bar on mobile */
+    .mobile-sticky-bottom-bar { display: flex; }
+    
+    /* Give padding at the bottom of form so it doesn't get covered by sticky bar */
+    .invoice-form-wrapper {
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        padding-bottom: 140px !important;
+    }
+    .dashboard-content {
+        padding: 5px !important;
+    }
+    .form-section {
+        border-radius: 6px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* Selected customer details layout on mobile */
+    .selected-customer-details {
+        padding: 10px !important;
+    }
+    .selected-customer-details .customer-header {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        border-bottom: 1px solid #f0f0f0 !important;
+        padding-bottom: 6px !important;
+        margin-bottom: 8px !important;
+    }
+    .selected-customer-details .customer-header h4 {
+        font-size: 12px !important;
+        margin: 0 !important;
+    }
+    .selected-customer-details .customer-header .party-type-badge {
+        margin-left: 0 !important;
+        padding: 1px 6px !important;
+        font-size: 8px !important;
+    }
+    .selected-customer-details .btn-change-customer {
+        margin-left: auto !important;
+        padding: 2px 6px !important;
+        font-size: 9px !important;
+        background: #fa8725 !important;
+    }
+    
+    /* Keep the info grid double columns on mobile too to save height! */
+    .selected-customer-details .customer-info-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px 12px !important;
+        margin-bottom: 8px !important;
+    }
+    .selected-customer-details .info-column .info-row {
+        margin-bottom: 2px !important;
+    }
+    .selected-customer-details .info-column .info-label {
+        width: 60px !important;
+        font-size: 9px !important;
+        color: #777 !important;
+    }
+    .selected-customer-details .info-column .info-value {
+        font-size: 9px !important;
+        font-weight: 500 !important;
+    }
+
+    /* Address sections - extremely compact */
+    .selected-customer-details .address-section {
+        border-top: 1px dashed #e0e0e0 !important;
+        padding-top: 6px !important;
+        margin-top: 4px !important;
+    }
+    .selected-customer-details .address-header {
+        display: none !important;
+    }
+    .selected-customer-details .address-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+    .selected-customer-details .address-card {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+    .selected-customer-details .address-card-header {
+        display: inline !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+        border-bottom: none !important;
+    }
+    .selected-customer-details .address-type {
+        font-size: 9px !important;
+        font-weight: 700 !important;
+        color: #666 !important;
+        text-transform: uppercase !important;
+    }
+    .selected-customer-details .address-type::after {
+        content: ": " !important;
+    }
+    .selected-customer-details .address-content {
+        display: inline !important;
+        font-size: 9px !important;
+        color: #333 !important;
+    }
+    .selected-customer-details .address-content p {
+        display: inline !important;
+        margin: 0 !important;
+    }
+    
+    /* Hide the desktop submit button on mobile */
+    .btn-submit-invoice { display: none !important; }
+
+    /* Hide columns in party select modal on mobile */
+    .th-email, .th-status, .th-action,
+    .party-email, .party-status-col, .party-action-col {
+        display: none !important;
+    }
+
+    /* Hide columns in product select modal on mobile */
+    .th-code, .th-stock, .product-code-col, .product-stock-col {
+        display: none !important;
+    }
+    .product-sub-txt {
+        display: block;
+    }
+
+    /* Full-screen modals on mobile viewport */
+    .modal {
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+    }
+    .modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    .modal-body {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 15px !important;
+    }
+    .modal-content > form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+    }
+    .modal-header, .modal-actions {
+        flex-shrink: 0 !important;
+    }
+    .parties-table-container, .products-table-container {
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+    }
+    .parties-table th {
+        position: static !important;
+    }
+
+    /* Stacking Search and Warehouse buttons on mobile select items modal */
+    #productSearchSection > div {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    #productSearchSection .search-container {
+        width: 100% !important;
+    }
+    #productSearchSection div[style*="flex-shrink"] {
+        display: flex !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+    #selectedWarehouseName {
+        flex: 1 !important;
+        text-align: center !important;
+        font-size: 10px !important;
+        padding: 6px 8px !important;
+    }
+    #productSearchSection button {
+        padding: 6px 12px !important;
+        font-size: 11px !important;
+    }
+
+
+    /* Transform select product table to stack of cards on mobile */
+    #productsTableWrapper table, 
+    #productsTableWrapper thead, 
+    #productsTableWrapper tbody, 
+    #productsTableWrapper tr, 
+    #productsTableWrapper td {
+        display: block !important;
+    }
+    #productsTableWrapper thead {
+        display: none !important; /* Hide header completely on mobile */
+    }
+    #productsTableBody {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        padding: 5px 0 !important;
+    }
+    #productsTableBody tr {
+        background: #fff !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        position: relative !important;
+        cursor: pointer !important;
+        transition: background-color 0.15s !important;
+    }
+    #productsTableBody tr.row-selected-active {
+        background-color: #fff8f2 !important;
+        border-color: #fa8725 !important;
+    }
+    
+    /* Cell layout adjustments */
+    #productsTableBody td {
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        text-align: left !important;
+    }
+    
+    /* 1. Name & details (top left) */
+    #productsTableBody .product-name {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: #333 !important;
+        margin-bottom: 8px !important;
+        padding-right: 40px !important; /* leaves space for absolute checkbox */
+    }
+    #productsTableBody .product-name .product-sub-txt {
+        display: block !important;
+        font-size: 10px !important;
+        color: #666 !important;
+        font-weight: 400 !important;
+        margin-top: 3px !important;
+    }
+    
+    /* 2. Hide redundant columns */
+    #productsTableBody .product-code-col,
+    #productsTableBody .product-stock-col {
+        display: none !important;
+    }
+    
+    /* 3. MRP and Sale Price side by side in a small flex row */
+    #productsTableBody .product-mrp,
+    #productsTableBody .product-price {
+        display: inline-block !important;
+        vertical-align: top !important;
+        font-size: 11px !important;
+        margin-bottom: 8px !important;
+    }
+    #productsTableBody .product-mrp {
+        color: #999 !important;
+        text-decoration: line-through !important;
+        margin-right: 12px !important;
+    }
+    #productsTableBody .product-mrp::before {
+        content: "MRP: " !important;
+        text-decoration: none !important;
+        display: inline-block !important;
+    }
+    #productsTableBody .product-price {
+        color: #fa8725 !important;
+        font-weight: 600 !important;
+    }
+    #productsTableBody .product-price::before {
+        content: "Sale: " !important;
+        color: #555 !important;
+        font-weight: 400 !important;
+    }
+    
+    /* 4. Bottom row: Qty Selector (left/center) and checkbox (top right) */
+    /* 4. Bottom row: Qty Selector (left/center) and checkbox (top right) */
+    #productsTableBody .product-qty-col {
+        position: absolute !important;
+        bottom: 12px !important;
+        right: 12px !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    #productsTableBody .product-qty-col::before {
+        display: none !important; /* Hide "Qty to Add:" label completely */
+    }
+    #productsTableBody .product-qty-selector {
+        display: flex !important;
+        align-items: center !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
+        overflow: hidden !important;
+        height: 26px !important;
+        width: 80px !important;
+        background: #fff !important;
+        margin: 0 !important;
+    }
+    #productsTableBody .prod-qty-btn {
+        width: 22px !important;
+        height: 100% !important;
+        font-size: 13px !important;
+        background: #f8f9fa !important;
+        border: none !important;
+        color: #fa8725 !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        user-select: none !important;
+    }
+    #productsTableBody .prod-qty-btn:active {
+        background: #e9ecef !important;
+    }
+    #productsTableBody .product-qty-selector .qty-input {
+        flex: 1 !important;
+        border: none !important;
+        border-left: 1px solid #ccc !important;
+        border-right: 1px solid #ccc !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        text-align: center !important;
+        font-size: 11px !important;
+        width: 36px !important;
+    }
+    
+    /* 5. Select Checkbox positioned absolutely in top right corner */
+    #productsTableBody .product-select-col {
+        position: absolute !important;
+        top: 12px !important;
+        right: 12px !important;
+        margin: 0 !important;
+    }
+    #productsTableBody .select-product {
+        width: 18px !important;
+        height: 18px !important;
+        cursor: pointer !important;
+        margin: 0 !important;
+    }
 }
 </style>
 @endpush
@@ -1074,21 +1710,35 @@ function showCashMemoFields() {
 
 function openSelectPartyModal() {
     $('#selectPartyModal').css('display', 'flex');
+    $('body').addClass('modal-open');
     loadParties();
 }
 
+/************************************************************************
+ * Note: closeSelectPartyModal should keep modal-open class active if *
+ * we are transitioning to openCreatePartyModal, otherwise remove it.   *
+ * But since openCreatePartyModal immediately runs closeSelectPartyModal,*
+ * we can check if createPartyModal is opening, or simply toggle body   *
+ * class properly. A clean way:                                       *
+ ************************************************************************/
 function closeSelectPartyModal() {
     $('#selectPartyModal').hide();
+    // Only remove modal-open if createPartyModal is not also open or opening
+    if ($('#createPartyModal').css('display') !== 'flex') {
+        $('body').removeClass('modal-open');
+    }
     $('#searchParty').val('');
 }
 
 function openCreatePartyModal() {
     closeSelectPartyModal();
     $('#createPartyModal').css('display', 'flex');
+    $('body').addClass('modal-open');
 }
 
 function closeCreatePartyModal() {
     $('#createPartyModal').hide();
+    $('body').removeClass('modal-open');
     $('#createPartyForm')[0].reset();
     $('#sameBillingShipping').prop('checked', false);
 }
@@ -1108,14 +1758,14 @@ function loadParties(search = '') {
         response.parties.forEach(party => {
             const statusClass = party.status === 'active' ? 'status-active' : 'status-inactive';
             tbody.append(`
-                <tr>
-                    <td class="party-name">${party.name}</td>
-                    <td>${party.party_type_text}</td>
+                <tr onclick="selectParty('${party.id}')" style="cursor: pointer;">
+                    <td class="party-name"><strong>${party.name}</strong></td>
+                    <td class="party-type-col">${party.party_type_text}</td>
                     <td class="party-phone">${party.phone || '-'}</td>
                     <td class="party-email">${party.email || '-'}</td>
-                    <td><span class="status-badge ${statusClass}">${party.status}</span></td>
-                    <td>
-                        <button type="button" class="btn-select-party-row" onclick="selectParty('${party.id}')" title="Select">✓</button>
+                    <td class="party-status-col"><span class="status-badge ${statusClass}">${party.status}</span></td>
+                    <td class="party-action-col">
+                        <button type="button" class="btn-select-party-row" onclick="event.stopPropagation(); selectParty('${party.id}')" title="Select">✓</button>
                     </td>
                 </tr>`);
         });
@@ -1219,10 +1869,12 @@ function openAddItemModal() {
     if (!$('#invoiceType').val()) { showAlert('Please select invoice type first', 'error'); return; }
     resetWarehouseSelection();
     $('#addItemModal').css('display', 'flex');
+    $('body').addClass('modal-open');
 }
 
 function closeAddItemModal() {
     $('#addItemModal').hide();
+    $('body').removeClass('modal-open');
     $('#searchProduct').val('');
 }
 
@@ -1249,28 +1901,75 @@ function loadProducts(search = '', warehouseId = null) {
             const mrp     = parseFloat(product.mrp_price || 0);
             const discPct = calculateDiscountPercentage(mrp, price);
 
-            tbody.append(`<tr>
-                <td class="product-name">${product.name}</td>
-                <td class="product-code">${product.sku || '-'}</td>
+            tbody.append(`<tr onclick="toggleProductRowCheckbox(this, event)" style="cursor: pointer;">
+                <td class="product-name">
+                    <div class="product-name-txt"><strong>${product.name}</strong></div>
+                    <div class="product-sub-txt">${product.sku || '-'} | Stock: ${product.current_stock} ${product.unit}</div>
+                </td>
+                <td class="product-code-col">${product.sku || '-'}</td>
                 <td class="product-mrp">₹ ${mrp.toFixed(2)}</td>
                 <td class="product-price">₹ ${price.toFixed(2)}${discPct > 0 ? `<br><small style="color:#28a745;">(${discPct}% off)</small>` : ''}</td>
-                <td class="product-stock">${product.current_stock} ${product.unit}</td>
-                <td class="product-qty">
-                    <input type="number" class="qty-input" min="1" max="${product.current_stock}" value="1"
-                        data-product-id="${product.id}" data-variant-id="${product.variant_id || ''}"
-                        data-type="${product.type}" data-price="${price}" data-mrp="${mrp}"
-                        data-stock="${product.current_stock}" data-name="${product.name}"
-                        data-sku="${product.sku}" data-hsn="${product.hsn_code || ''}"
-                        data-tax="${product.tax_percent || 0}" data-unit="${product.unit}"
-                        data-warranty-type="${product.warranty_type}" data-warranty-period="${product.warranty_period}">
+                <td class="product-stock-col">${product.current_stock} ${product.unit}</td>
+                <td class="product-qty-col" onclick="event.stopPropagation()">
+                    <div class="product-qty-selector">
+                        <button type="button" class="prod-qty-btn minus" onclick="adjustProductModalQty(this, -1)">−</button>
+                        <input type="number" class="qty-input" min="1" max="${product.current_stock}" value="1"
+                            data-product-id="${product.id}" data-variant-id="${product.variant_id || ''}"
+                            data-type="${product.type}" data-price="${price}" data-mrp="${mrp}"
+                            data-stock="${product.current_stock}" data-name="${product.name}"
+                            data-sku="${product.sku}" data-hsn="${product.hsn_code || ''}"
+                            data-tax="${product.tax_percent || 0}" data-unit="${product.unit}"
+                            data-warranty-type="${product.warranty_type}" data-warranty-period="${product.warranty_period}">
+                        <button type="button" class="prod-qty-btn plus" onclick="adjustProductModalQty(this, 1)">+</button>
+                    </div>
                 </td>
-                <td><input type="checkbox" class="select-product"></td>
+                <td class="product-select-col" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="select-product" onchange="toggleRowActive(this)">
+                </td>
             </tr>`);
         });
     }).fail(function() {
         loading.hide();
         tbody.html('<tr><td colspan="7" style="padding:40px;text-align:center;color:#c33;">Failed to load products</td></tr>');
     });
+}
+
+function toggleProductRowCheckbox(row, event) {
+    if (event.target.closest('input, select, button, a')) return;
+    const checkbox = $(row).find('.select-product');
+    const checked = checkbox.is(':checked');
+    checkbox.prop('checked', !checked);
+    toggleRowActive(checkbox);
+}
+
+function toggleRowActive(checkbox) {
+    const row = $(checkbox).closest('tr');
+    if ($(checkbox).is(':checked')) {
+        row.addClass('row-selected-active');
+    } else {
+        row.removeClass('row-selected-active');
+    }
+}
+
+function adjustProductModalQty(btn, amount) {
+    const input = $(btn).siblings('.qty-input');
+    const currentVal = parseFloat(input.val()) || 1;
+    const newVal = Math.max(1, currentVal + amount);
+    const maxStock = parseFloat(input.attr('max')) || 9999;
+    
+    if (newVal > maxStock) {
+        showAlert(`❌ Only ${maxStock} units available in stock`, 'error');
+        return;
+    }
+    
+    input.val(newVal);
+    
+    // Auto-check the product row if quantity is changed
+    const checkbox = $(btn).closest('tr').find('.select-product');
+    if (!checkbox.is(':checked')) {
+        checkbox.prop('checked', true);
+        toggleRowActive(checkbox);
+    }
 }
 
 function addSelectedProducts() {
@@ -1411,6 +2110,20 @@ function resetWarehouseSelection() {
 }
 
 function removeItem(index) { items.splice(index, 1); renderItemsTable(); }
+function adjustMobileQty(index, amount) {
+    if (!items[index]) return;
+    const currentQty = parseFloat(items[index].quantity) || 1;
+    const newQty = Math.max(1, currentQty + amount);
+    const maxStock = parseFloat(items[index].max_stock) || 9999;
+    
+    if (newQty > maxStock) {
+        showAlert(`❌ Only ${maxStock} units available for ${items[index].name}`, 'error');
+        return;
+    }
+    
+    items[index].quantity = newQty;
+    renderItemsTable();
+}
 function updateWarrantyType(index, value)   { items[index].warranty_type   = value; }
 function updateWarrantyPeriod(index, value) { items[index].warranty_period = parseInt(value) || 0; }
 
@@ -1418,16 +2131,19 @@ function updateWarrantyPeriod(index, value) { items[index].warranty_period = par
 
 function renderItemsTable() {
     const tbody       = $('#itemsTableBody');
+    const mobileContainer = $('#mobileItemsContainer');
     const invoiceType = $('#invoiceType').val() || 'gst';
 
     tbody.empty();
+    mobileContainer.empty();
     enableExtraFields();
 
     if (items.length === 0) {
         const emptyColspan = currentInvoiceType === 'gst' ? 11 : 9;
         tbody.html(`<tr class="empty-row"><td colspan="${emptyColspan}"><div class="empty-items"><div class="empty-icon">🛒</div><p>No items added yet</p><button type="button" class="btn-add-first-item" onclick="openAddItemModal()">+ Add First Item</button></div></td></tr>`);
+        mobileContainer.html(`<div class="empty-items" style="padding: 20px; text-align: center; border: 1px dashed #ccc; border-radius: 6px; background: #fff;"><div class="empty-icon" style="font-size: 24px; margin-bottom: 8px;">🛒</div><p style="font-size: 11px; color: #666; margin-bottom: 10px;">No items added yet</p><button type="button" class="btn-small" onclick="openAddItemModal()" style="border-color: #fa8725; color: #fa8725; padding: 6px 14px; font-size: 11px;">+ Add First Item</button></div>`);
         $('#itemsTableFooter').hide();
-        $('#totalMRP, #totalDiscount, #cgstTotal, #sgstTotal, #igstTotal, #totalTax, #subtotal, #grandTotal').text('0.00');
+        $('#totalMRP, #totalDiscount, #cgstTotal, #sgstTotal, #igstTotal, #totalTax, #subtotal, #grandTotal, #mobileStickyGrandTotal').text('0.00');
         calculateBalance();
         return;
     }
@@ -1473,6 +2189,7 @@ function renderItemsTable() {
 
         const inclBadge = isIncl ? `<span class="incl-badge">INCL</span>` : '';
 
+        // Render Desktop Row
         let row = `<tr class="${isIncl ? 'row-inclusive' : ''}">
             <td class="item-name">${item.name}${inclBadge}</td>`;
 
@@ -1523,6 +2240,76 @@ function renderItemsTable() {
             </td></tr>`;
 
         tbody.append(row);
+
+        // Render Mobile Card
+        let card = `
+        <div class="mobile-item-card" data-index="${index}">
+            <div class="mobile-item-header">
+                <div class="mobile-item-title-wrap">
+                    <span class="mobile-item-title">${item.name}</span>
+                    ${inclBadge}
+                    <span class="mobile-item-sub">${item.sku || '-'} | ${item.unit || 'PCS'}</span>
+                </div>
+                <button type="button" class="btn-delete-mobile" onclick="removeItem(${index})" title="Remove">🗑️</button>
+            </div>
+            
+            <!-- Row 1: Prices & Taxes -->
+            <div class="mobile-item-grid-prices">
+                <div class="mobile-item-col">
+                    <label class="mobile-item-label">Sale Price (₹)</label>
+                    <input type="number" class="mobile-item-input price-edit-mobile" min="0" step="0.01" value="${salePrice.toFixed(2)}"
+                        onchange="updateItem(${index}, 'price', this.value)">
+                </div>
+                <div class="mobile-item-col">
+                    <label class="mobile-item-label">Disc %</label>
+                    <input type="number" class="mobile-item-input discount-edit-mobile" min="0" max="100" step="0.01" value="${discountPct.toFixed(2)}"
+                        onchange="updateItem(${index}, 'discount', this.value)">
+                </div>
+                <div class="mobile-item-col">
+                    <label class="mobile-item-label">Tax %</label>
+                    ${invoiceType === 'gst' ? `
+                        <input type="number" class="mobile-item-input tax-edit-mobile" min="0" max="100" step="0.01" value="${taxPercent.toFixed(2)}"
+                            onchange="updateItem(${index}, 'tax_percent', this.value)">
+                    ` : `
+                        <input type="text" class="mobile-item-input" value="—" disabled style="background:#f1f1f1;text-align:center;">
+                    `}
+                </div>
+            </div>
+
+            <!-- Row 2: Quantity Adjuster & Warranty -->
+            <div class="mobile-item-grid-qty">
+                <div class="mobile-item-col-qty">
+                    <label class="mobile-item-label">Quantity</label>
+                    <div class="mobile-qty-controls">
+                        <button type="button" class="mobile-qty-btn minus" onclick="adjustMobileQty(${index}, -1)">−</button>
+                        <input type="number" class="mobile-item-input qty-edit-mobile" min="1" max="${item.max_stock || 9999}" value="${quantity}"
+                            onchange="updateItem(${index}, 'quantity', this.value)">
+                        <button type="button" class="mobile-qty-btn plus" onclick="adjustMobileQty(${index}, 1)">+</button>
+                    </div>
+                </div>
+                <div class="mobile-item-col-warranty">
+                    <label class="mobile-item-label">Warranty</label>
+                    <div class="mobile-warranty-inputs">
+                        <input type="number" min="0" value="${item.warranty_period || 0}"
+                            onchange="updateWarrantyPeriod(${index}, this.value)" class="mobile-item-input w-period">
+                        <select onchange="updateWarrantyType(${index}, this.value)" class="mobile-item-input w-type">
+                            <option value="none" ${item.warranty_type === 'none' ? 'selected' : ''}>None</option>
+                            <option value="month" ${item.warranty_type === 'month' ? 'selected' : ''}>Month(s)</option>
+                            <option value="year" ${item.warranty_type === 'year' ? 'selected' : ''}>Year(s)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer: Final Amount -->
+            <div class="mobile-item-footer-clean">
+                <div class="mobile-item-amount-wrap">
+                    <span class="mobile-item-amount-label">Final Amount</span>
+                    <span class="mobile-item-amount-val">₹ ${displayFinalTotal.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>`;
+        mobileContainer.append(card);
     });
 
     $('#footerMRP').text('₹ ' + footerMRP.toFixed(2));
@@ -1827,6 +2614,7 @@ function calculateInvoiceSummary(totalMRP, totalDiscount, totalTax, subtotal) {
     $('#totalDiscount').text(totalDiscount.toFixed(2));
     $('#subtotal').text(subtotal.toFixed(2));
     $('#grandTotal').text(grandTotal.toFixed(2));
+    $('#mobileStickyGrandTotal').text(grandTotal.toFixed(2));
 
     clampAmountPaid();
 }

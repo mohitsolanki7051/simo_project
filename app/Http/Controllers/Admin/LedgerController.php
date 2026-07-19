@@ -63,7 +63,8 @@ class LedgerController extends Controller
             $balance -= $controller->getSalesPaymentsIn($id)
                 ->sum(fn($pmt) => $controller->toFloat($pmt->amount) + $controller->toFloat($pmt->discount ?? 0));
 
-            $balance -= CreditNote::where('party_id', $id)->get()
+            $balance -= CreditNote::with(['invoice'])->where('party_id', $id)->get()
+                ->reject(fn($cn) => $cn->invoice && $cn->invoice->status === 'cancelled')
                 ->sum(fn($cn) => $controller->toFloat($cn->amount));
 
             $balance += PurchasePayment::where('party_id', $id)
@@ -375,7 +376,6 @@ class LedgerController extends Controller
 
         $salesInvoices = SalesInvoice::where('party_id', $id)
             ->where('status', '!=', 'draft')
-            ->where('status', '!=', 'cancelled')
             ->get();
 
         // invoice_id (string) => invoice_type ('gst' | 'cash'), used to tag
@@ -385,19 +385,22 @@ class LedgerController extends Controller
         )->toArray();
 
         foreach ($salesInvoices as $inv) {
+            $isCancelled = ($inv->status === 'cancelled');
+            $debitVal = $isCancelled ? 0.0 : $this->toFloat($inv->grand_total);
+            
             [$dueStatus, $dueDateStr] = $this->resolveInvoiceDueStatus($inv);
 
             $rows[] = [
                 'raw_date'         => $inv->invoice_date,
                 'date'             => $this->formatDate($inv->invoice_date),
-                'voucher_type'     => 'Sale Invoice',
+                'voucher_type'     => $isCancelled ? 'Sale Invoice (Cancelled)' : 'Sale Invoice',
                 'sr_no'            => $inv->invoice_number,
                 'payment_mode'     => '—',
                 'reference_number' => null,
-                'debit'            => $this->toFloat($inv->grand_total),
+                'debit'            => $debitVal,
                 'credit'           => 0.0,
-                'due_date'         => $dueDateStr,
-                'due_status'       => $dueStatus,
+                'due_date'         => $isCancelled ? '—' : $dueDateStr,
+                'due_status'       => $isCancelled ? 'Cancelled' : $dueStatus,
                 'invoice_type'     => $inv->invoice_type ?? 'gst',
                 '_sort_priority'   => 1, // invoices first on a given date
                 'url'              => route('admin.sales.show', $inv->id),
@@ -437,7 +440,10 @@ class LedgerController extends Controller
             }
         }
 
-        foreach (CreditNote::where('party_id', $id)->get() as $cn) {
+        foreach (CreditNote::with(['invoice'])->where('party_id', $id)->get() as $cn) {
+            if ($cn->invoice && $cn->invoice->status === 'cancelled') {
+                continue;
+            }
             $linkedInvId = (string) ($cn->sales_invoice_id ?? '');
             $rows[] = [
                 'raw_date'         => $cn->credit_date,
