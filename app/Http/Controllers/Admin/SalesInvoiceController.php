@@ -1311,51 +1311,37 @@ public function store(Request $request)
             }
             $invoice->save();
 
-            /* ================= CREATE PAYMENT RECORD ================= */
-            // ✅ FIX: payment_type, payment_subtype, allocations — sabhi fields set karo
-            // Taaki LedgerController sahi se match kar sake
-            if ($amountPaid > 0) {
+            /* ================= CREATE PAYMENT RECORD FOR ACTUAL CASH PAID ================= */
+            if ($cashPaid > 0.001) {
                 $notes       = [];
                 $allocations = [];
 
-                // Cash paid allocation (invoice ke against)
-                if ($cashPaid > 0) {
-                    $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
-                    $allocations[] = [
-                        'type'           => 'invoice',
-                        'invoice_id'     => (string) $invoice->_id,
-                        'invoice_number' => $invoice->invoice_number,
-                        'amount'         => round($cashPaid, 2),
-                        'description'    => 'Invoice payment at time of generation',
-                    ];
-                }
-
-                // Credit note allocation
+                $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
                 if ($totalCreditApplied > 0) {
                     $notes[] = "Credit note adjusted: ₹" . number_format($totalCreditApplied, 2)
                              . " (" . implode(', ', $appliedCNNumbers) . ")";
-                    foreach ($appliedCNNumbers as $cnNum) {
-                        $allocations[] = [
-                            'type'               => 'credit_note',
-                            'credit_note_number' => $cnNum,
-                            'amount'             => round($totalCreditApplied / count($appliedCNNumbers), 2),
-                            'description'        => 'Credit Note Adjustment: ' . $cnNum,
-                        ];
-                    }
                 }
 
+                $allocations[] = [
+                    'type'           => 'invoice',
+                    'invoice_id'     => (string) $invoice->_id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'amount'         => round($cashPaid, 2),
+                    'description'    => 'Invoice cash payment at time of generation',
+                ];
+
                 SalesPayment::create([
-                    'payment_number'   => null,              // invoice-time payment has no payment_number
+                    'payment_number'   => null,
                     'sales_invoice_id' => $invoice->_id,
                     'party_id'         => $invoice->party_id,
-                    'amount'           => round($amountPaid, 2),
+                    'amount'           => round($cashPaid, 2),
                     'payment_method'   => request()->payment_method ?? 'cash',
-                    'payment_date'     => now(),
+                    'payment_date'     => $invoice->invoice_date ?? now(),
                     'status'           => 'completed',
                     'notes'            => implode("\n", $notes),
-                    'payment_type'     => 'payment_in',      // ✅ FIXED
-                    'payment_subtype'  => 'sales_payment',   // ✅ FIXED
-                    'allocations'      => $allocations,      // ✅ FIXED
+                    'payment_type'     => 'payment_in',
+                    'payment_subtype'  => 'sales_payment',
+                    'allocations'      => $allocations,
                     'created_by'       => Auth::guard('admin')->id(),
                 ]);
             }
@@ -1809,14 +1795,27 @@ public function store(Request $request)
 
             // Create payment
             $payment = SalesPayment::create([
+                'payment_number'   => null,
                 'sales_invoice_id' => $invoice->_id,
-                'party_id' => $invoice->party_id,
-                'amount' => $request->amount,
-                'payment_method' => $request->payment_method,
-                'payment_date' => $request->payment_date,
-                'status' => 'completed',
-                'reference_no' => $request->reference_no,
-                'notes' => $request->notes
+                'party_id'         => $invoice->party_id,
+                'amount'           => round((float)$request->amount, 2),
+                'payment_method'   => $request->payment_method,
+                'payment_date'     => $request->payment_date,
+                'status'           => 'completed',
+                'reference_no'     => $request->reference_no,
+                'notes'            => $request->notes,
+                'payment_type'     => 'payment_in',
+                'payment_subtype'  => 'sales_payment',
+                'allocations'      => [
+                    [
+                        'type'           => 'invoice',
+                        'invoice_id'     => (string)$invoice->_id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'amount'         => round((float)$request->amount, 2),
+                        'description'    => 'Invoice payment',
+                    ]
+                ],
+                'created_by'       => Auth::guard('admin')->id(),
             ]);
 
             // Update invoice payment status

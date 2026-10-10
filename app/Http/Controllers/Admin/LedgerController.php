@@ -53,8 +53,18 @@ class LedgerController extends Controller
         $party      = $controller->resolveParty($partyType, $id);
         $balance    = $controller->toFloat($party->opening_balance ?? 0);
 
+        $partyIdObj = null;
+        try {
+            if (strlen($id) === 24) {
+                $partyIdObj = new \MongoDB\BSON\ObjectId($id);
+            }
+        } catch (\Exception $e) {}
+
         if (in_array($partyType, ['customer', 'dealer', 'distributor'])) {
-            $balance += SalesInvoice::where('party_id', $id)
+            $balance += SalesInvoice::where(function($q) use ($id, $partyIdObj) {
+                    $q->where('party_id', $id);
+                    if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+                })
                 ->where('status', '!=', 'draft')
                 ->where('status', '!=', 'cancelled')
                 ->get()
@@ -63,18 +73,27 @@ class LedgerController extends Controller
             $balance -= $controller->getSalesPaymentsIn($id)
                 ->sum(fn($pmt) => $controller->toFloat($pmt->amount) + $controller->toFloat($pmt->discount ?? 0));
 
-            $balance -= CreditNote::with(['invoice'])->where('party_id', $id)->get()
+            $balance -= CreditNote::with(['invoice'])->where(function($q) use ($id, $partyIdObj) {
+                    $q->where('party_id', $id);
+                    if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+                })->get()
                 ->reject(fn($cn) => $cn->invoice && $cn->invoice->status === 'cancelled')
                 ->sum(fn($cn) => $controller->toFloat($cn->amount));
 
-            $balance += PurchasePayment::where('party_id', $id)
+            $balance += PurchasePayment::where(function($q) use ($id, $partyIdObj) {
+                    $q->where('party_id', $id);
+                    if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+                })
                 ->where('payment_subtype', 'credit_refund')
                 ->get()
                 ->sum(fn($pmt) => $controller->toFloat($pmt->amount));
         }
 
         if (in_array($partyType, ['vendor', 'dealer', 'distributor'])) {
-            $balance -= PurchaseInvoice::where('party_id', $id)
+            $balance -= PurchaseInvoice::where(function($q) use ($id, $partyIdObj) {
+                    $q->where('party_id', $id);
+                    if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+                })
                 ->where('status', '!=', 'draft')
                 ->where('status', '!=', 'cancelled')
                 ->get()
@@ -83,10 +102,16 @@ class LedgerController extends Controller
             $balance += $controller->getPurchasePaymentsOut($id)
                 ->sum(fn($pmt) => $controller->toFloat($pmt->amount));
 
-            $balance -= DebitNote::where('party_id', $id)->get()
+            $balance -= DebitNote::where(function($q) use ($id, $partyIdObj) {
+                    $q->where('party_id', $id);
+                    if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+                })->get()
                 ->sum(fn($dn) => $controller->toFloat($dn->amount));
 
-            $balance += SalesPayment::where('party_id', $id)
+            $balance += SalesPayment::where(function($q) use ($id, $partyIdObj) {
+                    $q->where('party_id', $id);
+                    if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+                })
                 ->where('payment_subtype', 'debit_refund')
                 ->get()
                 ->sum(fn($pmt) => $controller->toFloat($pmt->amount));
@@ -374,7 +399,17 @@ class LedgerController extends Controller
     {
         $rows = [];
 
-        $salesInvoices = SalesInvoice::where('party_id', $id)
+        $partyIdObj = null;
+        try {
+            if (strlen($id) === 24) {
+                $partyIdObj = new \MongoDB\BSON\ObjectId($id);
+            }
+        } catch (\Exception $e) {}
+
+        $salesInvoices = SalesInvoice::where(function($q) use ($id, $partyIdObj) {
+                $q->where('party_id', $id);
+                if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+            })
             ->where('status', '!=', 'draft')
             ->get();
 
@@ -408,22 +443,25 @@ class LedgerController extends Controller
         }
 
         foreach ($this->getSalesPaymentsIn($id) as $pmt) {
-            $rows[] = [
-                'raw_date'         => $pmt->payment_date,
-                'date'             => $this->formatDate($pmt->payment_date),
-                'voucher_type'     => 'Payment-in',
-                'sr_no'            => $pmt->payment_number ?? '—',
-                'payment_mode'     => $this->formatPaymentMode($pmt),
-                'reference_number' => $pmt->reference_no ?? null,
-                'debit'            => 0.0,
-                'credit'           => $this->toFloat($pmt->amount),
-                'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
-                '_sort_priority'   => 2,
-                'url'              => route('admin.payments.show', $pmt->id),
-            ];
+            $amount = $this->toFloat($pmt->amount);
+            if ($amount > 0.001) {
+                $rows[] = [
+                    'raw_date'         => $pmt->payment_date,
+                    'date'             => $this->formatDate($pmt->payment_date),
+                    'voucher_type'     => 'Payment-in',
+                    'sr_no'            => $pmt->payment_number ?? '—',
+                    'payment_mode'     => $this->formatPaymentMode($pmt),
+                    'reference_number' => $pmt->reference_no ?? null,
+                    'debit'            => 0.0,
+                    'credit'           => $amount,
+                    'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
+                    '_sort_priority'   => 2,
+                    'url'              => $pmt->id ? route('admin.payments.show', $pmt->id) : null,
+                ];
+            }
 
             $discountVal = $this->toFloat($pmt->discount ?? 0);
-            if ($discountVal > 0) {
+            if ($discountVal > 0.001) {
                 $rows[] = [
                     'raw_date'         => $pmt->payment_date,
                     'date'             => $this->formatDate($pmt->payment_date),
@@ -435,12 +473,17 @@ class LedgerController extends Controller
                     'credit'           => $discountVal,
                     'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
                     '_sort_priority'   => 2.5,
-                    'url'              => route('admin.payments.show', $pmt->id),
+                    'url'              => $pmt->id ? route('admin.payments.show', $pmt->id) : null,
                 ];
             }
         }
 
-        foreach (CreditNote::with(['invoice'])->where('party_id', $id)->get() as $cn) {
+        $creditNotes = CreditNote::with(['invoice'])->where(function($q) use ($id, $partyIdObj) {
+                $q->where('party_id', $id);
+                if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+            })->get();
+
+        foreach ($creditNotes as $cn) {
             if ($cn->invoice && $cn->invoice->status === 'cancelled') {
                 continue;
             }
@@ -451,7 +494,7 @@ class LedgerController extends Controller
                 'voucher_type'     => 'Credit Note',
                 'sr_no'            => $cn->credit_note_number,
                 'payment_mode'     => '—',
-                'reference_number' => null,
+                'reference_number' => $cn->invoice ? $cn->invoice->invoice_number : ($cn->reference_no ?? null),
                 'debit'            => 0.0,
                 'credit'           => $this->toFloat($cn->amount),
                 // Credit note inherits its parent invoice's type; if it isn't
@@ -539,7 +582,17 @@ class LedgerController extends Controller
     {
         $rows = [];
 
-        $purchaseInvoices = PurchaseInvoice::where('party_id', $id)
+        $partyIdObj = null;
+        try {
+            if (strlen($id) === 24) {
+                $partyIdObj = new \MongoDB\BSON\ObjectId($id);
+            }
+        } catch (\Exception $e) {}
+
+        $purchaseInvoices = PurchaseInvoice::where(function($q) use ($id, $partyIdObj) {
+                $q->where('party_id', $id);
+                if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+            })
             ->where('status', '!=', 'draft')
             ->where('status', '!=', 'cancelled')
             ->get();
@@ -572,22 +625,30 @@ class LedgerController extends Controller
         }
 
         foreach ($this->getPurchasePaymentsOut($id) as $pmt) {
-            $rows[] = [
-                'raw_date'         => $pmt->payment_date,
-                'date'             => $this->formatDate($pmt->payment_date),
-                'voucher_type'     => 'Payment-out',
-                'sr_no'            => $pmt->payment_number ?? '—',
-                'payment_mode'     => $this->formatPaymentMode($pmt),
-                'reference_number' => $pmt->reference_no ?? null,
-                'debit'            => $this->toFloat($pmt->amount),
-                'credit'           => 0.0,
-                'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
-                '_sort_priority'   => 2,
-                'url'              => route('admin.payments-out.show', $pmt->id),
-            ];
+            $amount = $this->toFloat($pmt->amount);
+            if ($amount > 0.001) {
+                $rows[] = [
+                    'raw_date'         => $pmt->payment_date,
+                    'date'             => $this->formatDate($pmt->payment_date),
+                    'voucher_type'     => 'Payment-out',
+                    'sr_no'            => $pmt->payment_number ?? '—',
+                    'payment_mode'     => $this->formatPaymentMode($pmt),
+                    'reference_number' => $pmt->reference_no ?? null,
+                    'debit'            => $amount,
+                    'credit'           => 0.0,
+                    'invoice_type'     => $this->resolvePaymentInvoiceType($pmt, $invoiceTypeMap),
+                    '_sort_priority'   => 2,
+                    'url'              => $pmt->id ? route('admin.payments-out.show', $pmt->id) : null,
+                ];
+            }
         }
 
-        foreach (DebitNote::where('party_id', $id)->get() as $dn) {
+        $debitNotes = DebitNote::with(['invoice'])->where(function($q) use ($id, $partyIdObj) {
+                $q->where('party_id', $id);
+                if ($partyIdObj) $q->orWhere('party_id', $partyIdObj);
+            })->get();
+
+        foreach ($debitNotes as $dn) {
             $linkedInvId = (string) ($dn->purchase_invoice_id ?? '');
             $rows[] = [
                 'raw_date'         => $dn->debit_date,
@@ -595,7 +656,7 @@ class LedgerController extends Controller
                 'voucher_type'     => 'Debit Note',
                 'sr_no'            => $dn->debit_note_number,
                 'payment_mode'     => '—',
-                'reference_number' => null,
+                'reference_number' => $dn->invoice ? $dn->invoice->invoice_number : ($dn->reference_no ?? null),
                 'debit'            => $this->toFloat($dn->amount),
                 'credit'           => 0.0,
                 'invoice_type'     => $invoiceTypeMap[$linkedInvId] ?? 'all',
@@ -688,7 +749,19 @@ class LedgerController extends Controller
 
     private function getSalesPaymentsIn(string $partyId): \Illuminate\Support\Collection
     {
-        return SalesPayment::where('party_id', $partyId)
+        $partyIdObj = null;
+        try {
+            if (strlen($partyId) === 24) {
+                $partyIdObj = new \MongoDB\BSON\ObjectId($partyId);
+            }
+        } catch (\Exception $e) {}
+
+        return SalesPayment::where(function($q) use ($partyId, $partyIdObj) {
+                $q->where('party_id', $partyId);
+                if ($partyIdObj) {
+                    $q->orWhere('party_id', $partyIdObj);
+                }
+            })
             ->where(function ($q) {
                 $q->where('payment_type', 'payment_in')
                   ->orWhereNull('payment_type')
@@ -704,7 +777,19 @@ class LedgerController extends Controller
 
     private function getPurchasePaymentsOut(string $partyId): \Illuminate\Support\Collection
     {
-        return PurchasePayment::where('party_id', $partyId)
+        $partyIdObj = null;
+        try {
+            if (strlen($partyId) === 24) {
+                $partyIdObj = new \MongoDB\BSON\ObjectId($partyId);
+            }
+        } catch (\Exception $e) {}
+
+        return PurchasePayment::where(function($q) use ($partyId, $partyIdObj) {
+                $q->where('party_id', $partyId);
+                if ($partyIdObj) {
+                    $q->orWhere('party_id', $partyIdObj);
+                }
+            })
             ->where(function ($q) {
                 $q->where('payment_type', 'payment_out')
                   ->orWhereNull('payment_type')

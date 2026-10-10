@@ -157,8 +157,21 @@ public function show($id)
      */
     public function partySummary($partyId)
     {
-        $creditNotes = CreditNote::where('party_id', $partyId)
-            ->where('status', 'active')
+        $partyIdObj = null;
+        try {
+            if (strlen($partyId) === 24) {
+                $partyIdObj = new \MongoDB\BSON\ObjectId($partyId);
+            }
+        } catch (\Exception $e) {}
+
+        $creditNotes = CreditNote::where(function($q) use ($partyId, $partyIdObj) {
+                $q->where('party_id', $partyId);
+                if ($partyIdObj) {
+                    $q->orWhere('party_id', $partyIdObj);
+                }
+            })
+            ->whereIn('status', ['active', 'partial'])
+            ->where('remaining_amount', '>', 0)
             ->get();
 
         $totalAvailable = $creditNotes->sum('remaining_amount');

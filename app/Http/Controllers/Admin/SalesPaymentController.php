@@ -866,8 +866,11 @@ $partyPhone = $party['phone'] ?? '—';
 
         $invoiceDue = round($invoices->sum('balance'), 2);
 
-        $creditNotes = \App\Models\CreditNote::where('party_id', $partyIdStr)
-            ->where('status', 'active')
+        $creditNotes = \App\Models\CreditNote::where(function($q) use ($partyIdStr, $partyIdObj) {
+                $q->where('party_id', $partyIdStr)
+                  ->orWhere('party_id', $partyIdObj);
+            })
+            ->whereIn('status', ['active', 'partial'])
             ->where('remaining_amount', '>', 0)
             ->orderBy('credit_date', 'asc')
             ->get()
