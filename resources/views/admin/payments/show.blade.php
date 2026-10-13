@@ -38,20 +38,20 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
             <div>
                 <span style="display: block; font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Party Name</span>
-                <span style="font-size: 13px; font-weight: 600; color: var(--text);">{{ $payment['party_name'] }}</span>
-                <span style="display: block; font-size: 11px; color: var(--text-2); margin-top: 2px;">{{ $payment['party_type'] }}</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--text);">{{ $payment['party_name'] ?? '—' }}</span>
+                <span style="display: block; font-size: 11px; color: var(--text-2); margin-top: 2px;">{{ $payment['party_type'] ?? '—' }}</span>
             </div>
             <div>
                 <span style="display: block; font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Phone Number</span>
-                <span style="font-size: 13px; font-weight: 600; color: var(--text);">{{ $payment['party_phone'] }}</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--text);">{{ $payment['party_phone'] ?? '—' }}</span>
             </div>
             <div>
                 <span style="display: block; font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Payment Method</span>
-                <span style="font-size: 13px; font-weight: 600; color: var(--text);">{{ $payment['payment_method'] }}</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--text);">{{ $payment['payment_method'] ?? '—' }}</span>
             </div>
             <div>
                 <span style="display: block; font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Reference No</span>
-                <span style="font-size: 13px; font-weight: 600; color: var(--text);">{{ $payment['reference_no'] }}</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--text);">{{ $payment['reference_no'] ?? '—' }}</span>
             </div>
         </div>
 

@@ -236,6 +236,7 @@
                                     </tfoot>
                                 </table>
                             </div>
+                            <div class="mobile-items-container" id="mobileItemsContainer"></div>
                         </div>
                     </div>
 
@@ -334,6 +335,14 @@
                         </button>
                     </div>
                 </div>
+            </div>
+            <!-- Sticky Bottom Bar for Mobile -->
+            <div class="mobile-sticky-bottom-bar">
+                <div class="mobile-sticky-total">
+                    <span class="mobile-sticky-label">Grand Total</span>
+                    <span class="mobile-sticky-val">₹ <span id="mobileStickyGrandTotal">0.00</span></span>
+                </div>
+                <button type="submit" class="btn-mobile-save">Update Invoice</button>
             </div>
         </form>
     </div>
@@ -545,23 +554,77 @@
 
 @push('styles')
 <style>
-/* GST MODE TOGGLE */
-.gst-mode-toggle { display:flex; gap:6px; }
-.gst-mode-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 8px; background:#f8f9fa; border:1.5px solid #dee2e6; border-radius:5px; cursor:pointer; transition:all .18s; font-size:10px; line-height:1.3; }
-.gst-mode-btn:hover { border-color:#fa8725; background:#fff8f2; }
-.gst-mode-btn.active { background:#fff3e6; border-color:#fa8725; }
-.gst-mode-btn.active .gst-mode-label { color:#c05e00; font-weight:700; }
-.gst-mode-label { font-weight:600; font-size:10px; color:#333; }
-.gst-mode-sub { font-size:9px; color:#888; }
-.items-table tr.row-inclusive { background:#fffbf5 !important; }
-.incl-badge { display:inline-block; font-size:8px; background:#fff3e6; color:#c05e00; border:1px solid #fa8725; border-radius:3px; padding:1px 4px; margin-left:4px; vertical-align:middle; font-weight:600; }
-/* Invoice Type Locked */
-.invoice-type-locked { display:flex; flex-direction:column; gap:4px; }
-.invoice-type-badge { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:4px; font-size:11px; font-weight:600; width:fit-content; }
-.invoice-type-badge.gst  { background:#e0f7fa; color:#00695c; border:1px solid #b2ebf2; }
-.invoice-type-badge.cash { background:#fce4ec; color:#880e4f; border:1px solid #f8bbd0; }
-.locked-hint { font-size:9px; color:#999; margin-left:2px; }
-/* Existing CSS */
+/* ── GST MODE TOGGLE ── */
+.gst-mode-toggle {
+    display: flex;
+    gap: 6px;
+}
+
+.gst-mode-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 6px 8px;
+    background: #f8f9fa;
+    border: 1.5px solid #dee2e6;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    font-size: 10px;
+    line-height: 1.3;
+}
+
+.gst-mode-btn:hover {
+    border-color: #fa8725;
+    background: #fff8f2;
+}
+
+.gst-mode-btn.active {
+    background: #fff3e6;
+    border-color: #fa8725;
+}
+
+.gst-mode-btn.active .gst-mode-label {
+    color: #c05e00;
+    font-weight: 700;
+}
+
+.gst-mode-icon  { font-size: 13px; }
+.gst-mode-label { font-weight: 600; font-size: 10px; color: #333; }
+.gst-mode-sub   { font-size: 9px; color: #888; }
+
+/* Inclusive row highlight in items table */
+.items-table tr.row-inclusive {
+    background: #fffbf5 !important;
+}
+
+.incl-badge {
+    display: inline-block;
+    font-size: 8px;
+    background: #fff3e6;
+    color: #c05e00;
+    border: 1px solid #fa8725;
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+    font-weight: 600;
+}
+
+/* ── CREDIT LIMIT & DEBIT BADGES ── */
+.credit-limit-badge { display:inline-block; padding:2px 6px; border-radius:10px; font-size:8px; font-weight:600; margin-left:5px; vertical-align:middle; }
+.credit-limit-badge.warning { background:#fff3cd; color:#856404; border:1px solid #ffeeba; }
+.credit-limit-badge.danger  { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+.credit-limit-badge.info    { background:#d1ecf1; color:#0c5460; border:1px solid #bee5eb; }
+.available-credit { display:block; font-size:9px; color:#28a745; margin-top:2px; font-weight:normal; }
+
+/* ── DISABLED LINKS ── */
+.disabled-link { pointer-events:none !important; opacity:.5 !important; cursor:not-allowed !important; background-color:#e0e0e0 !important; color:#999 !important; border-color:#ccc !important; }
+.summary-label a.disabled-link { background:#e0e0e0 !important; color:#999 !important; border:1px dashed #ccc !important; }
+
+/* ── GENERAL ── */
 .products-container { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:11px; line-height:1.3; color:#333; }
 #alertContainer { position:fixed; top:15px; right:15px; z-index:9999; }
 .alert { padding:10px 14px; margin-bottom:8px; border-radius:4px; font-size:10px; font-weight:500; animation:slideInRight .3s ease; box-shadow:0 2px 8px rgba(0,0,0,.1); }
@@ -569,10 +632,10 @@
 .alert-error   { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
 .alert-info    { background:#d1ecf1; color:#0c5460; border:1px solid #bee5eb; }
 @keyframes slideInRight { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
-.page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; border-bottom:1px solid #ddd; padding-bottom:10px; }
-.header-left { display:flex; flex-direction:column; }
+
+.page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; border-bottom:1px solid #ddd; }
 .header-left .page-title { font-size:15px; font-weight:600; color:#333; margin:0 0 3px; }
-.btn-small { padding:5px 10px; background:white; color:#fa8128; border:1px solid #dee2e6; border-radius:4px; font-size:14px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:3px; text-decoration:none; }
+.btn-small { padding:5px 10px; background:white; color:#fa8128; border:1px solid #dee2e6; border-radius:4px; font-size:14px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:3px; transition:all .2s; text-decoration:none; }
 .invoice-form-wrapper { background:white; border:1px solid #ddd; border-radius:4px; padding:15px; }
 .form-row { display:flex; flex-direction:row; gap:15px; }
 .form-col-main { width:100%; }
@@ -590,10 +653,12 @@
 .form-label.required::after { content:' *'; color:#dc3545; }
 .form-control { width:100%; padding:6px 10px; border:1px solid #ccc; border-radius:3px; font-size:10px; background:#fff; transition:all .2s; }
 .form-control:focus { outline:none; border-color:#666; box-shadow:0 0 0 2px rgba(102,102,102,.1); }
+.select-wrapper { position:relative; }
 .form-row .form-group { margin-bottom:10px; }
 .form-row .col-6 { width:50%; }
 .form-row .col-12 { width:100%; }
-.btn-select-customer { width:180px; padding:8px 12px; background:#fa8725de; color:white; border:none; border-radius:3px; font-size:11px; font-weight:500; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
+
+.btn-select-customer { width:180px; padding:8px 12px; background:#fa8725de; color:white; border:none; border-radius:3px; font-size:11px; font-weight:500; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:5px; }
 .selected-customer-details { padding:16px; background:#fafafa; border-radius:4px; border:1px solid #ddd; }
 .customer-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; padding-bottom:4px; border-bottom:1px solid #eee; }
 .customer-header h4 { font-size:13px; font-weight:600; color:#333; margin:0; }
@@ -602,8 +667,9 @@
 .info-column .info-row { display:flex; align-items:center; margin-bottom:6px; }
 .info-column .info-label { font-size:10px; font-weight:500; color:#555; width:70px; flex-shrink:0; }
 .info-column .info-value { font-size:10px; color:#333; }
-.salesman-display { padding:6px 10px; background:#f8f9fa; border:1px solid #ddd; border-radius:3px; font-size:10px; color:#333; }
+.salesman-display { padding:6px 10px; background:#f8f9fa; border:1px solid #ddd; border-radius:3px; font-size:10px; color:#333; display:flex; align-items:center; gap:5px; }
 .party-type-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:9px; font-weight:600; text-transform:uppercase; background:#e7f1ff; color:#0066cc; margin-left:8px; }
+.party-type-badge.customer { background:#d4edda; color:#155724; }
 .party-type-badge.vendor { background:#e0f2fe; color:#0369a1; }
 .party-type-badge.dealer { background:#fef3c7; color:#856404; }
 .party-type-badge.distributor { background:#d1fae5; color:#065f46; }
@@ -619,10 +685,21 @@
 .payment-terms-days span { font-size:10px; color:#666; white-space:nowrap; }
 .btn-add-item { padding:6px 12px; background:#555; color:white; border:none; border-radius:3px; font-size:10px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
 .btn-add-item:hover { background:#444; }
+
+/* Items Table */
 .items-table-container { overflow-x:auto; width:100%; margin-top:10px; border-radius:4px; border:1px solid #ddd; }
 .items-table-container.gst-mode .items-table { min-width:900px; }
 .items-table-container.cash-mode .items-table { min-width:unset; width:100%; table-layout:fixed; }
-.items-table-container.cash-mode .col-hsn, .items-table-container.cash-mode .col-tax { display:none; }
+.items-table-container.cash-mode .col-hsn,
+.items-table-container.cash-mode .col-tax { display:none; }
+.items-table-container.cash-mode .th-item { width:35%; }
+.items-table-container.cash-mode .th-sku  { width:15%; }
+.items-table-container.cash-mode .th-unit { width:8%; }
+.items-table-container.cash-mode .th-qtys { width:10%; }
+.items-table-container.cash-mode .th-mrp  { width:12%; }
+.items-table-container.cash-mode .th-sale-price { width:12%; }
+.items-table-container.cash-mode .th-amount     { width:12%; }
+.items-table-container.cash-mode .th-action     { width:8%; }
 .items-table { width:100%; border-collapse:collapse; font-size:10px; }
 .items-table th { background:#f8f9fa; padding:10px 8px; text-align:center; font-weight:600; color:#333; border-bottom:2px solid #ddd; white-space:nowrap; font-size:11px; }
 .items-table td { padding:8px; border-bottom:1px solid #eee; vertical-align:middle; text-align:center; font-size:10px; }
@@ -644,6 +721,8 @@
 .empty-icon { font-size:24px; opacity:.3; margin-bottom:5px; }
 .empty-items p { font-size:10px; color:#666; margin:0; }
 .btn-add-first-item { padding:6px 12px; background:#555; color:white; border:none; border-radius:3px; font-size:10px; cursor:pointer; }
+
+/* Summary */
 .form-col-sidebar { margin-top:10px; }
 .invoice-bottom-layout { display:flex; flex-direction:column; gap:15px; }
 .invoice-row { display:flex; gap:15px; }
@@ -668,29 +747,37 @@
 .payment-section-container h4 { font-size:11px; font-weight:600; color:#333; margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #eee; }
 .balance-amount { padding:6px 10px; background:#f8f9fa; border:1px solid #ddd; border-radius:3px; font-size:11px; font-weight:600; color:#333; }
 .btn-mark-paid { background:#555; color:white; border:none; border-radius:3px; font-weight:500; cursor:pointer; }
-.btn-submit-invoice { width:auto; min-width:200px; padding:10px 15px; background:#f98725; color:white; border:none; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; margin-top:15px; }
+.btn-submit-invoice { width:25%; padding:10px 15px; background:#f98725; color:white; border:none; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; margin-top:15px; }
 .btn-submit-invoice:disabled { opacity:.6; cursor:not-allowed; }
-.btn-cancel-edit { padding:10px 15px; background:#f8f9fa; color:#555; border:1px solid #ccc; border-radius:4px; font-size:11px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; margin-top:15px; text-decoration:none; }
-.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000; align-items:center; justify-content:center; }
+
+/* Modal */
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:20000; align-items:center; justify-content:center; }
 .modal-overlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.4); }
 .modal-content { position:relative; background:white; border-radius:6px; width:90%; max-width:800px; max-height:90vh; overflow-y:auto; animation:modalFadeIn .2s ease; box-shadow:0 4px 20px rgba(0,0,0,.15); }
 .modal-lg,.modal-xl { max-width:800px; }
 @keyframes modalFadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 .modal-header { display:flex; align-items:center; gap:10px; padding:15px 20px; border-bottom:1px solid #ddd; background:#f8f9fa; border-radius:6px 6px 0 0; }
-.modal-title-section { flex:1; } .modal-title { font-size:14px; font-weight:600; color:#333; margin:0; } .modal-subtitle { font-size:10px; color:#666; margin-top:2px; }
+.modal-title-section { flex:1; }
+.modal-title { font-size:14px; font-weight:600; color:#333; margin:0; }
+.modal-subtitle { font-size:10px; color:#666; margin-top:2px; }
 .modal-close { background:none; border:none; font-size:18px; color:#666; cursor:pointer; padding:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:4px; }
-.modal-close:hover { background:#eee; }
+.modal-close:hover { background:#eee; color:#333; }
 .modal-icon { width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; color:white; flex-shrink:0; background:#555; }
 .modal-body { padding:20px; }
 .modal-actions { display:flex; justify-content:flex-end; gap:8px; padding:15px 20px; border-top:1px solid #ddd; background:#fafafa; border-radius:0 0 6px 6px; }
 .btn-modal { padding:7px 16px; border:none; border-radius:3px; font-size:10px; font-weight:500; cursor:pointer; min-width:70px; }
-.btn-cancel { background:#f8f9fa; color:#333; border:1px solid #ccc; } .btn-cancel:hover { background:#e9ecef; }
-.btn-primary { background:#555; color:white; border:1px solid #555; } .btn-primary:hover { background:#444; }
+.btn-cancel { background:#f8f9fa; color:#333; border:1px solid #ccc; }
+.btn-cancel:hover { background:#e9ecef; }
+.btn-primary { background:#555; color:white; border:1px solid #555; }
+.btn-primary:hover { background:#444; }
+
+/* Party tabs */
 .party-type-tabs { display:flex; gap:8px; margin-bottom:15px; padding:5px; background:#f8f9fa; border-radius:6px; border:1px solid #dee2e6; }
 .party-type-tab { flex:1; padding:8px 12px; background:transparent; border:none; border-radius:4px; font-size:11px; font-weight:500; color:#6c757d; cursor:pointer; text-align:center; }
 .party-type-tab.active { background:#007bff; color:white; }
 .party-modal-header { display:flex; justify-content:space-between; align-items:center; gap:15px; margin-bottom:15px; }
-.search-container { flex:1; } .search-box { position:relative; }
+.search-container { flex:1; }
+.search-box { position:relative; }
 .search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:11px; color:#666; }
 .search-input { width:100%; padding:7px 10px 7px 30px; border:1px solid #ccc; border-radius:3px; font-size:10px; }
 .btn-create-new-party { padding:7px 14px; background:#28a745; color:white; border:none; border-radius:3px; font-size:10px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:5px; white-space:nowrap; }
@@ -699,18 +786,32 @@
 .parties-table th { background:#f8f9fa; padding:8px 10px; text-align:left; font-weight:600; color:#333; border-bottom:1px solid #ddd; position:sticky; top:0; z-index:1; }
 .parties-table td { padding:8px 10px; border-bottom:1px solid #eee; vertical-align:middle; }
 .parties-table tr:hover { background:#f9f9f9; }
-.btn-create-first-party,.btn-select-party-row { padding:4px 10px; color:white; border:none; border-radius:3px; font-size:9px; font-weight:500; cursor:pointer; }
-.btn-create-first-party { background:#28a745; padding:6px 12px; font-size:10px; }
-.btn-select-party-row { background:#555; }
-.products-table-container { max-height:400px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; }
-.products-table { width:100%; border-collapse:collapse; font-size:10px; }
-.products-table th { background:#f8f9fa; padding:8px 10px; text-align:left; font-weight:600; color:#333; border-bottom:1px solid #ddd; position:sticky; top:0; z-index:1; }
-.products-table td { padding:8px 10px; border-bottom:1px solid #eee; vertical-align:middle; }
-.products-table tr:hover { background:#f9f9f9; }
+.status-badge { display:inline-block; padding:2px 6px; border-radius:10px; font-size:9px; font-weight:500; }
+.status-active { background:#d4edda; color:#155724; }
+.status-inactive { background:#f8d7da; color:#721c24; }
+.btn-create-first-party,.btn-select-party-row { padding:4px 10px; color:white; border:none; border-radius:3px; font-size:9px; cursor:pointer; }
+.btn-create-first-party { background:#28a745; font-size:10px; padding:6px 12px; }
+.btn-select-party-row { background:none; border:none; font-size:16px; color:#28a745; cursor:pointer; }
+.no-data-state { padding:30px 20px; text-align:center; }
+.no-data-icon { font-size:24px; opacity:.3; margin-bottom:8px; }
+.no-data-state p { font-size:10px; color:#666; margin:0 0 12px; }
 .loading-state { padding:30px 20px; text-align:center; }
 .loading-spinner { width:20px; height:20px; border:2px solid #eee; border-top-color:#555; border-radius:50%; animation:spin 1s linear infinite; margin:0 auto 8px; }
 @keyframes spin { to{transform:rotate(360deg)} }
-.loading-state p,.no-data-state p { font-size:10px; color:#666; margin:0; }
+.loading-state p { font-size:10px; color:#666; margin:0; }
+.products-table-container { max-height:400px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; }
+.products-table { width:100%; border-collapse:collapse; font-size:10px; }
+.products-table th { background:#f8f9fa; padding:8px 10px; text-align:left; font-weight:600; color:#333; border-bottom:1px solid #ddd; white-space:nowrap; position:sticky; top:0; z-index:1; }
+.products-table td { padding:8px 10px; border-bottom:1px solid #eee; vertical-align:middle; }
+.products-table tr:hover { background:#f9f9f9; }
+.products-table input[type="number"] { width:50px; padding:4px 6px; border:1px solid #ccc; border-radius:2px; font-size:10px; text-align:center; }
+.th-name { width:180px; }
+.th-phone { width:100px; }
+.th-email { width:150px; }
+.th-type,.th-status { width:80px; }
+.th-code { width:90px; }
+.th-stock { width:90px; }
+.th-qty { width:70px; }
 .form-section-small { margin-bottom:15px; padding-bottom:12px; border-bottom:1px solid #eee; }
 .form-section-small:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
 .form-section-small h5 { font-size:11px; font-weight:600; color:#333; margin:0 0 10px; }
@@ -719,13 +820,654 @@
 .form-check-input { width:13px; height:13px; cursor:pointer; }
 .form-check-label { font-size:10px; color:#555; cursor:pointer; }
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid rgba(255,255,255,.3); border-radius:50%; border-top-color:#fff; animation:spin .8s linear infinite; margin-right:5px; }
-.disabled-link { pointer-events:none !important; opacity:.5 !important; cursor:not-allowed !important; background-color:#e0e0e0 !important; color:#999 !important; border-color:#ccc !important; }
-@media (max-width:768px) {
+#warehouseSelectSection { background:#f8f9fa; border:2px dashed #ddd; border-radius:8px; padding:30px 20px; margin-bottom:5px; }
+
+.mobile-items-container {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+}
+.mobile-item-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 10px;
+}
+.mobile-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+.mobile-item-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.mobile-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+.mobile-item-sub {
+    font-size: 10px;
+    color: #666;
+}
+.btn-delete-mobile {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: #dc3545;
+    padding: 6px 10px;
+}
+.mobile-item-grid-prices {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.mobile-item-grid-qty {
+    display: grid;
+    grid-template-columns: 55% 45%;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: flex-end;
+}
+.mobile-item-col-qty {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mobile-qty-controls {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 28px;
+    background: #fff;
+}
+.mobile-qty-btn {
+    width: 30px;
+    height: 100%;
+    background: #f8f9fa;
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #fa8725;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    user-select: none;
+    padding: 0;
+    margin: 0;
+}
+.mobile-qty-btn:active {
+    background: #e9ecef;
+}
+.mobile-qty-controls .qty-edit-mobile {
+    flex: 1;
+    border: none !important;
+    border-left: 1px solid #ccc !important;
+    border-right: 1px solid #ccc !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.mobile-item-col-warranty {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mobile-item-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mobile-item-label {
+    font-size: 9px;
+    font-weight: 500;
+    color: #666;
+    text-transform: uppercase;
+}
+.mobile-item-input {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 11px;
+    text-align: center;
+    background: #fff;
+    box-sizing: border-box;
+}
+.mobile-item-input:focus {
+    outline: none;
+    border-color: #fa8725;
+}
+.mobile-item-footer-clean {
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 8px;
+    margin-top: 4px;
+}
+.mobile-warranty-inputs {
+    display: flex;
+    gap: 4px;
+}
+.mobile-warranty-inputs .w-period {
+    width: 35%;
+}
+.mobile-warranty-inputs .w-type {
+    width: 65%;
+    text-align: left;
+}
+.mobile-item-amount-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+.mobile-item-amount-label {
+    font-size: 9px;
+    color: #888;
+}
+.mobile-item-amount-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fa8725;
+}
+.mobile-sticky-bottom-bar {
+    display: none;
+    position: fixed;
+    bottom: 60px;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    border-top: 1px solid #e0e0e0;
+    box-shadow: 0 -3px 10px rgba(0,0,0,0.08);
+    padding: 10px 16px;
+    z-index: 9998;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+}
+.mobile-sticky-total {
+    display: flex;
+    flex-direction: column;
+}
+.mobile-sticky-label {
+    font-size: 10px;
+    color: #666;
+}
+.mobile-sticky-val {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fa8725;
+}
+.btn-mobile-save {
+    background: #fa8725;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(250,135,37,0.2);
+}
+.btn-mobile-save:active {
+    background: #e07212;
+}
+.product-sub-txt {
+    display: none;
+    font-size: 9px;
+    color: #666;
+    margin-top: 3px;
+}
+.product-qty-selector {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 24px;
+    width: 80px;
+    margin: 0 auto;
+    background: #fff;
+}
+.prod-qty-btn {
+    width: 22px;
+    height: 100%;
+    background: #f8f9fa;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #fa8725;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    user-select: none;
+}
+.prod-qty-btn:active {
+    background: #e9ecef;
+}
+.product-qty-selector .qty-input {
+    flex: 1;
+    border: none !important;
+    border-left: 1px solid #ccc !important;
+    border-right: 1px solid #ccc !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    text-align: center;
+    font-size: 11px;
+    width: 36px !important;
+}
+.row-selected-active {
+    background-color: #fff8f2 !important;
+}
+body.modal-open {
+    overflow: hidden !important;
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    .page-header .header-right {
+        width: 100% !important;
+    }
+    .page-header .btn-small {
+        display: flex !important;
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 8px 12px !important;
+        font-size: 11px !important;
+        background: #f8f9fa !important;
+        border: 1px solid #ccc !important;
+        color: #555 !important;
+        border-radius: 4px !important;
+    }
+
     .two-col-row,.invoice-row { flex-direction:column; }
-    .col-50 { width:100%; }
-    .form-row { flex-direction:column; gap:8px; }
-    .form-row .col-6 { width:100%; }
+    .col-50,.form-row .col-6 { width:100%; }
     .address-grid,.customer-info-grid { grid-template-columns:1fr; }
+    
+    /* Toggle table / mobile card views */
+    .items-table-container { display: none !important; }
+    .mobile-items-container { display: flex !important; }
+    
+    /* Sticky bottom bar on mobile */
+    .mobile-sticky-bottom-bar { display: flex; }
+    
+    /* Give padding at the bottom of form so it doesn't get covered by sticky bar */
+    .invoice-form-wrapper {
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        padding-bottom: 140px !important;
+    }
+    .dashboard-content {
+        padding: 5px !important;
+    }
+    .form-section {
+        border-radius: 6px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* Selected customer details layout on mobile */
+    .selected-customer-details {
+        padding: 10px !important;
+    }
+    .selected-customer-details .customer-header {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        gap: 6px !important;
+        border-bottom: 1px solid #f0f0f0 !important;
+        padding-bottom: 6px !important;
+        margin-bottom: 8px !important;
+    }
+    .selected-customer-details .customer-header h4 {
+        font-size: 12px !important;
+        margin: 0 !important;
+    }
+    .selected-customer-details .customer-header .party-type-badge {
+        margin-left: 0 !important;
+        padding: 1px 6px !important;
+        font-size: 8px !important;
+    }
+    .selected-customer-details .btn-change-customer {
+        margin-left: auto !important;
+        padding: 2px 6px !important;
+        font-size: 9px !important;
+        background: #fa8725 !important;
+    }
+    
+    /* Keep the info grid double columns on mobile too to save height! */
+    .selected-customer-details .customer-info-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px 12px !important;
+        margin-bottom: 8px !important;
+    }
+    .selected-customer-details .info-column .info-row {
+        margin-bottom: 2px !important;
+    }
+    .selected-customer-details .info-column .info-label {
+        width: 60px !important;
+        font-size: 9px !important;
+        color: #777 !important;
+    }
+    .selected-customer-details .info-column .info-value {
+        font-size: 9px !important;
+        font-weight: 500 !important;
+    }
+
+    /* Address sections - extremely compact */
+    .selected-customer-details .address-section {
+        border-top: 1px dashed #e0e0e0 !important;
+        padding-top: 6px !important;
+        margin-top: 4px !important;
+    }
+    .selected-customer-details .address-header {
+        display: none !important;
+    }
+    .selected-customer-details .address-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+    .selected-customer-details .address-card {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+    .selected-customer-details .address-card-header {
+        display: inline !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+        border-bottom: none !important;
+    }
+    .selected-customer-details .address-type {
+        font-size: 9px !important;
+        font-weight: 700 !important;
+        color: #666 !important;
+        text-transform: uppercase !important;
+    }
+    .selected-customer-details .address-type::after {
+        content: ": " !important;
+    }
+    .selected-customer-details .address-content {
+        display: inline !important;
+        font-size: 9px !important;
+        color: #333 !important;
+    }
+    .selected-customer-details .address-content p {
+        display: inline !important;
+        margin: 0 !important;
+    }
+    
+    /* Hide the desktop submit button on mobile */
+    .btn-submit-invoice { display: none !important; }
+
+    /* Hide columns in party select modal on mobile */
+    .th-email, .th-status, .th-action,
+    .party-email, .party-status-col, .party-action-col {
+        display: none !important;
+    }
+
+    /* Hide columns in product select modal on mobile */
+    .th-code, .th-stock, .product-code-col, .product-stock-col, .products-table-container td.col-tax {
+        display: none !important;
+    }
+    .product-sub-txt {
+        display: block;
+    }
+
+    /* Full-screen modals on mobile viewport */
+    .modal {
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+    }
+    .modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    .modal-body {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 15px !important;
+    }
+    .modal-content > form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+    }
+    .modal-header, .modal-actions {
+        flex-shrink: 0 !important;
+    }
+    .parties-table-container, .products-table-container {
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+    }
+    .parties-table th {
+        position: static !important;
+    }
+
+    /* Stacking Search and Warehouse buttons on mobile select items modal */
+    #productSearchSection > div {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    #productSearchSection .search-container {
+        width: 100% !important;
+    }
+    #productSearchSection div[style*="flex-shrink"] {
+        display: flex !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+    #selectedWarehouseName {
+        flex: 1 !important;
+        text-align: center !important;
+        font-size: 10px !important;
+        padding: 6px 8px !important;
+    }
+    #productSearchSection button {
+        padding: 6px 12px !important;
+        font-size: 11px !important;
+    }
+
+    /* Transform select product table to stack of cards on mobile */
+    .products-table-container table, 
+    .products-table-container thead, 
+    .products-table-container tbody, 
+    .products-table-container tr, 
+    .products-table-container td {
+        display: block !important;
+    }
+    .products-table-container thead {
+        display: none !important; /* Hide header completely on mobile */
+    }
+    #productsTableBody {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        padding: 5px 0 !important;
+    }
+    #productsTableBody tr {
+        background: #fff !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        position: relative !important;
+        cursor: pointer !important;
+        transition: background-color 0.15s !important;
+    }
+    #productsTableBody tr.row-selected-active {
+        background-color: #fff8f2 !important;
+        border-color: #fa8725 !important;
+    }
+    
+    /* Cell layout adjustments */
+    #productsTableBody td {
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        text-align: left !important;
+    }
+    
+    /* 1. Name & details (top left) */
+    #productsTableBody .product-name {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: #333 !important;
+        margin-bottom: 8px !important;
+        padding-right: 40px !important; /* leaves space for absolute checkbox */
+    }
+    #productsTableBody .product-name .product-sub-txt {
+        display: block !important;
+        font-size: 10px !important;
+        color: #666 !important;
+        font-weight: 400 !important;
+        margin-top: 3px !important;
+    }
+    
+    /* 2. Hide redundant columns */
+    #productsTableBody .product-code-col,
+    #productsTableBody .product-stock-col {
+        display: none !important;
+    }
+    
+    /* 3. MRP and Sale Price side by side in a small flex row */
+    #productsTableBody .product-mrp,
+    #productsTableBody .product-price {
+        display: inline-block !important;
+        vertical-align: top !important;
+        font-size: 11px !important;
+        margin-bottom: 8px !important;
+    }
+    #productsTableBody .product-mrp {
+        color: #999 !important;
+        text-decoration: line-through !important;
+        margin-right: 12px !important;
+    }
+    #productsTableBody .product-mrp::before {
+        content: "MRP: " !important;
+        text-decoration: none !important;
+        display: inline-block !important;
+    }
+    #productsTableBody .product-price {
+        color: #fa8725 !important;
+        font-weight: 600 !important;
+    }
+    #productsTableBody .product-price::before {
+        content: "Cost: " !important;
+        color: #555 !important;
+        font-weight: 400 !important;
+    }
+    
+    /* 4. Bottom row: Qty Selector (left/center) and checkbox (top right) */
+    .products-table-container td.product-qty-col {
+        position: absolute !important;
+        bottom: 12px !important;
+        right: 12px !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    #productsTableBody .product-qty-col::before {
+        display: none !important;
+    }
+    #productsTableBody .product-qty-selector {
+        display: flex !important;
+        align-items: center !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
+        overflow: hidden !important;
+        height: 28px !important;
+        width: 96px !important;
+        background: #fff !important;
+        margin: 0 !important;
+    }
+    #productsTableBody .prod-qty-btn {
+        width: 30px !important;
+        height: 100% !important;
+        font-size: 14px !important;
+        background: #f8f9fa !important;
+        border: none !important;
+        color: #fa8725 !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        user-select: none !important;
+    }
+    #productsTableBody .prod-qty-btn:active {
+        background: #e9ecef !important;
+    }
+    #productsTableBody .product-qty-selector .qty-input {
+        flex: 1 !important;
+        border: none !important;
+        border-left: 1px solid #ccc !important;
+        border-right: 1px solid #ccc !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        text-align: center !important;
+        font-size: 11px !important;
+        width: 36px !important;
+    }
+    
+    /* 5. Select Checkbox positioned absolutely in top right corner */
+    #productsTableBody .product-select-col {
+        position: absolute !important;
+        top: 12px !important;
+        right: 12px !important;
+        margin: 0 !important;
+    }
+    #productsTableBody .select-product {
+        width: 18px !important;
+        height: 18px !important;
+        cursor: pointer !important;
+        margin: 0 !important;
 }
 </style>
 @endpush
@@ -821,7 +1563,7 @@ function loadParties() {
         }
         tbody.html(response.parties.map(function(p) {
             const ob = p.opening_balance !== undefined && p.opening_balance > 0 ? '₹' + parseFloat(p.opening_balance).toFixed(2) : '—';
-            return `<tr><td><strong>${p.name}</strong></td><td><span class="party-type-badge ${p.party_type}">${p.party_type_text}</span></td><td>${p.phone||'-'}</td><td>${p.email||'-'}</td><td>${ob}</td><td><button type="button" class="btn-select-party-row" onclick="selectParty('${p.id}','${p.party_type}')">Select</button></td></tr>`;
+            return `<tr onclick="selectParty('${p.id}','${p.party_type}')" style="cursor: pointer;"><td><strong>${p.name}</strong></td><td><span class="party-type-badge ${p.party_type}">${p.party_type_text}</span></td><td>${p.phone||'-'}</td><td>${p.email||'-'}</td><td>${ob}</td><td><button type="button" class="btn-select-party-row" onclick="event.stopPropagation(); selectParty('${p.id}','${p.party_type}')">Select</button></td></tr>`;
         }).join(''));
     }).fail(function(xhr) {
         if (xhr.statusText === 'abort') return;
@@ -918,23 +1660,73 @@ function renderProductTable(products) {
     const tbody   = $('#productsTableBody');
     const showTax = currentInvType === 'gst';
     if (!products.length) { tbody.html('<tr><td colspan="8" style="text-align:center;padding:30px;color:#999;">No products found</td></tr>'); return; }
+    
     tbody.html(products.map(function(p) {
-        return `<tr>
-            <td>${p.name}</td><td>${p.sku||'—'}</td>
-            <td>₹${parseFloat(p.mrp_price).toFixed(2)}</td>
-            <td>₹${parseFloat(p.purchase_price).toFixed(2)}</td>
-            <td>${p.unit}</td>
-            <td ${showTax ? '' : 'style="display:none"'}>${p.tax_percent}%</td>
-            <td><input type="number" class="qty-input" min="1" step="1" value="1" style="width:60px;padding:3px;border:1px solid #ccc;border-radius:2px;text-align:center;font-size:10px;"></td>
-            <td><input type="checkbox" class="select-product"
-                data-id="${p.id}" data-type="${p.product_type}"
-                data-variant="${p.variant_id || ''}"
-                data-name="${p.name}" data-sku="${p.sku||''}"
-                data-hsn="${p.hsn_code||''}" data-unit="${p.unit}"
-                data-mrp="${p.mrp_price}" data-purchase="${p.purchase_price}"
-                data-tax="${p.tax_percent}"></td>
+        const existIdx = items.findIndex(function(item) {
+            return item.product_id === p.id && item.variant_id === p.variant_id;
+        });
+        const isChecked = existIdx > -1 ? 'checked' : '';
+        const qty = existIdx > -1 ? items[existIdx].quantity : 1;
+        const rowClass = isChecked ? 'row-selected-active' : '';
+
+        return `<tr onclick="toggleProductRowCheckbox(this, event)" class="${rowClass}" style="cursor: pointer;">
+            <td class="product-name">
+                <div class="product-name-txt"><strong>${p.name}</strong></div>
+                <div class="product-sub-txt">${p.sku || '-'} | Unit: ${p.unit}</div>
+            </td>
+            <td class="product-code-col">${p.sku || '—'}</td>
+            <td class="product-mrp">₹${parseFloat(p.mrp_price).toFixed(2)}</td>
+            <td class="product-price">₹${parseFloat(p.purchase_price).toFixed(2)}</td>
+            <td class="product-stock-col">${p.unit}</td>
+            <td class="col-tax" ${showTax ? '' : 'style="display:none"'}>${p.tax_percent}%</td>
+            <td class="product-qty-col" onclick="event.stopPropagation()">
+                <div class="product-qty-selector">
+                    <button type="button" class="prod-qty-btn minus" onclick="adjustProductModalQty(this, -1)">−</button>
+                    <input type="number" class="qty-input" min="1" step="1" value="${qty}" readonly>
+                    <button type="button" class="prod-qty-btn plus" onclick="adjustProductModalQty(this, 1)">+</button>
+                </div>
+            </td>
+            <td class="product-select-col" onclick="event.stopPropagation()">
+                <input type="checkbox" class="select-product" onchange="toggleRowActive(this)" ${isChecked}
+                    data-id="${p.id}" data-type="${p.product_type}"
+                    data-variant="${p.variant_id || ''}"
+                    data-name="${p.name}" data-sku="${p.sku || ''}"
+                    data-hsn="${p.hsn_code || ''}" data-unit="${p.unit}"
+                    data-mrp="${p.mrp_price}" data-purchase="${p.purchase_price}"
+                    data-tax="${p.tax_percent}">
+            </td>
         </tr>`;
     }).join(''));
+}
+
+function toggleProductRowCheckbox(row, event) {
+    if (event.target.closest('input, select, button, a, .product-qty-selector')) return;
+    const checkbox = $(row).find('.select-product');
+    const checked = checkbox.is(':checked');
+    checkbox.prop('checked', !checked);
+    toggleRowActive(checkbox);
+}
+
+function toggleRowActive(checkbox) {
+    const row = $(checkbox).closest('tr');
+    if ($(checkbox).is(':checked')) {
+        row.addClass('row-selected-active');
+    } else {
+        row.removeClass('row-selected-active');
+    }
+}
+
+function adjustProductModalQty(btn, amount) {
+    const input = $(btn).siblings('.qty-input');
+    const currentVal = parseFloat(input.val()) || 1;
+    const newVal = Math.max(1, currentVal + amount);
+    input.val(newVal);
+    
+    const checkbox = $(btn).closest('tr').find('.select-product');
+    if (!checkbox.is(':checked')) {
+        checkbox.prop('checked', true);
+        toggleRowActive(checkbox);
+    }
 }
 
 function addSelectedProducts() {
@@ -959,7 +1751,7 @@ function addSelectedProducts() {
             gst_inclusive:  isIncl,
         };
         const existIdx = items.findIndex(function(i) { return i.product_id === item.product_id && i.variant_id === item.variant_id; });
-        if (existIdx > -1) items[existIdx].quantity += qty;
+        if (existIdx > -1) items[existIdx].quantity = qty;
         else items.push(item);
     });
     closeAddItemModal();
@@ -991,14 +1783,20 @@ $('#quickAddForm').on('submit', function(e) {
 // ===================== RENDER ITEMS =====================
 function renderItemsTable() {
     const tbody  = $('#itemsTableBody');
+    const mobileContainer = $('#mobileItemsContainer');
     const footer = $('#itemsTableFooter');
     const showTax = currentInvType === 'gst';
 
+    tbody.empty();
+    mobileContainer.empty();
     enableExtraFields();
 
     if (items.length === 0) {
         tbody.html(`<tr class="empty-row"><td colspan="10"><div class="empty-items"><div class="empty-icon">📦</div><p>No items added yet</p><button type="button" class="btn-add-first-item" onclick="openAddItemModal()">+ Add First Item</button></div></td></tr>`);
-        footer.hide(); resetSummary(); return;
+        mobileContainer.html(`<div class="empty-items" style="padding: 20px; text-align: center; border: 1px dashed #ccc; border-radius: 6px; background: #fff;"><div class="empty-icon" style="font-size: 24px; margin-bottom: 8px;">🛒</div><p style="font-size: 11px; color: #666; margin-bottom: 10px;">No items added yet</p><button type="button" class="btn-small" onclick="openAddItemModal()" style="border-color: #fa8725; color: #fa8725; padding: 6px 14px; font-size: 11px;">+ Add First Item</button></div>`);
+        footer.hide();
+        resetSummary();
+        return;
     }
 
     footer.show();
@@ -1028,6 +1826,59 @@ function renderItemsTable() {
 
         const inclBadge = isIncl ? `<span class="incl-badge">INCL</span>` : '';
 
+        // Mobile Card HTML
+        let card = `
+        <div class="mobile-item-card" data-index="${idx}">
+            <div class="mobile-item-header">
+                <div class="mobile-item-title-wrap">
+                    <span class="mobile-item-title">${item.product_name}</span>
+                    ${inclBadge}
+                    <span class="mobile-item-sub">${item.sku || '-'} | ${item.unit || 'PCS'}</span>
+                </div>
+                <button type="button" class="btn-delete-mobile" onclick="removeItem(${idx})" title="Remove">🗑️</button>
+            </div>
+            
+            <!-- Row 1: Prices & Taxes -->
+            <div class="mobile-item-grid-prices" style="grid-template-columns: 1fr 1fr;">
+                <div class="mobile-item-col">
+                    <label class="mobile-item-label">Purchase Price (₹)</label>
+                    <input type="number" class="mobile-item-input price-edit-mobile" min="0" step="0.01" value="${item.purchase_price.toFixed(2)}"
+                        onchange="updateItem(${idx}, 'purchase_price', this.value)">
+                </div>
+                <div class="mobile-item-col">
+                    <label class="mobile-item-label">Tax %</label>
+                    ${showTax ? `
+                        <input type="number" class="mobile-item-input tax-edit-mobile" min="0" max="100" step="0.01" value="${taxPercent.toFixed(2)}"
+                            onchange="updateItem(${idx}, 'tax_percent', this.value)">
+                    ` : `
+                        <input type="text" class="mobile-item-input" value="—" disabled style="background:#f1f1f1;text-align:center;">
+                    `}
+                </div>
+            </div>
+
+            <!-- Row 2: Quantity Adjuster -->
+            <div class="mobile-item-grid-qty" style="grid-template-columns: 1fr;">
+                <div class="mobile-item-col-qty">
+                    <label class="mobile-item-label">Quantity</label>
+                    <div class="mobile-qty-controls">
+                        <button type="button" class="mobile-qty-btn minus" onclick="adjustMobileQty(${idx}, -1)">−</button>
+                        <input type="number" class="mobile-item-input qty-edit-mobile" min="1" value="${item.quantity}"
+                            onchange="updateItem(${idx}, 'quantity', this.value)">
+                        <button type="button" class="mobile-qty-btn plus" onclick="adjustMobileQty(${idx}, 1)">+</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Final Row: Total Amt -->
+            <div class="mobile-item-footer-clean">
+                <div class="mobile-item-amount-wrap">
+                    <span class="mobile-item-amount-label">Final Amount</span>
+                    <span class="mobile-item-amount-val">₹ ${rowTotal.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>`;
+        mobileContainer.append(card);
+
         return `<tr class="${isIncl ? 'row-inclusive' : ''}">
             <td class="item-name">${item.product_name}${inclBadge}</td>
             <td>${item.sku || '—'}</td>
@@ -1055,6 +1906,14 @@ function renderItemsTable() {
     calculateInvoiceSummary(ftMRP, ftPurchase, ftTax);
 }
 
+function adjustMobileQty(index, amount) {
+    if (!items[index]) return;
+    const currentQty = parseFloat(items[index].quantity) || 1;
+    const newQty = Math.max(1, currentQty + amount);
+    items[index].quantity = newQty;
+    renderItemsTable();
+}
+
 function updateItem(idx, field, val) {
     if (items[idx]) {
         if (field === 'quantity') items[idx][field] = Math.max(1, Math.round(parseFloat(val) || 0));
@@ -1063,7 +1922,7 @@ function updateItem(idx, field, val) {
     }
 }
 function removeItem(idx) { items.splice(idx, 1); renderItemsTable(); }
-function resetSummary() { $('#totalMRP,#subtotal,#cgstTotal,#sgstTotal,#igstTotal,#totalTax,#grandTotal').text('0.00'); $('#balanceAmount').text('0.00'); }
+function resetSummary() { $('#totalMRP,#subtotal,#cgstTotal,#sgstTotal,#igstTotal,#totalTax,#grandTotal,#mobileStickyGrandTotal').text('0.00'); $('#balanceAmount').text('0.00'); }
 
 // ===================== CALCULATIONS =====================
 function calculateInvoiceSummary(totalMRP, subtotal, totalTax) {
@@ -1077,6 +1936,7 @@ function calculateInvoiceSummary(totalMRP, subtotal, totalTax) {
     $('#totalMRP').text(totalMRP.toFixed(2));
     $('#subtotal').text(subtotal.toFixed(2));
     $('#grandTotal').text(grand.toFixed(2));
+    $('#mobileStickyGrandTotal').text(grand.toFixed(2));
     clampAmountPaid();
 }
 function calculateTotals() { renderItemsTable(); }
@@ -1319,3 +2179,4 @@ $(document).ready(function() {
 </script>
 @endpush
 @endsection
+

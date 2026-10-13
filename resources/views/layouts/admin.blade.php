@@ -378,11 +378,11 @@
 
         .dashboard-content { padding: 15px; }
 
-        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 999; backdrop-filter: blur(2px); }
-        .sidebar-overlay.show { display: block; }
+        .sidebar-overlay { opacity: 0; visibility: hidden; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; backdrop-filter: blur(2px); transition: opacity 0.3s ease, visibility 0.3s ease; }
+        .sidebar-overlay.show { opacity: 1; visibility: visible; }
 
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); width: var(--sidebar-w) !important; }
+            .sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); width: var(--sidebar-w) !important; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important; }
             .sidebar.mobile-open { transform: translateX(0); }
             .main-content { margin-left: 0 !important; }
             .menu-toggle { display: flex; }
@@ -555,12 +555,106 @@
         transform:translateY(-2px);
     }
 
+    /* Mobile Bottom Sheet Drawer */
+    .mobile-bottom-sheet-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 10002;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s ease;
+    }
+    .mobile-bottom-sheet-overlay.show {
+        opacity: 1;
+        visibility: visible;
+    }
+    .mobile-bottom-sheet {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-height: 55vh;
+        background: #ffffff;
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.12);
+        z-index: 10003;
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+    }
+    .mobile-bottom-sheet.show {
+        transform: translateY(0);
+    }
+    .bottom-sheet-header {
+        padding: 12px 16px 8px;
+        text-align: center;
+        border-bottom: 1px solid #f3f4f6;
+        position: relative;
+        flex-shrink: 0;
+    }
+    .bottom-sheet-drag-handle {
+        width: 36px;
+        height: 4px;
+        background: #d1d5db;
+        border-radius: 2px;
+        margin: 0 auto 8px;
+    }
+    .bottom-sheet-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: #111827;
+        margin: 0;
+        letter-spacing: 0.5px;
+    }
+    .bottom-sheet-body {
+        padding: 16px;
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        box-sizing: border-box;
+    }
+    .bottom-sheet-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 16px 10px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        text-decoration: none;
+        color: #374151;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .bottom-sheet-item:active {
+        background: #f3f4f6;
+        transform: scale(0.95);
+    }
+    .bottom-sheet-item-icon {
+        font-size: 22px;
+        margin-bottom: 8px;
+    }
+    .bottom-sheet-item-label {
+        font-size: 10px;
+        font-weight: 600;
+        text-align: center;
+        line-height: 1.2;
+    }
+
     .dashboard-content{
         padding: 5px !important;
         padding-bottom:110px !important;
     }
 }
-    </style>
+</style>
     @stack('styles')
 </head>
 <body>
@@ -794,6 +888,25 @@
             <span class="nav-tooltip">Expenses</span>
         </div>
 
+        <div class="nav-section-label">Website Management</div>
+
+        <!-- FRONTEND WEBSITE BLOCK -->
+        @php $frontendWebsiteActive = request()->is('admin/frontend-settings*') || request()->is('admin/enquiries*'); @endphp
+        <div class="nav-item">
+            <div class="nav-link {{ $frontendWebsiteActive ? 'parent-active' : '' }}" onclick="toggleSubmenu(this)">
+                <span class="nav-icon">🌐</span>
+                <span class="nav-text">Frontend Website</span>
+                <span class="nav-arrow"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+            </div>
+            <div class="submenu {{ $frontendWebsiteActive ? 'open' : '' }}">
+                <div class="submenu-inner">
+                    <a href="{{ url('/admin/frontend-settings') }}" class="submenu-item {{ request()->is('admin/frontend-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Website & Home Settings</a>
+                    <a href="{{ url('/admin/enquiries') }}" class="submenu-item {{ request()->is('admin/enquiries*') ? 'active' : '' }}"><span class="submenu-dot"></span> Enquiries & Leads</a>
+                </div>
+            </div>
+            <span class="nav-tooltip">Frontend Website</span>
+        </div>
+
         <!-- ADMIN CONTROL - With Invoice Settings inside -->
         @php $adminControlActive = request()->is('admin/invoice-settings*') || request()->is('admin/cashmemo-invoice-settings*') || request()->is('admin/settings*'); @endphp
         <div class="nav-item">
@@ -804,7 +917,6 @@
             </div>
             <div class="submenu">
                 <div class="submenu-inner">
-                    <!-- Invoice Settings inside Admin Control -->
                     <a href="{{ url('/admin/invoice-settings') }}" class="submenu-item {{ request()->is('admin/invoice-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Invoice Settings</a>
                     <a href="{{ url('/admin/cashmemo-invoice-settings') }}" class="submenu-item {{ request()->is('admin/cashmemo-invoice-settings*') ? 'active' : '' }}"><span class="submenu-dot"></span> Cash Memo Settings</a>
                     <a href="#" class="submenu-item"><span class="submenu-dot"></span> General Settings</a>
@@ -877,7 +989,7 @@
 
     <a href="/admin/products" class="mobile-nav-item {{ request()->is('admin/products*') ? 'active' : '' }}">
         <span>📦</span>
-        <small>Products</small>
+        <small>Inventory</small>
     </a>
 
     <button class="fab-btn" id="fabBtn">
@@ -889,27 +1001,23 @@
         <small>Sales</small>
     </a>
 
-    <a href="/admin/profile" class="mobile-nav-item {{ request()->is('admin/profile*') ? 'active' : '' }}">
-        <span>👤</span>
-        <small>Profile</small>
-    </a>
+    <button type="button" class="mobile-nav-item" id="moreNavBtn" style="background: none; border: none; cursor: pointer; padding: 0;">
+        <span style="font-weight: bold; font-size: 16px; line-height: 1; letter-spacing: 1px; display: inline-block; margin-top: 4px; margin-bottom: 2px;">•••</span>
+        <small>More</small>
+    </button>
 
 </div>
 
-<div class="fab-menu" id="fabMenu">
-
-    <a href="/admin/sales/create" class="fab-item">
-        🧾 Sales Invoice
-    </a>
-
-    <a href="/admin/sales-returns/create" class="fab-item">
-        🔄 Sales Return
-    </a>
-
-    <a href="/admin/purchases/create" class="fab-item">
-        📦 Purchase Invoice
-    </a>
-
+<!-- Mobile Bottom Sheet Menu -->
+<div class="mobile-bottom-sheet-overlay" id="bottomSheetOverlay"></div>
+<div class="mobile-bottom-sheet" id="bottomSheetMenu">
+    <div class="bottom-sheet-header">
+        <div class="bottom-sheet-drag-handle"></div>
+        <h4 class="bottom-sheet-title">Quick Actions</h4>
+    </div>
+    <div class="bottom-sheet-body" id="bottomSheetBody">
+        <!-- Options populated dynamically -->
+    </div>
 </div>
 
 <script>
@@ -1093,24 +1201,154 @@ document.addEventListener('keydown', e => {
 
 
 const fabBtn = document.getElementById('fabBtn');
-const fabMenu = document.getElementById('fabMenu');
+const bottomSheetMenu = document.getElementById('bottomSheetMenu');
+const bottomSheetOverlay = document.getElementById('bottomSheetOverlay');
+const bottomSheetBody = document.getElementById('bottomSheetBody');
 
-fabBtn.addEventListener('click', () => {
+// Define dynamic menu options based on route path
+const menuOptions = {
+    dashboard: [
+        { label: 'Sales Invoice',   path: '/admin/sales/create',        icon: '🧾' },
+        { label: 'Purchase Invoice',path: '/admin/purchases/create',    icon: '📦' },
+        { label: 'Payment In',      path: '/admin/payments/create',     icon: '📥' },
+        { label: 'Payment Out',     path: '/admin/payments-out/create', icon: '📤' },
+        { label: 'Sales Return',    path: '/admin/sales-returns/create',icon: '🔄' },
+        { label: 'Purchase Return', path: '/admin/purchase-returns/create', icon: '↩️' },
+        { label: 'Party Ledger',    path: '/admin/parties',             icon: '📒' }
+    ],
+    sales: [
+        { label: 'Create Invoice',  path: '/admin/sales/create',        icon: '🧾' },
+        { label: 'Sales Return',    path: '/admin/sales-returns/create',icon: '🔄' },
+        { label: 'Payment In',      path: '/admin/payments/create',     icon: '📥' },
+        { label: 'Add Product',     onclick: 'showProductTypeSelectPopup()', icon: '➕' }
+    ],
+    purchases: [
+        { label: 'Create Purchase', path: '/admin/purchases/create',    icon: '📦' },
+        { label: 'Purchase Return', path: '/admin/purchase-returns/create', icon: '↩️' },
+        { label: 'Payment Out',     path: '/admin/payments-out/create', icon: '📤' },
+        { label: 'Add Product',     onclick: 'showProductTypeSelectPopup()', icon: '➕' }
+    ],
+    products: [
+        { label: 'Add Product',     onclick: 'showProductTypeSelectPopup()', icon: '➕' },
+        { label: 'Sales Invoice',   path: '/admin/sales/create',        icon: '🧾' },
+        { label: 'Purchase Invoice',path: '/admin/purchases/create',    icon: '📦' },
+        { label: 'Party Ledger',    path: '/admin/parties',             icon: '📒' }
+    ],
+    default: [
+        { label: 'Sales Invoice',   path: '/admin/sales/create',        icon: '🧾' },
+        { label: 'Purchase Invoice',path: '/admin/purchases/create',    icon: '📦' },
+        { label: 'Payment In',      path: '/admin/payments/create',     icon: '📥' },
+        { label: 'Payment Out',     path: '/admin/payments-out/create', icon: '📤' }
+    ]
+};
 
-    fabMenu.classList.toggle('show');
+function getActiveMenuKey() {
+    const path = window.location.pathname;
+    if (path.includes('/admin/dashboard')) return 'dashboard';
+    if (path.includes('/admin/sales')) return 'sales';
+    if (path.includes('/admin/purchases')) return 'purchases';
+    if (path.includes('/admin/products')) return 'products';
+    return 'default';
+}
 
-    if(fabMenu.classList.contains('show')){
+function showProductTypeSelectPopup() {
+    closeBottomSheet();
+    Swal.fire({
+        title: 'Select Product Type',
+        text: 'Choose the type of product you want to add:',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '📦 Simple Product',
+        cancelButtonText: '🎨 Variant Product',
+        confirmButtonColor: '#fa8725',
+        cancelButtonColor: '#2563eb',
+        customClass: {
+            container: 'product-type-swal'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '/admin/products/create/simple';
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+            window.location.href = '/admin/products/create';
+        }
+    });
+}
 
-        fabBtn.innerHTML = '✕';
-        fabBtn.style.transform = 'rotate(45deg)';
+function renderBottomSheetOptions() {
+    const key = getActiveMenuKey();
+    const options = menuOptions[key] || menuOptions.default;
+    
+    bottomSheetBody.innerHTML = options.map(opt => {
+        if (opt.onclick) {
+            return `
+                <div onclick="${opt.onclick}" class="bottom-sheet-item">
+                    <span class="bottom-sheet-item-icon">${opt.icon}</span>
+                    <span class="bottom-sheet-item-label">${opt.label}</span>
+                </div>
+            `;
+        } else {
+            return `
+                <a href="${opt.path}" class="bottom-sheet-item">
+                    <span class="bottom-sheet-item-icon">${opt.icon}</span>
+                    <span class="bottom-sheet-item-label">${opt.label}</span>
+                </a>
+            `;
+        }
+    }).join('');
+}
 
-    }else{
-
-        fabBtn.innerHTML = '+';
-        fabBtn.style.transform = 'rotate(0deg)';
+function openBottomSheet() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar && sidebar.classList.contains('mobile-open')) {
+        sidebar.classList.remove('mobile-open');
+        if (overlay) overlay.classList.remove('show');
     }
+    renderBottomSheetOptions();
+    bottomSheetOverlay.classList.add('show');
+    bottomSheetMenu.classList.add('show');
+    fabBtn.innerHTML = '✕';
+    fabBtn.style.transform = 'rotate(45deg)';
+}
 
-});
+function closeBottomSheet() {
+    bottomSheetOverlay.classList.remove('show');
+    bottomSheetMenu.classList.remove('show');
+    fabBtn.innerHTML = '+';
+    fabBtn.style.transform = 'rotate(0deg)';
+}
+
+if (fabBtn) {
+    fabBtn.addEventListener('click', () => {
+        if (bottomSheetMenu.classList.contains('show')) {
+            closeBottomSheet();
+        } else {
+            openBottomSheet();
+        }
+    });
+}
+
+if (bottomSheetOverlay) {
+    bottomSheetOverlay.addEventListener('click', closeBottomSheet);
+}
+
+const moreNavBtn = document.getElementById('moreNavBtn');
+if (moreNavBtn) {
+    moreNavBtn.addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (sidebar && overlay) {
+            if (sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('show');
+            } else {
+                if (typeof closeBottomSheet === 'function') closeBottomSheet();
+                sidebar.classList.add('mobile-open');
+                overlay.classList.add('show');
+            }
+        }
+    });
+}
 
 </script>
  <script src="{{ asset('js/voice-commands.js') }}"></script>

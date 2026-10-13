@@ -24,11 +24,12 @@ class VariantProduct extends Model
         'gallery_images',
         'description',
         'variants',
+        'show_on_website',
     ];
 
     protected $casts = [
+        'show_on_website' => 'boolean',
         'gallery_images' => 'array',
-        'variants' => 'array',
         'gst' => 'float',
         'warranty_duration' => 'integer',
     ];

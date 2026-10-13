@@ -160,6 +160,29 @@
                                 <div class="error-message">{{ $message }}</div>
                             @enderror
                         </div>
+
+                        <!-- ===== ONLINE WEBSITE VISIBILITY TOGGLE ===== -->
+                        <div class="form-group full-width" style="margin-top: 10px;">
+                            <div class="website-toggle-card" style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 40px; height: 40px; background: #3b82f6; color: #ffffff; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
+                                        🌐
+                                    </div>
+                                    <div>
+                                        <label for="show_on_website_toggle" style="font-size: 14px; font-weight: 700; color: #0f172a; cursor: pointer; display: block; margin-bottom: 2px;">
+                                            Show on Online Website Catalog
+                                        </label>
+                                        <p style="font-size: 11.5px; color: #64748b; margin: 0; line-height: 1.3;">
+                                            When turned <strong>ON</strong>, this product will be published to the online storefront website (React/Next.js).
+                                        </p>
+                                    </div>
+                                </div>
+                                <label class="switch-toggle" style="position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; margin: 0;">
+                                    <input type="checkbox" id="show_on_website_toggle" name="show_on_website" value="1" {{ old('show_on_website', '1') == '1' ? 'checked' : '' }} style="opacity: 0; width: 0; height: 0;">
+                                    <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 34px;"></span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -542,6 +565,14 @@
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(5px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== TOGGLE SWITCH ===== */
+    .switch-toggle input:checked + .toggle-slider { background-color: #2563eb !important; }
+    .switch-toggle input:checked + .toggle-slider:before { transform: translateX(22px) !important; }
+    .toggle-slider:before {
+        position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px;
+        background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
     .tab-header {

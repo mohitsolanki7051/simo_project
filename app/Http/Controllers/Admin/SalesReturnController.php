@@ -549,14 +549,21 @@ public function complete($id)
                 $newPaymentStatus = 'unpaid';          // still some due remaining
             }
 
-            $invoice->balance_amount  = $newBalance;
-            $invoice->payment_status  = $newPaymentStatus;
+            $invoice->balance_amount      = $newBalance;
+            $invoice->payment_status      = $newPaymentStatus;
+            $invoice->credit_note_applied = round((float) ($invoice->credit_note_applied ?? 0) + $adjustAmount, 2);
+            $invoice->credit_note_numbers = $creditNote->credit_note_number;
+            $invoice->save();
 
         } else {
             // Invoice already paid — credit note stays active for future use / refund
-            // No balance to deduct; credit note remains fully available
             $creditNote->status = 'active';
             $creditNote->save();
+        }
+
+        /* ================= TALLY/ERP: AUTO-ALLOCATE LEFTOVER CREDIT NOTE TO OTHER UNPAID INVOICES ================= */
+        if ($creditNote->remaining_amount > 0) {
+            CreditNote::autoAllocateToPendingInvoices((string) $invoice->party_id);
         }
 
         /* ================= MARK RETURN COMPLETED ================= */

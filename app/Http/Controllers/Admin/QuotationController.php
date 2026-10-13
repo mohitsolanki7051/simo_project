@@ -1378,6 +1378,7 @@ class QuotationController extends Controller
                     'name' => $party->name,
                     'phone' => $party->phone,
                     'email' => $party->email,
+                    'gst_number' => $party->gst_number,
                     'party_type' => $party->party_type,
                     'party_type_text' => ucfirst($party->party_type),
                     'salesman_id' => $party->salesman_id,

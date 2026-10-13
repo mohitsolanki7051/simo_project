@@ -715,7 +715,7 @@ $partyPhone = $party['phone'] ?? '—';
                     'party_type'       => ucfirst($partyType),
                     'party_phone'      => $partyPhone,
                     'amount'           => $amount,
-                    'discount'         => $this->decimalToFloat($payment->discount),
+                    'discount'         => $this->decimalToFloat($payment->discount ?? 0),
                     'payment_method'   => $payment->payment_method_text,
                     'reference_no'     => $payment->reference_no ?: '—',
                     'notes'            => $payment->notes ?: '—',
@@ -736,61 +736,63 @@ $partyPhone = $party['phone'] ?? '—';
     }
 
     /**
-     * Delete a payment and reverse all allocations
+     * Helper to reverse allocations of a payment
      */
-    public function destroy($id)
+    private function reversePaymentAllocations(SalesPayment $payment)
     {
-        try {
-            $payment = SalesPayment::findOrFail($id);
+        if (empty($payment->allocations)) return;
 
-            foreach ($payment->allocations as $allocation) {
-                if ($allocation['type'] === 'opening_balance') {
-                    // Nothing to reverse in DB for opening balance
+        foreach ($payment->allocations as $allocation) {
+            $type = $allocation['type'] ?? '';
+            $amt  = (float) ($allocation['amount'] ?? 0);
 
-                } elseif ($allocation['type'] === 'invoice') {
-                    $invoice = SalesInvoice::find($allocation['invoice_id']);
-                    if ($invoice) {
-                        $currentPaid = $this->decimalToFloat($invoice->total_paid);
-                        $newPaid     = max(0, $currentPaid - $allocation['amount']);
-                        $grandTotal  = $this->decimalToFloat($invoice->grand_total);
-                        $newBalance  = $grandTotal - $newPaid;
+            if ($type === 'invoice' && !empty($allocation['invoice_id'])) {
+                $invoice = SalesInvoice::find($allocation['invoice_id']);
+                if ($invoice) {
+                    $currentPaid = $this->decimalToFloat($invoice->total_paid);
+                    $newPaid     = max(0, $currentPaid - $amt);
+                    $grandTotal  = $this->decimalToFloat($invoice->grand_total);
+                    $newBalance  = $grandTotal - $newPaid;
 
-                        $paymentStatus = 'unpaid';
-                        if ($newPaid > 0 && $newBalance > 0.01) $paymentStatus = 'partial';
-                        elseif ($newBalance <= 0.01) { $paymentStatus = 'paid'; $newBalance = 0; }
+                    $paymentStatus = 'unpaid';
+                    if ($newPaid > 0 && $newBalance > 0.01) $paymentStatus = 'partial';
+                    elseif ($newBalance <= 0.01) { $paymentStatus = 'paid'; $newBalance = 0; }
 
-                        $invoice->update([
-                            'total_paid'     => round($newPaid, 2),
-                            'balance_amount' => round($newBalance, 2),
-                            'payment_status' => $paymentStatus
-                        ]);
-                    }
-
-                } elseif ($allocation['type'] === 'credit_note') {
-                    $creditNote = \App\Models\CreditNote::find($allocation['credit_note_id']);
-                    if ($creditNote) {
-                        $creditNote->used_amount      = max(0, $this->decimalToFloat($creditNote->used_amount) - $allocation['amount']);
-                        $creditNote->remaining_amount = $this->decimalToFloat($creditNote->amount) - $this->decimalToFloat($creditNote->used_amount);
-                        $creditNote->status           = $creditNote->remaining_amount > 0 ? 'active' : 'used';
-                        $creditNote->save();
-                    }
-
-                } elseif ($allocation['type'] === 'debit_note') {
-                    // NEW: Reverse debit note allocation
-                    $debitNote = DebitNote::find($allocation['debit_note_id']);
-                    if ($debitNote) {
-                        $debitNote->used_amount      = max(0, $this->decimalToFloat($debitNote->used_amount) - $allocation['amount']);
-                        $debitNote->remaining_amount = $this->decimalToFloat($debitNote->amount) - $this->decimalToFloat($debitNote->used_amount);
-                       if ($debitNote->remaining_amount <= 0) {
-                            $debitNote->status = 'settled';
-                        } else {
-                            $debitNote->status = 'partial';
-                        }
-                        $debitNote->save();
-                    }
+                    $invoice->update([
+                        'total_paid'     => round($newPaid, 2),
+                        'balance_amount' => round($newBalance, 2),
+                        'payment_status' => $paymentStatus
+                    ]);
+                }
+            } elseif ($type === 'credit_note' && !empty($allocation['credit_note_id'])) {
+                $creditNote = \App\Models\CreditNote::find($allocation['credit_note_id']);
+                if ($creditNote) {
+                    $creditNote->used_amount      = max(0, $this->decimalToFloat($creditNote->used_amount) - $amt);
+                    $creditNote->remaining_amount = $this->decimalToFloat($creditNote->amount) - $this->decimalToFloat($creditNote->used_amount);
+                    $creditNote->status           = $creditNote->remaining_amount > 0 ? 'active' : 'used';
+                    $creditNote->save();
+                }
+            } elseif ($type === 'debit_note' && !empty($allocation['debit_note_id'])) {
+                $debitNote = DebitNote::find($allocation['debit_note_id']);
+                if ($debitNote) {
+                    $debitNote->used_amount      = max(0, $this->decimalToFloat($debitNote->used_amount) - $amt);
+                    $debitNote->remaining_amount = $this->decimalToFloat($debitNote->amount) - $this->decimalToFloat($debitNote->used_amount);
+                    $debitNote->status           = $debitNote->remaining_amount <= 0 ? 'settled' : 'partial';
+                    $debitNote->save();
                 }
             }
+        }
+    }
 
+    public function destroy($id)
+    {
+        if (!auth()->guard('admin')->check()) {
+            return response()->json(['success' => false, 'message' => 'Only Admin can delete payments.'], 403);
+        }
+
+        try {
+            $payment = SalesPayment::findOrFail($id);
+            $this->reversePaymentAllocations($payment);
             $payment->delete();
 
             return response()->json([
@@ -804,6 +806,167 @@ $partyPhone = $party['phone'] ?? '—';
                 'success' => false,
                 'message' => 'Failed to delete payment: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function getEditData($id)
+    {
+        if (!auth()->guard('admin')->check()) {
+            return response()->json(['success' => false, 'message' => 'Only Admin can edit payments.'], 403);
+        }
+
+        $payment = SalesPayment::findOrFail($id);
+        return response()->json([
+            'success' => true,
+            'payment' => [
+                'id'             => (string)$payment->_id,
+                'payment_number' => $payment->payment_number ?? '—',
+                'amount'         => $this->decimalToFloat($payment->amount),
+                'discount'       => $this->decimalToFloat($payment->discount ?? 0),
+                'payment_date'   => $payment->payment_date instanceof \Carbon\Carbon ? $payment->payment_date->format('Y-m-d') : date('Y-m-d', strtotime($payment->payment_date)),
+                'payment_method' => $payment->payment_method,
+                'reference_no'   => $payment->reference_no ?? '',
+                'notes'          => $payment->notes ?? '',
+            ]
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        if (!auth()->guard('admin')->check()) {
+            return response()->json(['success' => false, 'message' => 'Only Admin can edit payment details.'], 403);
+        }
+
+        $request->validate([
+            'amount'         => 'required|numeric|min:0.01',
+            'payment_date'   => 'required|date',
+            'payment_method' => 'required|in:cash,upi,bank_transfer,cheque,card',
+            'reference_no'   => 'nullable|string|max:255',
+            'notes'          => 'nullable|string',
+            'discount'       => 'nullable|numeric|min:0',
+        ]);
+
+        try {
+            $payment = SalesPayment::findOrFail($id);
+            $party   = Customer::findOrFail($payment->party_id);
+
+            // 1. Reverse old allocations
+            $this->reversePaymentAllocations($payment);
+
+            // 2. Check due details after reversal
+            $cashAmount = (float) $request->amount;
+            $discount   = (float) ($request->discount ?? 0);
+            $totalPaidPool = $cashAmount + $discount;
+            $dueDetails = $this->getPartyDueDetails($party);
+
+            if ($totalPaidPool > ($dueDetails['net_payable'] + 0.01)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Total paid amount (₹ ' . number_format($totalPaidPool, 2) .
+                                 ') cannot exceed net payable (₹ ' . number_format($dueDetails['net_payable'], 2) . ')'
+                ], 422);
+            }
+
+            // 3. Re-allocate new payment
+            $allocations = [];
+            $creditAllocations = [];
+            $creditUsedTotal   = 0;
+
+            foreach ($dueDetails['credit_notes'] as $cnData) {
+                if ($cnData['remaining_amount'] <= 0) continue;
+
+                $creditModel = \App\Models\CreditNote::find($cnData['id']);
+                if (!$creditModel) continue;
+
+                $toUse = $cnData['remaining_amount'];
+
+                $creditModel->used_amount      = $this->decimalToFloat($creditModel->used_amount) + $toUse;
+                $creditModel->remaining_amount = max(0, $this->decimalToFloat($creditModel->remaining_amount) - $toUse);
+                if ($creditModel->remaining_amount <= 0.01) {
+                    $creditModel->remaining_amount = 0;
+                    $creditModel->status           = 'used';
+                }
+                $creditModel->save();
+
+                $creditAllocations[] = [
+                    'type'               => 'credit_note',
+                    'credit_note_id'     => $cnData['id'],
+                    'credit_note_number' => $cnData['credit_note_number'],
+                    'amount'             => $toUse,
+                    'description'        => 'Credit Note Adjustment: ' . $cnData['credit_note_number'],
+                ];
+
+                $creditUsedTotal += $toUse;
+            }
+
+            $pool          = $creditUsedTotal + $cashAmount + $discount;
+            $remainingPool = $pool;
+
+            if ($dueDetails['opening_balance'] > 0 && $remainingPool > 0) {
+                $payToOpening = min($dueDetails['opening_balance'], $remainingPool);
+                if ($payToOpening > 0) {
+                    $allocations[] = [
+                        'type'        => 'opening_balance',
+                        'amount'      => $payToOpening,
+                        'description' => 'Opening Balance Payment',
+                    ];
+                    $remainingPool -= $payToOpening;
+                }
+            }
+
+            foreach ($dueDetails['invoices'] as $invoiceData) {
+                if ($remainingPool <= 0.001) break;
+
+                $invoice = SalesInvoice::find($invoiceData['id']);
+                if (!$invoice || $invoiceData['balance'] <= 0) continue;
+
+                $payToInvoice = min($invoiceData['balance'], $remainingPool);
+
+                if ($payToInvoice > 0.001) {
+                    $newPaid    = $invoiceData['paid'] + $payToInvoice;
+                    $newBalance = $invoiceData['balance'] - $payToInvoice;
+
+                    $paymentStatus = ($newBalance <= 0.01) ? 'paid' : 'partial';
+                    if ($paymentStatus === 'paid') $newBalance = 0;
+
+                    $invoice->update([
+                        'total_paid'     => round($newPaid, 2),
+                        'balance_amount' => round($newBalance, 2),
+                        'payment_status' => $paymentStatus
+                    ]);
+
+                    $allocations[] = [
+                        'type'           => 'invoice',
+                        'invoice_id'     => $invoiceData['id'],
+                        'invoice_number' => $invoiceData['invoice_number'],
+                        'amount'         => round($payToInvoice, 2),
+                        'description'    => 'Payment applied to invoice ' . $invoiceData['invoice_number'],
+                    ];
+
+                    $remainingPool -= $payToInvoice;
+                }
+            }
+
+            $allocations = array_merge($allocations, $creditAllocations);
+
+            $payment->update([
+                'amount'         => round($cashAmount, 2),
+                'discount'       => round($discount, 2),
+                'payment_date'   => $request->payment_date,
+                'payment_method' => $request->payment_method,
+                'reference_no'   => $request->reference_no,
+                'notes'          => $request->notes,
+                'allocations'    => $allocations,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment updated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Update payment error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 

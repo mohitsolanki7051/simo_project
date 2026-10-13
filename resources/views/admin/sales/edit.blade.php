@@ -514,6 +514,13 @@
 
 @push('styles')
 <style>
+.d-none { display: none !important; }
+#productsTableWrapper tr.d-none,
+.products-table-container tr.d-none,
+#selectPartyModal tr.d-none,
+.parties-table-container tr.d-none {
+    display: none !important;
+}
 /* GST MODE TOGGLE */
 .gst-mode-toggle { display:flex; gap:6px; }
 .gst-mode-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:1px; padding:6px 8px; background:#f8f9fa; border:1.5px solid #dee2e6; border-radius:5px; cursor:pointer; transition:all .18s; font-size:10px; line-height:1.3; }
@@ -1334,8 +1341,9 @@ let items = {!! json_encode($invoice->items->map(function($item) use ($invoice) 
         'price'         => $item->gst_inclusive && $item->sale_price_incl
                             ? (float) $item->sale_price_incl
                             : (float) $item->price,
-        'quantity'      => (float) $item->quantity,
-        'discount'      => (float) $item->discount,
+        'quantity'          => (float) $item->quantity,
+        'original_quantity' => (float) $item->quantity,
+        'discount'          => (float) $item->discount,
         'tax_percent'   => (float) $item->tax_percent,
         'unit'          => $item->unit,
         'warranty_type' => $item->warranty_type,
@@ -1479,7 +1487,25 @@ function getProductPrice(product, partyType) {
 
 function openAddItemModal() {
     if (!getCurrentPartyType()) { showAlert('Please select a party first', 'error'); return; }
-    resetWarehouseSelection();
+    
+    let mainWh = items.length > 0 ? items[0].warehouse_id : $('input[name="warehouse_id"]').val();
+    if (!mainWh) {
+        mainWh = '{{ $mainWarehouse->_id }}';
+    }
+    
+    if (mainWh) {
+        $('#itemModalWarehouse').val(mainWh);
+        const whName = $('#itemModalWarehouse option[value="' + mainWh + '"]').text() || '{{ $mainWarehouse->name }}';
+        $('#warehouseSelectSection').hide();
+        $('#productSearchSection').show();
+        $('#productsTableWrapper').show();
+        $('#selectedWarehouseName').text('🏭 ' + whName);
+        $('#searchProduct').val('');
+        loadProducts('', mainWh);
+    } else {
+        resetWarehouseSelection();
+    }
+    
     $('#addItemModal').css('display', 'flex');
 }
 function closeAddItemModal() { $('#addItemModal').hide(); $('#searchProduct').val(''); }
@@ -1493,6 +1519,11 @@ function loadProducts(search = '', warehouseId = null) {
         loading.hide();
         if (!response.products.length) { tbody.html('<tr><td colspan="7" style="padding:40px;text-align:center;"><div style="font-size:32px;opacity:.3;">📦</div><p style="font-size:11px;color:#6b7280;">No products found</p></td></tr>'); return; }
         response.products.forEach(product => {
+            const existingInInvoice = items.find(i => String(i.product_id) === String(product.id) && (product.variant_id ? String(i.variant_id) === String(product.variant_id) : (!i.variant_id)));
+            const origQty = existingInInvoice ? (parseFloat(existingInInvoice.original_quantity) || 0) : 0;
+            const currentStock = parseFloat(product.current_stock) || 0;
+            const effectiveStock = currentStock + origQty;
+
             const price = getProductPrice(product, partyType);
             const mrp   = parseFloat(product.mrp_price || 0);
             const disc  = mrp > 0 && price < mrp ? ((mrp-price)/mrp*100).toFixed(2) : 0;
@@ -1500,19 +1531,19 @@ function loadProducts(search = '', warehouseId = null) {
             tbody.append(`<tr onclick="toggleProductRowCheckbox(this, event)" style="cursor: pointer;">
                 <td class="product-name">
                     <div class="product-name-txt"><strong>${product.name}</strong></div>
-                    <div class="product-sub-txt">${product.sku || '-'} | Stock: ${product.current_stock} ${product.unit}</div>
+                    <div class="product-sub-txt">${product.sku || '-'} | Stock: ${effectiveStock} ${product.unit}</div>
                 </td>
                 <td class="product-code-col">${product.sku || '-'}</td>
                 <td class="product-mrp">₹ ${mrp.toFixed(2)}</td>
                 <td class="product-price">₹ ${price.toFixed(2)}${disc > 0 ? `<br><small style="color:#28a745;">(${disc}% off)</small>` : ''}</td>
-                <td class="product-stock-col">${product.current_stock} ${product.unit}</td>
+                <td class="product-stock-col">${effectiveStock} ${product.unit}</td>
                 <td class="product-qty-col" onclick="event.stopPropagation()">
                     <div class="product-qty-selector">
                         <button type="button" class="prod-qty-btn minus" onclick="adjustProductModalQty(this, -1)">−</button>
-                        <input type="number" class="qty-input" min="1" max="${product.current_stock}" value="1"
+                        <input type="number" class="qty-input" min="1" max="${effectiveStock}" value="1"
                             data-product-id="${product.id}" data-variant-id="${product.variant_id || ''}"
                             data-type="${product.type}" data-price="${price}" data-mrp="${mrp}"
-                            data-stock="${product.current_stock}" data-name="${product.name}"
+                            data-stock="${effectiveStock}" data-name="${product.name}"
                             data-sku="${product.sku}" data-hsn="${product.hsn_code || ''}"
                             data-tax="${product.tax_percent || 0}" data-unit="${product.unit}"
                             data-warranty-type="${product.warranty_type}" data-warranty-period="${product.warranty_period}">
@@ -1887,6 +1918,7 @@ function selectParty(partyId) {
         $('#partyTypeBadge').text(p.party_type_text).attr('class', `party-type-badge ${p.party_type}`);
         $('#partyPhone').text(p.phone || '-');
         $('#partyEmail').text(p.email || '-');
+        $('#partyGst').text(p.gst_number || '-');
         $('#partyOpeningBalance').text('₹ ' + (p.dynamic_opening_balance || 0).toFixed(2));
         $('#partyCreditLimit').text(p.credit_limit ? '₹ ' + parseFloat(p.credit_limit).toFixed(2) : 'No Limit');
         $('#partyIdInput').val(p.id);
@@ -1977,13 +2009,24 @@ $(document).on('click', '.party-type-tab', function() {
 $('#searchParty').on('input', function() {
     const v = this.value.toLowerCase();
     $('#partiesTableBody tr').each(function() {
-        $(this).toggle($(this).find('td:first').text().toLowerCase().includes(v) || $(this).find('td:eq(2)').text().toLowerCase().includes(v));
+        const text = $(this).find('td:first').text().toLowerCase() + ' ' + $(this).find('td:eq(2)').text().toLowerCase();
+        if (text.includes(v)) {
+            $(this).removeClass('d-none');
+        } else {
+            $(this).addClass('d-none');
+        }
     });
 });
 $('#searchProduct').on('input', function() {
-    const v = this.value.toLowerCase();
+    const value = this.value.toLowerCase();
     $('#productsTableBody tr').each(function() {
-        $(this).toggle($(this).find('td:first').text().toLowerCase().includes(v) || $(this).find('td:eq(1)').text().toLowerCase().includes(v));
+        const name = $(this).find('.product-name').text().toLowerCase();
+        const code = $(this).find('.product-code-col').text().toLowerCase();
+        if (name.includes(value) || code.includes(value)) {
+            $(this).removeClass('d-none');
+        } else {
+            $(this).addClass('d-none');
+        }
     });
 });
 
@@ -2152,7 +2195,11 @@ $(document).ready(function() {
                         String(p.id) === String(item.product_id) &&
                         (item.variant_id ? String(p.variant_id) === String(item.variant_id) : true)
                     );
-                    if (match) items[index].max_stock = parseFloat(match.current_stock);
+                    if (match) {
+                        const currentStock = parseFloat(match.current_stock) || 0;
+                        const origQty = parseFloat(item.original_quantity) || 0;
+                        items[index].max_stock = currentStock + origQty;
+                    }
                 });
             }
             renderItemsTable();

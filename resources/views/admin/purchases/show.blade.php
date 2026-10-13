@@ -297,6 +297,98 @@
             print-color-adjust:exact !important;
         }
     }
+
+    /* ── Mobile Responsive Styles ── */
+    @media (max-width: 640px) {
+        /* ACTION BAR - mobile stack */
+        body:not(.iv-print-mode) .iv-actions-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+            padding: 10px !important;
+        }
+        body:not(.iv-print-mode) .iv-actions-left {
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        body:not(.iv-print-mode) .iv-page-title { font-size: 13px !important; }
+        body:not(.iv-print-mode) .iv-actions-right {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr 1fr !important;
+            gap: 6px !important;
+        }
+        body:not(.iv-print-mode) .iv-btn {
+            justify-content: center !important;
+            padding: 8px 6px !important;
+            font-size: 11px !important;
+            flex: 1 !important;
+        }
+
+        /* INVOICE CARD */
+        body:not(.iv-print-mode) .iv-card { border-radius: 10px !important; }
+
+        /* COMPANY HEADER */
+        body:not(.iv-print-mode) .iv-header { padding: 12px !important; }
+        body:not(.iv-print-mode) .iv-company-block { gap: 10px !important; }
+        body:not(.iv-print-mode) .iv-logo-img { height: 44px !important; }
+        body:not(.iv-print-mode) .iv-logo-placeholder { width: 44px !important; height: 44px !important; font-size: 18px !important; }
+        body:not(.iv-print-mode) .iv-company-details h2 { font-size: 15px !important; }
+        body:not(.iv-print-mode) .iv-company-details p { font-size: 10px !important; }
+        body:not(.iv-print-mode) .iv-company-contact { flex-direction: column !important; gap: 2px !important; font-size: 10px !important; }
+
+        /* TITLE ROW */
+        body:not(.iv-print-mode) .iv-title-row { padding: 10px 12px 8px !important; }
+        body:not(.iv-print-mode) .iv-doc-title { font-size: 14px !important; }
+        body:not(.iv-print-mode) .iv-invoice-number { font-size: 12px !important; }
+        body:not(.iv-print-mode) .iv-invoice-date { font-size: 10px !important; }
+
+        /* PARTY GRID - 2 col on mobile */
+        body:not(.iv-print-mode) .iv-party-grid {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+            padding: 8px !important;
+        }
+        body:not(.iv-print-mode) .iv-party-block { padding: 10px !important; }
+        body:not(.iv-print-mode) .iv-party-block > div { font-size: 11px !important; }
+
+        /* HIDE TABLE, SHOW MOBILE CARDS */
+        body:not(.iv-print-mode) .iv-items-section .iv-table { display: none !important; }
+        body:not(.iv-print-mode) .iv-mobile-cards { display: block !important; }
+
+        /* BOTTOM GRID - stack on mobile */
+        body:not(.iv-print-mode) .iv-bottom-grid {
+            grid-template-columns: 1fr !important;
+            gap: 10px !important;
+            padding: 10px !important;
+        }
+
+        /* Left panel pehle, right panel baad mein */
+        body:not(.iv-print-mode) .iv-left-panel {
+            order: 2 !important;
+        }
+        body:not(.iv-print-mode) .iv-right-panel {
+            order: 1 !important;
+        }
+    }
+
+    /* MOBILE CARDS STYLING */
+    .iv-mobile-cards { display: none; }
+    .iv-mc { background:#fff; border:0.5px solid #e5e7eb; border-radius:10px; margin-bottom:8px; overflow:hidden; text-align: left; }
+    .iv-mc-top { display:flex; align-items:center; gap:8px; padding:10px 10px 7px; }
+    .iv-mc-sno { width:20px; height:20px; border-radius:50%; background:#f97316; color:#fff; font-size:9px; font-weight:600; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .iv-mc-info { flex:1; min-width:0; }
+    .iv-mc-name { font-size:12px; font-weight:600; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .iv-mc-variant { font-size:10px; color:#6b7280; margin-top:1px; }
+    .iv-mc-hsn { font-size:9px; color:#9ca3af; background:#f3f4f6; border-radius:3px; padding:1px 4px; display:inline-block; margin-top:2px; }
+    .iv-mc-amt { font-size:14px; font-weight:700; color:#f97316; flex-shrink:0; }
+    .iv-mc-div { height:0.5px; background:#f3f4f6; margin:0 10px; }
+    .iv-mc-meta { display:grid; grid-template-columns:1fr 1fr 1fr; padding:7px 10px; gap:4px; }
+    .iv-mc-meta2 { border-top:0.5px solid #f3f4f6; padding-top:6px !important; }
+    .iv-mc-lbl { font-size:9px; color:#9ca3af; display:block; }
+    .iv-mc-val { font-size:11px; font-weight:500; color:#111827; display:block; }
+    .iv-mc-c { text-align:center; }
+    .iv-mc-r { text-align:right; }
+    .iv-mc-footer { background:#fff; border:0.5px solid #e5e7eb; border-radius:8px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; margin-top:2px; }
 </style>
 
 <div class="iv-wrap">
@@ -520,6 +612,86 @@
                     </tr>
                 </tfoot>
             </table>
+
+            {{-- MOBILE PRODUCT CARDS --}}
+            <div class="iv-mobile-cards" style="background:#f9fafb;padding:10px;border-top:0.5px solid #e5e7eb;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <span style="font-size:11px;font-weight:600;color:#374151;">Items</span>
+                    <span style="font-size:10px;color:#6b7280;">{{ $invoice->items->count() }} items · Qty: {{ number_format($totalQuantity, 2) }}</span>
+                </div>
+
+                @foreach($invoice->items as $idx => $item)
+                @php
+                    $taxAmt = $showGST
+                        ? round($item->quantity * $item->purchase_price * ($item->tax_percent ?? 0) / 100, 2)
+                        : 0;
+                    $lineTotal = ($item->quantity * $item->purchase_price) + $taxAmt;
+                @endphp
+                <div class="iv-mc">
+                    <div class="iv-mc-top">
+                        <div class="iv-mc-sno">{{ $idx + 1 }}</div>
+                        <div class="iv-mc-info">
+                            <div class="iv-mc-name">{{ $item->product_name }}</div>
+                            @if(!empty($item->variant_name))
+                                <div class="iv-mc-variant">{{ $item->variant_name }}</div>
+                            @endif
+                            @if($showGST && !empty($item->hsn_sac))
+                                <span class="iv-mc-hsn">HSN: {{ $item->hsn_sac }}</span>
+                            @endif
+                        </div>
+                        <div class="iv-mc-amt">₹ {{ number_format($lineTotal, 2) }}</div>
+                    </div>
+                    <div class="iv-mc-div"></div>
+                    <div class="iv-mc-meta">
+                        <div>
+                            <span class="iv-mc-lbl">Qty</span>
+                            <span class="iv-mc-val">{{ number_format($item->quantity, 2) }} {{ $item->unit ?? 'PCS' }}</span>
+                        </div>
+                        <div class="iv-mc-c">
+                            <span class="iv-mc-lbl">MRP</span>
+                            <span class="iv-mc-val">₹{{ number_format($item->mrp_price ?? 0, 2) }}</span>
+                        </div>
+                        <div class="iv-mc-r">
+                            <span class="iv-mc-lbl">Disc</span>
+                            <span class="iv-mc-val">
+                                @if((float)($item->discount ?? 0) > 0)
+                                    <span class="iv-mc-disc">{{ number_format($item->discount, 1) }}%</span>
+                                @else
+                                    —
+                                @endif
+                            </span>
+                        </div>
+                    </div>
+                    <div class="iv-mc-meta iv-mc-meta2">
+                        <div>
+                            <span class="iv-mc-lbl">Purchase Price</span>
+                            <span class="iv-mc-val">₹{{ number_format($item->purchase_price, 2) }}</span>
+                        </div>
+                        @if($showGST)
+                        <div class="iv-mc-c">
+                            <span class="iv-mc-lbl">Tax %</span>
+                            <span class="iv-mc-val">{{ number_format($item->tax_percent ?? 0, 0) }}%</span>
+                        </div>
+                        <div class="iv-mc-r">
+                            <span class="iv-mc-lbl">Tax Amt</span>
+                            <span class="iv-mc-val">₹{{ number_format($taxAmt, 2) }}</span>
+                        </div>
+                        @else
+                        <div class="iv-mc-c">
+                            <!-- spacer -->
+                        </div>
+                        <div class="iv-mc-r">
+                            <!-- spacer -->
+                        </div>
+                        @endif
+                    </div>
+                </div>
+                @endforeach
+                <div class="iv-mc-footer">
+                    <span style="font-size:11px;color:#6b7280;">Total Qty: {{ number_format($totalQuantity,2) }} pcs</span>
+                    <span style="font-size:14px;font-weight:700;color:#f97316;">₹ {{ number_format($invoice->grand_total, 2) }}</span>
+                </div>
+            </div>
         </div>
 
 

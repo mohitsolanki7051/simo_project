@@ -39,9 +39,11 @@ class SimpleProduct extends Model
         'gallery_images',
         'description',
         'cost_history',
+        'show_on_website',
     ];
 
     protected $casts = [
+        'show_on_website' => 'boolean',
         'gallery_images' => 'array',
         'cost_history' => 'array',
         'cost_price' => 'decimal:2',

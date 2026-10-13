@@ -296,6 +296,15 @@
                                         <circle cx="12" cy="12" r="3"/>
                                     </svg>
                                 </button>
+                                @if(auth()->guard('admin')->check())
+                                <button type="button" class="pi-act pi-act--edit"
+                                        onclick="openEditPaymentModal('{{ $payment->_id }}')" title="Edit Payment (Admin Only)" style="color: #2563eb; background: #eff6ff;">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -1357,6 +1366,62 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeViewModal();
 });
 
+function openEditPaymentModal(id) {
+    $.get('{{ route("admin.payments.index") }}/' + id + '/edit-data', function(res) {
+        if (!res.success) { showAlert(res.message || 'Error', 'error'); return; }
+        const p = res.payment;
+        $('#editPaymentId').val(p.id);
+        $('#editPaymentNumberSub').text(p.payment_number);
+        $('#editPaymentDate').val(p.payment_date);
+        $('#editPaymentAmount').val(p.amount);
+        $('#editPaymentDiscount').val(p.discount || 0);
+        $('#editPaymentMethod').val(p.payment_method);
+        $('#editReferenceNo').val(p.reference_no);
+        $('#editPaymentNotes').val(p.notes);
+        $('#editPaymentModal').css('display', 'flex');
+    }).fail(function() { showAlert('Failed to fetch payment details', 'error'); });
+}
+
+function closeEditPaymentModal() {
+    $('#editPaymentModal').hide();
+}
+
+function submitEditPayment(e) {
+    e.preventDefault();
+    const id = $('#editPaymentId').val();
+    const btn = $('#btnSaveEditPayment');
+    btn.prop('disabled', true).text('Saving...');
+
+    $.ajax({
+        url: '{{ route("admin.payments.index") }}/' + id,
+        type: 'PUT',
+        data: {
+            _token: '{{ csrf_token() }}',
+            amount: $('#editPaymentAmount').val(),
+            discount: $('#editPaymentDiscount').val(),
+            payment_date: $('#editPaymentDate').val(),
+            payment_method: $('#editPaymentMethod').val(),
+            reference_no: $('#editReferenceNo').val(),
+            notes: $('#editPaymentNotes').val()
+        },
+        success: function(res) {
+            btn.prop('disabled', false).text('Save Changes');
+            if (res.success) {
+                showAlert('Payment updated successfully', 'success');
+                closeEditPaymentModal();
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showAlert(res.message || 'Failed to update', 'error');
+            }
+        },
+        error: function(err) {
+            btn.prop('disabled', false).text('Save Changes');
+            const msg = err.responseJSON ? err.responseJSON.message : 'Update failed';
+            showAlert(msg, 'error');
+        }
+    });
+}
+
 function fmt(n) { return (parseFloat(n) || 0).toFixed(2); }
 function esc(s) {
     return String(s ?? '—')
@@ -1371,4 +1436,60 @@ function showAlert(msg, type = 'success') {
     setTimeout(() => el.remove(), 4500);
 }
 </script>
+
+@if(auth()->guard('admin')->check())
+<div class="pi-modal" id="editPaymentModal" style="display:none;">
+    <div class="pi-modal-overlay" onclick="closeEditPaymentModal()"></div>
+    <div class="pi-modal-box" style="max-width: 500px;">
+        <div class="pi-modal-head">
+            <div class="pi-modal-ico">✏️</div>
+            <div>
+                <div class="pi-modal-title">Edit Payment In</div>
+                <div class="pi-modal-sub" id="editPaymentNumberSub">Update payment amount and details</div>
+            </div>
+            <button class="pi-modal-close" onclick="closeEditPaymentModal()">×</button>
+        </div>
+
+        <form id="editPaymentForm" onsubmit="submitEditPayment(event)">
+            <input type="hidden" id="editPaymentId" name="payment_id">
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Payment Date *</label>
+                    <input type="date" id="editPaymentDate" name="payment_date" class="form-control" required style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Payment Amount (₹) *</label>
+                    <input type="number" step="0.01" min="0.01" id="editPaymentAmount" name="amount" class="form-control" required style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Discount (₹)</label>
+                    <input type="number" step="0.01" min="0" id="editPaymentDiscount" name="discount" class="form-control" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Payment Method *</label>
+                    <select id="editPaymentMethod" name="payment_method" class="form-control" required style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="cash">Cash</option>
+                        <option value="upi">UPI</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="card">Card</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Reference No.</label>
+                    <input type="text" id="editReferenceNo" name="reference_no" class="form-control" placeholder="Transaction ID / Cheque No" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Notes</label>
+                    <textarea id="editPaymentNotes" name="notes" class="form-control" rows="2" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"></textarea>
+                </div>
+            </div>
+            <div style="padding: 15px 20px; background: #f9fafb; border-top: 1px solid #eee; text-align: right; display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" onclick="closeEditPaymentModal()" style="padding:8px 16px; border:1px solid #ccc; background:#fff; border-radius:4px; cursor:pointer;">Cancel</button>
+                <button type="submit" id="btnSaveEditPayment" style="padding:8px 16px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
 @endpush

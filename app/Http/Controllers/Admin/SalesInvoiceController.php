@@ -636,6 +636,13 @@ public function store(Request $request)
     public function show($id)
     {
         $invoice = SalesInvoice::with(['party', 'warehouse', 'salesman', 'items', 'payments'])->findOrFail($id);
+
+        // Tally / ERP: If party has active credit notes, reconcile and auto-allocate to unpaid confirmed invoices
+        if ($invoice->party_id) {
+            CreditNote::autoAllocateToPendingInvoices((string) $invoice->party_id);
+            $invoice->refresh();
+        }
+
         return view('admin.sales.show', compact('invoice'));
     }
 
@@ -1312,50 +1319,38 @@ public function store(Request $request)
             $invoice->save();
 
             /* ================= CREATE PAYMENT RECORD ================= */
-            // ✅ FIX: payment_type, payment_subtype, allocations — sabhi fields set karo
-            // Taaki LedgerController sahi se match kar sake
-            if ($amountPaid > 0) {
-                $notes       = [];
-                $allocations = [];
+            // ✅ TALLY/ERP FIX: Only actual cash/bank paid creates a Payment-In record in the ledger!
+            // Credit note adjustments are already recorded as Credit Notes in the ledger.
+            // Recording $amountPaid ($cash + $credit) as payment_in would double-count the credit in the customer ledger!
+            if ($cashPaid > 0.001) {
+                $notes = ["Cash paid: ₹" . number_format($cashPaid, 2)];
+                if ($totalCreditApplied > 0) {
+                    $notes[] = "Credit note adjusted against invoice: ₹" . number_format($totalCreditApplied, 2)
+                             . " (" . implode(', ', $appliedCNNumbers) . ")";
+                }
 
-                // Cash paid allocation (invoice ke against)
-                if ($cashPaid > 0) {
-                    $notes[] = "Cash paid: ₹" . number_format($cashPaid, 2);
-                    $allocations[] = [
+                $allocations = [
+                    [
                         'type'           => 'invoice',
                         'invoice_id'     => (string) $invoice->_id,
                         'invoice_number' => $invoice->invoice_number,
                         'amount'         => round($cashPaid, 2),
                         'description'    => 'Invoice payment at time of generation',
-                    ];
-                }
-
-                // Credit note allocation
-                if ($totalCreditApplied > 0) {
-                    $notes[] = "Credit note adjusted: ₹" . number_format($totalCreditApplied, 2)
-                             . " (" . implode(', ', $appliedCNNumbers) . ")";
-                    foreach ($appliedCNNumbers as $cnNum) {
-                        $allocations[] = [
-                            'type'               => 'credit_note',
-                            'credit_note_number' => $cnNum,
-                            'amount'             => round($totalCreditApplied / count($appliedCNNumbers), 2),
-                            'description'        => 'Credit Note Adjustment: ' . $cnNum,
-                        ];
-                    }
-                }
+                    ]
+                ];
 
                 SalesPayment::create([
                     'payment_number'   => null,              // invoice-time payment has no payment_number
                     'sales_invoice_id' => $invoice->_id,
                     'party_id'         => $invoice->party_id,
-                    'amount'           => round($amountPaid, 2),
+                    'amount'           => round($cashPaid, 2),
                     'payment_method'   => request()->payment_method ?? 'cash',
                     'payment_date'     => now(),
                     'status'           => 'completed',
                     'notes'            => implode("\n", $notes),
-                    'payment_type'     => 'payment_in',      // ✅ FIXED
-                    'payment_subtype'  => 'sales_payment',   // ✅ FIXED
-                    'allocations'      => $allocations,      // ✅ FIXED
+                    'payment_type'     => 'payment_in',
+                    'payment_subtype'  => 'sales_payment',
+                    'allocations'      => $allocations,
                     'created_by'       => Auth::guard('admin')->id(),
                 ]);
             }
@@ -1684,6 +1679,7 @@ public function store(Request $request)
             'name'             => $party->name,
             'phone'            => $party->phone,
             'email'            => $party->email,
+            'gst_number'       => $party->gst_number,
             'party_type'       => $party->party_type,
             'party_type_text'  => ucfirst($party->party_type),
             'opening_balance'  => (float) ($party->opening_balance ?? 0),
