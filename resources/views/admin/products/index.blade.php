@@ -111,45 +111,59 @@
                     data-status="{{ $product->status }}"
                     data-product-id="{{ $product->id }}"
                     data-product-type="{{ $product->product_type }}">
-                    <td>
+                    <td class="td-checkbox">
                         <input type="checkbox" class="row-checkbox" value="{{ $product->id }}">
                     </td>
-                    <td>{{ $products->firstItem() + $index }}</td>
-                    <td>
+                    <td class="td-sno hide-mob">{{ $products->firstItem() + $index }}</td>
+                    <td class="td-img">
                         <div class="product-img">
                             <img src="{{ $product->base_image ? asset('storage/' . $product->base_image) : '' }}"
                                 alt="{{ $product->name }}"
                                 onerror="this.onerror=null; this.src=''; this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:40px;height:40px;background:#e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;\'>📦</div>';">
                         </div>
                     </td>
-                    <td>
+                    <td class="td-name">
                         <div class="product-name">{{ $product->name }}</div>
+                        <div class="product-sub-info">
+                            @if(!empty($product->sku_code) || !empty($product->sku))
+                                <span class="product-sku-sub">SKU: {{ $product->sku_code ?? $product->sku }}</span>
+                            @endif
+                            <span class="mob-stock-pill {{ $product->total_stock <= 0 ? 'stock-out' : ($product->total_stock <= 5 ? 'stock-low' : 'stock-ok') }}">
+                                {{ $product->total_stock }} {{ $product->unit ?? 'pcs' }}
+                            </span>
+                        </div>
                     </td>
-                    <td>
+                    <td class="td-type">
                         @if($product->product_type === 'simple')
                             <span class="type-badge simple">Simple</span>
                         @else
                             <span class="type-badge variant">Variant</span>
                         @endif
                     </td>
-                    <td class="price-cell">
+                    <td class="price-cell td-mrp hide-mob">
                         @if($product->product_type === 'simple')
                             ₹{{ number_format($product->mrp_price, 2) }}
                         @else
                             {{ $product->formatted_mrp_price_range }}
                         @endif
                     </td>
-                    <td class="price-cell">
-                        @if($product->product_type === 'simple')
-                            ₹{{ number_format($product->sale_price, 2) }}
-                        @else
-                            {{ $product->formatted_price_range }}
+                    <td class="price-cell td-price">
+                        <div class="sale-price-txt">
+                            @if($product->product_type === 'simple')
+                                ₹{{ number_format($product->sale_price, 2) }}
+                            @else
+                                {{ $product->formatted_price_range }}
+                            @endif
+                        </div>
+                        @if($product->product_type === 'simple' && $product->mrp_price > $product->sale_price)
+                            <div class="mrp-price-sub">MRP: ₹{{ number_format($product->mrp_price, 2) }}</div>
                         @endif
                     </td>
-                    <td>
+                    <td class="td-stock hide-mob">
                         <div class="stock-info">
-                            <span class="stock-value">{{ $product->total_stock }}</span>
-                            <span class="stock-unit">{{ $product->unit ?? 'pcs' }}</span>
+                            <span class="stock-value {{ $product->total_stock <= 0 ? 'stock-out' : ($product->total_stock <= 5 ? 'stock-low' : 'stock-ok') }}">
+                                {{ $product->total_stock }} {{ $product->unit ?? 'pcs' }}
+                            </span>
                         </div>
                         @php
                             $minAlert = 0;
@@ -163,12 +177,17 @@
                             }
                         @endphp
                     </td>
-                    <td>
+                    <td class="td-status">
                         <span class="status-badge status-{{ $product->status }}">
                             {{ ucfirst($product->status) }}
                         </span>
+                        @if(!isset($product->show_on_website) || $product->show_on_website)
+                            <span class="website-badge online" title="Visible on Online Website Catalog">🌐 Website</span>
+                        @else
+                            <span class="website-badge offline" title="ERP Internal Only">🔒 ERP Only</span>
+                        @endif
                     </td>
-                    <td>
+                    <td class="td-actions">
                         <div class="action-icons">
                             <a href="{{ route('admin.products.show', $product->id) }}"
                                class="action-btn view" title="View">
@@ -1549,76 +1568,121 @@
     }
 
     /* Responsive */
+    /* Responsive - Mobile Perfect Card Format (MyBillBook Style) */
     @media (max-width: 768px) {
+        .hide-mob, .td-sno, .td-mrp { display: none !important; }
+
+        .dashboard-content { padding: 5px !important; }
+        .products-container { padding: 4px; background: #f3f4f6; min-height: 100vh; }
+
+        /* Page Header */
         .page-header {
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .pro-header-right {
-            width: 100%;
-            flex-direction: column;
-        }
-
-        .btn-pricing, .btn-add {
-            width: 100%;
-            justify-content: center;
-        }
-
-        .report-cards {
-            grid-template-columns: 1fr;
-        }
-
-        /* Filter Tabs and Actions Compression */
-        .table-filters {
+            background: #ffffff;
+            padding: 12px 14px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            border: 1px solid #e5e7eb;
             flex-direction: column;
             align-items: stretch;
             gap: 10px;
-            padding: 12px;
+        }
+        .pro-header-left .page-title {
+            font-size: 18px !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+        }
+        .pro-header-right {
+            width: 100%;
+            display: flex;
+            gap: 8px;
+        }
+        .btn-pricing, .btn-add {
+            flex: 1;
+            justify-content: center;
+            padding: 8px 12px;
+            font-size: 11px;
+            border-radius: 6px;
         }
 
-        .search-box {
-            max-width: 100%;
-        }
-
-        .filter-tabs {
+        /* Report Cards Horizontal Carousel */
+        .report-cards {
             display: flex;
             flex-wrap: nowrap;
             overflow-x: auto;
-            gap: 4px;
-            padding-bottom: 2px;
-            width: 100%;
+            scroll-snap-type: x mandatory;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 4px;
             -webkit-overflow-scrolling: touch;
         }
-        .filter-tabs::-webkit-scrollbar { display: none; }
-        .filter-tab {
-            white-space: nowrap;
-            flex-shrink: 0;
-            font-size: 11px;
-            padding: 6px 12px;
+        .report-cards::-webkit-scrollbar { display: none; }
+        .report-card {
+            flex: 0 0 85%;
+            scroll-snap-align: center;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
 
-        .bulk-actions {
-            margin-left: 0;
+        /* Filters Section */
+        .table-filters {
+            background: #ffffff;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            flex-direction: column;
+            gap: 10px;
+        }
+        .search-box {
             width: 100%;
+            max-width: 100%;
+        }
+        .filter-dropdown {
+            width: 100%;
+        }
+        .type-filter {
+            width: 100%;
+            padding: 8px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+        }
+        .filter-tabs {
+            display: flex;
+            width: 100%;
+            overflow-x: auto;
+            gap: 4px;
+        }
+        .filter-tab {
+            flex: 1;
+            text-align: center;
+            padding: 6px 10px;
+            font-size: 11px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+        .bulk-actions {
+            width: 100%;
+            margin-left: 0;
             display: flex;
             gap: 8px;
         }
         .bulk-select {
             flex: 1;
+            padding: 6px 10px;
+            font-size: 11px;
+        }
+        .btn-bulk {
+            padding: 6px 16px;
+            font-size: 11px;
         }
 
-        .table-footer {
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .pagination-controls {
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        /* Table -> Compact Dense Cards */
+        /* Table Wrapper -> Compact Cards */
         .table-wrapper {
             background: transparent;
             border: none;
@@ -1631,23 +1695,24 @@
             border: none;
         }
         .products-table thead {
-            display: none;
+            display: none !important;
         }
         .products-table tbody {
             display: block;
             width: 100%;
         }
-        
-        .products-table .table-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            background: #fff;
-            border-radius: 8px;
-            padding: 12px 14px 10px;
-            margin-bottom: 10px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #e2e8f0;
+
+        /* Product Card Item */
+        .products-table tr.table-row {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            align-items: flex-start !important;
+            background: #ffffff !important;
+            border-radius: 10px !important;
+            padding: 12px 14px 10px !important;
+            margin-bottom: 10px !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+            border: 1px solid #e5e7eb !important;
             position: relative;
         }
         .products-table .table-row:hover td {
@@ -1655,142 +1720,175 @@
         }
 
         .products-table td {
-            border: none;
-            padding: 0;
-            display: flex;
-            align-items: center;
+            border: none !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
         }
 
-        /* Row 1: Checkbox (td 1), Image (td 3), Name (td 4) */
-        .products-table td:nth-child(1) {
-            width: 30px;
-            order: 1;
+        .products-table td.td-sno,
+        .products-table td.hide-mob {
+            display: none !important;
         }
-        .products-table td:nth-child(2) {
-            display: none; /* Hide S.No */
+
+        /* Top Row: Checkbox, Image, Name & Sub-info (SKU + Stock pill) */
+        .td-checkbox {
+            width: 22px !important;
+            order: 1 !important;
+            padding-top: 2px !important;
         }
-        .products-table td:nth-child(3) {
-            width: 50px;
-            order: 2;
-            margin-right: 10px;
+        .td-img {
+            width: 44px !important;
+            order: 2 !important;
+            margin-right: 10px !important;
         }
-        .products-table td:nth-child(4) {
-            flex: 1;
-            min-width: 0;
-            order: 3;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 2px;
+        .product-img {
+            width: 44px !important;
+            height: 44px !important;
+            border-radius: 8px !important;
+            overflow: hidden !important;
+            background: #f1f5f9;
+        }
+        .product-img img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+        }
+
+        .td-name {
+            width: calc(100% - 76px) !important;
+            flex: none !important;
+            order: 3 !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
         }
         .product-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1e293b;
-            line-height: 1.3;
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            line-height: 1.35 !important;
+            white-space: normal !important;
+            word-break: normal !important;
+            margin-bottom: 4px !important;
+        }
+        .product-sub-info {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+            gap: 6px !important;
+        }
+        .product-sku-sub {
+            font-size: 10px !important;
+            color: #64748b !important;
+            font-weight: 600 !important;
+            background: #f1f5f9 !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
         }
 
-        /* Status Badge (td 9) - Pushed to absolute top-right */
-        .products-table td:nth-child(9) {
-            width: auto;
-            order: 4;
-            position: absolute;
-            top: 12px;
-            right: 14px;
+        /* Stock Pill Under Name */
+        .mob-stock-pill {
+            display: inline-flex !important;
+            align-items: center !important;
+            font-size: 10.5px !important;
+            font-weight: 700 !important;
+            padding: 2px 8px !important;
+            border-radius: 12px !important;
+            background: #ecfdf5 !important;
+            color: #047857 !important;
+            border: 1px solid #a7f3d0 !important;
         }
-        .status-badge {
-            font-size: 9px;
-            padding: 2px 7px;
+        .mob-stock-pill.stock-low {
+            background: #fff7ed !important;
+            color: #c2410c !important;
+            border-color: #ffedd5 !important;
         }
-
-        /* Row 2: Type badge (td 5) */
-        .products-table td:nth-child(5) {
-            width: auto;
-            order: 5;
-            margin-right: 8px;
-            margin-top: 6px;
-        }
-        .type-badge {
-            font-size: 9px;
-            padding: 2px 6px;
+        .mob-stock-pill.stock-out {
+            background: #fef2f2 !important;
+            color: #b91c1c !important;
+            border-color: #fecaca !important;
         }
 
-        /* Row 3: MRP (td 6), Sale Price (td 7), Stock (td 8) */
-        .products-table td:nth-child(6) {
-            width: 33.33%;
-            order: 6;
-            flex-direction: column;
-            align-items: flex-start;
-            margin-top: 8px;
-            border-top: 1px dashed #f1f5f9;
-            padding-top: 8px;
+        /* Second Row: Price & Badges */
+        .td-price {
+            width: 50% !important;
+            order: 4 !important;
+            margin-top: 10px !important;
+            padding-top: 8px !important;
+            border-top: 1px dashed #f1f5f9 !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
         }
-        .products-table td:nth-child(6)::before {
-            content: "MRP";
-            font-size: 8px;
-            font-weight: 700;
-            color: #94a3b8;
-            margin-bottom: 2px;
-            text-transform: uppercase;
+        .sale-price-txt {
+            font-size: 14.5px !important;
+            font-weight: 800 !important;
+            color: #fa8725 !important;
         }
-        .price-cell {
-            font-size: 11.5px;
-        }
-
-        .products-table td:nth-child(7) {
-            width: 33.33%;
-            order: 7;
-            flex-direction: column;
-            align-items: flex-start;
-            margin-top: 8px;
-            border-top: 1px dashed #f1f5f9;
-            padding-top: 8px;
-        }
-        .products-table td:nth-child(7)::before {
-            content: "Sale Price";
-            font-size: 8px;
-            font-weight: 700;
-            color: #94a3b8;
-            margin-bottom: 2px;
-            text-transform: uppercase;
+        .mrp-price-sub {
+            font-size: 10.5px !important;
+            color: #94a3b8 !important;
+            text-decoration: line-through !important;
+            margin-top: 1px !important;
         }
 
-        .products-table td:nth-child(8) {
-            width: 33.33%;
-            order: 8;
-            flex-direction: column;
-            align-items: flex-start;
-            margin-top: 8px;
-            border-top: 1px dashed #f1f5f9;
-            padding-top: 8px;
+        .td-type {
+            width: 25% !important;
+            order: 5 !important;
+            margin-top: 10px !important;
+            padding-top: 8px !important;
+            border-top: 1px dashed #f1f5f9 !important;
+            justify-content: flex-end !important;
         }
-        .products-table td:nth-child(8)::before {
-            content: "Stock";
-            font-size: 8px;
-            font-weight: 700;
-            color: #94a3b8;
-            margin-bottom: 2px;
-            text-transform: uppercase;
-        }
-        .stock-info {
-            font-size: 11.5px;
+        .td-status {
+            width: 25% !important;
+            order: 6 !important;
+            margin-top: 10px !important;
+            padding-top: 8px !important;
+            border-top: 1px dashed #f1f5f9 !important;
+            justify-content: flex-end !important;
         }
 
-        /* Row 4: Actions (td 10) */
-        .products-table td:nth-child(10) {
-            width: 100%;
-            order: 10;
-            margin-top: 8px;
-            border-top: 1px solid #f1f5f9;
-            padding-top: 8px;
-            justify-content: flex-end;
+        .type-badge, .status-badge, .website-badge {
+            font-size: 9.5px !important;
+            padding: 3px 7px !important;
+            border-radius: 4px !important;
+            font-weight: 600 !important;
+        }
+
+        .website-badge.online {
+            background: #eff6ff !important;
+            color: #1d4ed8 !important;
+            border: 1px solid #bfdbfe !important;
+        }
+        .website-badge.offline {
+            background: #f1f5f9 !important;
+            color: #64748b !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+
+        /* Third Row: Actions Bar */
+        .td-actions {
+            width: 100% !important;
+            order: 7 !important;
+            margin-top: 8px !important;
+            padding-top: 8px !important;
+            border-top: 1px solid #f1f5f9 !important;
+            justify-content: flex-end !important;
         }
         .action-icons {
-            gap: 8px;
+            display: flex !important;
+            gap: 6px !important;
+            justify-content: flex-end !important;
+            width: 100% !important;
         }
         .action-btn {
-            width: 28px;
-            height: 28px;
-            font-size: 12px;
+            width: 30px !important;
+            height: 30px !important;
+            border-radius: 6px !important;
+            font-size: 13px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
     }
 </style>
@@ -1846,21 +1944,61 @@ if (localStorage.getItem('product_created_close') === 'true') {
         window.location.href = url.toString();
     }
 
-    // Search with debounce
+    // Buttery Smooth Instant Search (Instant Live Filtering + Non-reloading URL state)
     let searchTimeout;
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
+    const searchInput = document.getElementById('searchInput');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+
+            // 1. Instant Client-Side Live Filter of visible product rows/cards
+            const rows = document.querySelectorAll('.products-table tbody tr.table-row');
+            let matchCount = 0;
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    row.style.setProperty('display', '', 'important');
+                    matchCount++;
+                } else {
+                    row.style.setProperty('display', 'none', 'important');
+                }
+            });
+
+            // 2. Update URL without reloading the page
             const url = new URL(window.location.href);
-            if (e.target.value) {
-                url.searchParams.set('search', e.target.value);
+            if (query) {
+                url.searchParams.set('search', query);
             } else {
                 url.searchParams.delete('search');
             }
-            url.searchParams.set('page', 1);
-            window.location.href = url.toString();
-        }, 500);
-    });
+            history.replaceState(null, '', url.toString());
+
+            // 3. Server query reload if query > 2 chars and zero client matches
+            clearTimeout(searchTimeout);
+            if (query.length > 2 && matchCount === 0) {
+                searchTimeout = setTimeout(() => {
+                    window.location.href = url.toString();
+                }, 800);
+            }
+        });
+
+        // Submit search on Enter key
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const url = new URL(window.location.href);
+                if (e.target.value) {
+                    url.searchParams.set('search', e.target.value);
+                } else {
+                    url.searchParams.delete('search');
+                }
+                url.searchParams.set('page', 1);
+                window.location.href = url.toString();
+            }
+        });
+    }
 
     // Modal Functions
     function openPricingModal() {

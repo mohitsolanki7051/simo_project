@@ -80,15 +80,7 @@
         </div>
         <form method="GET" action="{{ route('admin.sales.index') }}" id="filterForm">
             <div class="si-filter-row">
-
-                <div class="si-filter-group full-width-mobile">
-                    <label class="si-filter-label">Invoice Number</label>
-                    <div class="si-input-icon-wrap">
-                        <svg class="si-input-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="text" name="invoice_number" class="si-input si-input-with-icon" placeholder="Search invoice..." value="{{ request('invoice_number') }}">
-                    </div>
-                </div>
-
+                <!-- Period Filter -->
                 <div class="si-filter-group">
                     <label class="si-filter-label">Period</label>
                     <select name="period" class="si-select" id="periodSelect" onchange="handlePeriodChange(this)">
@@ -103,11 +95,13 @@
                     </select>
                 </div>
 
+                <!-- Single Date -->
                 <div class="si-filter-group" id="grpSingleDate" style="{{ request()->filled('period') ? 'display:none' : '' }}">
                     <label class="si-filter-label">Date</label>
                     <input type="date" name="date" class="si-input" value="{{ request('date') }}">
                 </div>
 
+                <!-- Custom Range -->
                 <div class="si-filter-group" id="grpDateFrom" style="{{ request('period') == 'custom' ? '' : 'display:none' }}">
                     <label class="si-filter-label">From</label>
                     <input type="date" name="date_from" class="si-input" value="{{ request('date_from') }}">
@@ -117,15 +111,26 @@
                     <input type="date" name="date_to" class="si-input" value="{{ request('date_to') }}">
                 </div>
 
+                <!-- Invoice Number -->
+                <div class="si-filter-group">
+                    <label class="si-filter-label">Invoice No.</label>
+                    <div class="si-input-icon-wrap">
+                        <svg class="si-input-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" name="invoice_number" class="si-input si-input-with-icon" placeholder="Search..." value="{{ request('invoice_number') }}">
+                    </div>
+                </div>
+
+                <!-- Invoice Type -->
                 <div class="si-filter-group">
                     <label class="si-filter-label">Type</label>
                     <select name="invoice_type" class="si-select">
-                        <option value="">All Types</option>
+                        <option value="">All</option>
                         <option value="gst"  {{ request('invoice_type') == 'gst'  ? 'selected' : '' }}>GST Invoice</option>
                         <option value="cash" {{ request('invoice_type') == 'cash' ? 'selected' : '' }}>Cash Memo</option>
                     </select>
                 </div>
 
+                <!-- Party -->
                 <div class="si-filter-group">
                     <label class="si-filter-label">Party</label>
                     <select name="party_id" class="si-select">
@@ -138,19 +143,33 @@
                     </select>
                 </div>
 
+                <!-- Warehouse -->
                 <div class="si-filter-group">
-                    <label class="si-filter-label">Payment Status</label>
+                    <label class="si-filter-label">Warehouse</label>
+                    <select name="warehouse_id" class="si-select">
+                        <option value="">All</option>
+                        @foreach(\App\Models\Warehouse::active()->get() as $wh)
+                            <option value="{{ $wh->_id }}" {{ request('warehouse_id') == $wh->_id ? 'selected' : '' }}>
+                                {{ $wh->name }}{{ $wh->is_main ? ' (Main)' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Payment Status -->
+                <div class="si-filter-group">
+                    <label class="si-filter-label">Payment</label>
                     <select name="payment_status" class="si-select">
                         <option value="">All</option>
                         <option value="paid"    {{ request('payment_status') == 'paid'    ? 'selected' : '' }}>Paid</option>
                         <option value="unpaid"  {{ request('payment_status') == 'unpaid'  ? 'selected' : '' }}>Unpaid</option>
                         <option value="partial" {{ request('payment_status') == 'partial' ? 'selected' : '' }}>Partial</option>
-                        <option value="cancelled" {{ request('payment_status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                     </select>
                 </div>
 
+                <!-- Invoice Status -->
                 <div class="si-filter-group">
-                    <label class="si-filter-label">Invoice Status</label>
+                    <label class="si-filter-label">Status</label>
                     <select name="status" class="si-select">
                         <option value="">All</option>
                         <option value="draft"     {{ request('status') == 'draft'     ? 'selected' : '' }}>Draft</option>
@@ -161,14 +180,14 @@
                     </select>
                 </div>
 
-                <div class="si-filter-btns full-width-mobile">
+                <!-- Buttons -->
+                <div class="si-filter-btns">
                     <button type="submit" class="si-btn-filter">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         Apply
                     </button>
                     <a href="{{ route('admin.sales.index') }}" class="si-btn-reset">Reset</a>
                 </div>
-
             </div>
         </form>
     </div>
@@ -186,7 +205,7 @@
                     </span>
                 @endif
             </div>
-            <div class="si-table-topbar-right hide-mob">
+            <div class="si-table-topbar-right">
                 <div class="si-page-info-top">
                     Showing {{ $invoices->firstItem() ?? 0 }}–{{ $invoices->lastItem() ?? 0 }} of {{ $invoices->total() }}
                 </div>
@@ -624,7 +643,8 @@
     .si-filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .full-width-mobile { grid-column: span 2; }
     .si-filter-group { min-width: 100%; flex: 1 1 100%; }
-    .si-filter-btns { justify-content: space-between; margin-top: 4px; }
+    .si-filter-btns { justify-content: space-between; margin-top: 4px; width: 100%; grid-column: span 2; display: flex; gap: 6px; }
+    .si-btn-filter, .si-btn-reset { flex: 1; justify-content: center; }
 
     /* Table -> Compact Dense Cards */
     .si-table-card { background: transparent; border: none; box-shadow: none; }

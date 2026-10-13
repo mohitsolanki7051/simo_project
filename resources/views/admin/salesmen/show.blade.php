@@ -249,8 +249,8 @@ body{font-family:'Inter',-apple-system,sans-serif;font-size:13.5px;color:#1a1a1a
     </div>
     <div class="stat-box">
         <div class="stat-label">Total Paid (All Time)</div>
-        <div class="stat-value">₹{{ number_format($totalCommissionPaid + $totalFixedPaid,2) }}</div>
-        <div class="stat-sub">Comm: ₹{{ number_format($totalCommissionPaid,2) }} · Fixed: ₹{{ number_format($totalFixedPaid,2) }}</div>
+        <div class="stat-value">₹{{ number_format($allTimeTotalCommPaid + $allTimeTotalFixedPaid,2) }}</div>
+        <div class="stat-sub">Comm: ₹{{ number_format($allTimeTotalCommPaid,2) }} · Fixed: ₹{{ number_format($allTimeTotalFixedPaid,2) }}</div>
     </div>
 </div>
 
@@ -265,7 +265,7 @@ body{font-family:'Inter',-apple-system,sans-serif;font-size:13.5px;color:#1a1a1a
         </div>
         <div class="pb-sub">
             Earned (all time): ₹{{ number_format($totalEarnedCommission,2) }}<br>
-            Paid (all time): ₹{{ number_format($totalCommissionPaid,2) }}<br>
+            Paid (all time): ₹{{ number_format($allTimeTotalCommPaid,2) }}<br>
             Period: <strong>{{ $commPeriodLabel }}</strong>
         </div>
         @if($pendingCommission > 0)
@@ -287,7 +287,7 @@ body{font-family:'Inter',-apple-system,sans-serif;font-size:13.5px;color:#1a1a1a
         </div>
         <div class="pb-sub">
             ₹{{ number_format($fixedSalary,2) }}/month × {{ $periodMonths }} = ₹{{ number_format($duePerPeriod,2) }} per {{ strtolower($fixedPeriodLabel) }}<br>
-            Total paid: ₹{{ number_format($totalFixedPaid,2) }}
+            Total paid: ₹{{ number_format($allTimeTotalFixedPaid,2) }}
         </div>
         @if($pendingFixedSalary > 0)
         <div class="pb-actions">
@@ -585,7 +585,7 @@ body{font-family:'Inter',-apple-system,sans-serif;font-size:13.5px;color:#1a1a1a
                 </div>
                 <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;color:#6b7280;">
                     <span>{{ $commissionPayments->count() }} payment(s)</span>
-                    <span style="font-weight:600;color:#15803d">Total: ₹{{ number_format($totalCommissionPaid,2) }}</span>
+                    <span style="font-weight:600;color:#15803d">Total: ₹{{ number_format($allTimeTotalCommPaid,2) }}</span>
                 </div>
                 @else
                 <div class="empty-state"><div class="empty-icon">💳</div>No commission payments yet</div>
@@ -631,7 +631,7 @@ body{font-family:'Inter',-apple-system,sans-serif;font-size:13.5px;color:#1a1a1a
                 </div>
                 <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;color:#6b7280;">
                     <span>{{ $fixedPayments->count() }} payment(s)</span>
-                    <span style="font-weight:600;color:#15803d">Total: ₹{{ number_format($totalFixedPaid,2) }}</span>
+                    <span style="font-weight:600;color:#15803d">Total: ₹{{ number_format($allTimeTotalFixedPaid,2) }}</span>
                 </div>
                 @else
                 <div class="empty-state"><div class="empty-icon">💳</div>No fixed salary payments yet</div>
@@ -795,7 +795,7 @@ function openCommModal(isPartial) {
     document.getElementById('comm-note').value = '';
     document.getElementById('comm-modal-title').textContent = isPartial ? 'Pay Partial Commission' : 'Pay Commission';
 
-    const totalPaid = parseFloat('{{ $totalCommissionPaid }}');
+    const totalPaid = parseFloat('{{ $allTimeTotalCommPaid }}');
     const totalEarned = parseFloat('{{ $totalEarnedCommission }}');
 
     document.getElementById('comm-sum-box').innerHTML = sumRows([

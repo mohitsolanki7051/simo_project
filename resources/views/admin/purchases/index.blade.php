@@ -942,7 +942,7 @@
     .tc-vendor { width: calc(100% - 130px); order: 1; margin-bottom: 6px; }
     .td-vendor-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: flex; align-items: center; }
     
-    .tc-amount { width: 130px; order: 2; margin-bottom: 6px; justify-content: flex-end; }
+    .tc-amount { width: 130px !important; min-width: auto !important; order: 2; margin-bottom: 6px; justify-content: flex-end; }
     .amount-display { align-items: flex-end; gap: 1px;}
     .amount-main { font-size: 14px; }
     .amt-row { width: 100%; justify-content: flex-end; gap: 6px; }

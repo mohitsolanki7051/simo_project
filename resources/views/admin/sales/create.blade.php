@@ -727,6 +727,13 @@
 
 @push('styles')
 <style>
+.d-none { display: none !important; }
+#productsTableWrapper tr.d-none,
+.products-table-container tr.d-none,
+#selectPartyModal tr.d-none,
+.parties-table-container tr.d-none {
+    display: none !important;
+}
 /* ── GST MODE TOGGLE ── */
 .gst-mode-toggle {
     display: flex;
@@ -1867,7 +1874,25 @@ function calculateDiscountPercentage(mrp, price) {
 function openAddItemModal() {
     if (!getCurrentPartyType()) { showAlert('Please select a party first', 'error'); return; }
     if (!$('#invoiceType').val()) { showAlert('Please select invoice type first', 'error'); return; }
-    resetWarehouseSelection();
+    
+    let mainWh = items.length > 0 ? items[0].warehouse_id : $('input[name="warehouse_id"]').val();
+    if (!mainWh) {
+        mainWh = '{{ $mainWarehouse->_id }}';
+    }
+    
+    if (mainWh) {
+        $('#itemModalWarehouse').val(mainWh);
+        const whName = $('#itemModalWarehouse option[value="' + mainWh + '"]').text() || '{{ $mainWarehouse->name }}';
+        $('#warehouseSelectSection').hide();
+        $('#productSearchSection').show();
+        $('#productsTableWrapper').show();
+        $('#selectedWarehouseName').text('🏭 ' + whName);
+        $('#searchProduct').val('');
+        loadProducts('', mainWh);
+    } else {
+        resetWarehouseSelection();
+    }
+    
     $('#addItemModal').css('display', 'flex');
     $('body').addClass('modal-open');
 }
@@ -2337,6 +2362,7 @@ function selectParty(partyId) {
         $('#partyTypeBadge').text(p.party_type_text).attr('class', `party-type-badge ${p.party_type}`);
         $('#partyPhone').text(p.phone || '-');
         $('#partyEmail').text(p.email || '-');
+        $('#partyGst').text(p.gst_number || '-');
 
         const openingBalance = p.dynamic_opening_balance || 0;
         $('#partyOpeningBalance').text('₹ ' + openingBalance.toFixed(2));
@@ -2486,7 +2512,11 @@ $('#searchParty').on('input', function() {
         const name  = $(this).find('td:first').text().toLowerCase();
         const phone = $(this).find('td:eq(2)').text().toLowerCase();
         const email = $(this).find('td:eq(3)').text().toLowerCase();
-        $(this).toggle(name.includes(value) || phone.includes(value) || email.includes(value));
+        if (name.includes(value) || phone.includes(value) || email.includes(value)) {
+            $(this).removeClass('d-none');
+        } else {
+            $(this).addClass('d-none');
+        }
     });
 });
 
@@ -2494,8 +2524,12 @@ $('#searchProduct').on('input', function() {
     const value = this.value.toLowerCase();
     $('#productsTableBody tr').each(function() {
         const name = $(this).find('.product-name').text().toLowerCase();
-        const code = $(this).find('.product-code').text().toLowerCase();
-        $(this).toggle(name.includes(value) || code.includes(value));
+        const code = $(this).find('.product-code-col').text().toLowerCase();
+        if (name.includes(value) || code.includes(value)) {
+            $(this).removeClass('d-none');
+        } else {
+            $(this).addClass('d-none');
+        }
     });
 });
 

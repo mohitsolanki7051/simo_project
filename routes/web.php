@@ -29,12 +29,19 @@ use App\Http\Controllers\Admin\DebitNoteController;
 use App\Http\Controllers\Admin\LedgerController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ExpenseController;
-// Redirect root URL based on authentication status
-Route::get('/', function () {
-    if (Auth::guard('admin')->check()) {
-        return redirect()->route('admin.dashboard');
-    }
-    return redirect()->route('admin.login');
+use App\Http\Controllers\Admin\FrontendSettingController;
+
+use App\Http\Controllers\Frontend\HomeController;
+use App\Http\Controllers\Frontend\ProductController as FrontendProductController;
+use App\Http\Controllers\Frontend\CartController;
+
+// Frontend Web Routes
+Route::name('frontend.')->group(function () {
+    Route::get('/', [HomeController::class, 'index'])->name('home');
+    Route::get('/products-catalog', [FrontendProductController::class, 'index'])->name('products.index');
+    Route::get('/products-catalog/{id}', [FrontendProductController::class, 'show'])->name('products.show');
+    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::post('/enquiry/submit', [\App\Http\Controllers\Frontend\EnquiryController::class, 'store'])->name('enquiry.submit');
 });
 Route::post('/admin/send-otp', [AuthController::class, 'sendOtp'])->name('admin.send.otp');
 
@@ -223,6 +230,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/cashmemo-invoice-settings/get', [CashMemoInvoiceSettingController::class, 'getSettings'])
             ->name('cashmemo-invoice-settings.get');
 
+        // Frontend Website Settings Routes
+        Route::get('/frontend-settings', [FrontendSettingController::class, 'index'])
+            ->name('frontend-settings.index');
+        Route::post('/frontend-settings', [FrontendSettingController::class, 'store'])
+            ->name('frontend-settings.store');
+
+        // Frontend Enquiries Management Routes
+        Route::get('/enquiries', [\App\Http\Controllers\Admin\FrontendEnquiryController::class, 'index'])
+            ->name('enquiries.index');
+        Route::get('/enquiries/{id}', [\App\Http\Controllers\Admin\FrontendEnquiryController::class, 'show'])
+            ->name('enquiries.show');
+        Route::post('/enquiries/{id}/status', [\App\Http\Controllers\Admin\FrontendEnquiryController::class, 'updateStatus'])
+            ->name('enquiries.update-status');
+        Route::delete('/enquiries/{id}', [\App\Http\Controllers\Admin\FrontendEnquiryController::class, 'destroy'])
+            ->name('enquiries.destroy');
+
         // Payment In Routes
         Route::prefix('payments')->name('payments.')->group(function () {
 
@@ -239,7 +262,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 ->name('party.details');
             Route::get('/refund-party/{id}', [SalesPaymentController::class, 'getRefundPartyDetails'])
                 ->name('refund-party.details');
+            Route::get('/{id}/edit-data', [SalesPaymentController::class, 'getEditData'])->name('edit-data');
             Route::get('/{id}', [SalesPaymentController::class, 'show'])->name('show');
+            Route::put('/{id}', [SalesPaymentController::class, 'update'])->name('update');
+            Route::delete('/{id}', [SalesPaymentController::class, 'destroy'])->name('destroy');
 
         });
         // Payment Out Routes
@@ -250,7 +276,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/search-parties', [SalesPaymentOutController::class, 'searchParties'])->name('search-parties');
             Route::get('/party-details/{partyId}', [SalesPaymentOutController::class, 'getPartyDetails'])->name('party.details');
             Route::get('/refund-party/{id}', [SalesPaymentOutController::class, 'getRefundPartyDetails'])->name('refund-party.details');
+            Route::get('/{id}/edit-data', [SalesPaymentOutController::class, 'getEditData'])->name('edit-data');
             Route::get('/{id}', [SalesPaymentOutController::class, 'show'])->name('show');
+            Route::put('/{id}', [SalesPaymentOutController::class, 'update'])->name('update');
             Route::delete('/{id}', [SalesPaymentOutController::class, 'destroy'])->name('destroy');
         });
 
@@ -513,3 +541,12 @@ Route::get('/api/warehouse-stock', function (Illuminate\Http\Request $request) {
         'stock' => $stock ? $stock->quantity : 0
     ]);
 })->name('api.warehouse-stock');
+
+/* =========================================================================
+ | STOREFRONT ONLINE WEBSITE REST API ENDPOINTS (React / Next.js Storefront)
+ ========================================================================= */
+Route::prefix('api/v1/storefront')->name('api.storefront.')->group(function () {
+    Route::get('/products', [\App\Http\Controllers\Api\StorefrontApiController::class, 'getProducts'])->name('products');
+    Route::get('/products/{id}', [\App\Http\Controllers\Api\StorefrontApiController::class, 'getProductDetails'])->name('product.details');
+    Route::get('/categories', [\App\Http\Controllers\Api\StorefrontApiController::class, 'getCategories'])->name('categories');
+});

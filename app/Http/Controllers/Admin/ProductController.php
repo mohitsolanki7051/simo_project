@@ -322,6 +322,7 @@ class ProductController extends Controller
                 'base_image' => $baseImagePath,
                 'gallery_images' => $galleryPaths,
                 'description' => $request->description,
+                'show_on_website' => $request->has('show_on_website') ? (bool) $request->show_on_website : true,
             ]);
 
             /* ==========================
@@ -531,6 +532,7 @@ class ProductController extends Controller
                 'gallery_images' => $galleryPaths,
                 'description' => $request->description,
                 'variants' => $variantsArray,
+                'show_on_website' => $request->has('show_on_website') ? (bool) $request->show_on_website : true,
             ]);
 
             /* =========================
@@ -790,8 +792,9 @@ class ProductController extends Controller
 
             $data['gallery_images'] = $currentGallery;
 
-            // ✅ Update product (including min_stock_alert)
+            // ✅ Update product (including min_stock_alert & show_on_website)
             $data['min_stock_alert'] = (int) $request->min_stock_alert; // ✅ Make sure this is included
+            $data['show_on_website'] = $request->has('show_on_website') ? (bool) $request->show_on_website : false;
             $product->update($data);
 
             // ✅ Update warehouse stock (ONLY min_stock_alert)
@@ -887,9 +890,10 @@ public function updateprice(Request $request)
         try {
             $data = $request->except(['base_image', 'gallery_images', 'remove_base_image', 'remove_gallery_images', 'variants']);
 
-            // Add warranty fields with integer cast
+            // Add warranty & website visibility fields
             $data['warranty_duration'] = (int) $request->warranty_duration;
             $data['warranty_unit'] = $request->warranty_unit;
+            $data['show_on_website'] = $request->has('show_on_website') ? (bool) $request->show_on_website : false;
 
             // Handle base image removal
             if ($request->has('remove_base_image') && $request->remove_base_image == '1') {

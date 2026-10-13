@@ -142,7 +142,7 @@ public function show($id, Request $request)
     ];
 
     foreach ($sales as $invoice) {
-        $pt   = $invoice->party->party_type ?? 'customer';
+        $pt   = $invoice->party?->party_type ?? 'customer';
         $rate = $salesman->getCommissionRateForPartyType($pt);
         $amt  = (float) $invoice->grand_total;
         $comm = $amt * $rate / 100;
@@ -186,7 +186,7 @@ public function show($id, Request $request)
 
     $totalEarnedCommission = 0;
     foreach ($allSalesInvoices as $inv) {
-        $pt                     = $inv->party->party_type ?? 'customer';
+        $pt                     = $inv->party?->party_type ?? 'customer';
         $totalEarnedCommission += (float) $inv->grand_total
             * $salesman->getCommissionRateForPartyType($pt) / 100;
     }
@@ -198,9 +198,12 @@ public function show($id, Request $request)
     $totalCommissionPaid = (float) (clone $paidBaseQuery)->where('payment_type', 'commission')->sum('amount');
     $totalFixedPaid      = (float) (clone $paidBaseQuery)->where('payment_type', 'fixed')->sum('amount');
 
-    // Pending commission is always all-time (not filtered)
+    // All-time total paid records
     $allTimeTotalCommPaid = (float) SalesmanPayment::where('salesman_id', $id)
         ->where('payment_type', 'commission')
+        ->sum('amount');
+    $allTimeTotalFixedPaid = (float) SalesmanPayment::where('salesman_id', $id)
+        ->where('payment_type', 'fixed')
         ->sum('amount');
     $pendingCommission = max(0, round($totalEarnedCommission - $allTimeTotalCommPaid, 2));
 
@@ -276,7 +279,8 @@ public function show($id, Request $request)
         'pendingCommission', 'totalEarnedCommission', 'totalCommissionPaid',
         'pendingFixedSalary', 'fixedSalarySchedule',
         'commissionPayments', 'fixedPayments',
-        'totalCommissionPaid', 'totalFixedPaid',
+        'totalFixedPaid',
+        'allTimeTotalCommPaid', 'allTimeTotalFixedPaid',
         'paidFixedMonths'
     ));
 }
@@ -305,7 +309,7 @@ public function show($id, Request $request)
         $totalEarned = 0;
         $salesTotal  = 0;
         foreach ($allInvoices as $inv) {
-            $pt          = $inv->party->party_type ?? 'customer';
+            $pt          = $inv->party?->party_type ?? 'customer';
             $amount      = (float) $inv->grand_total;
             $salesTotal += $amount;
             $totalEarned += $amount * $salesman->getCommissionRateForPartyType($pt) / 100;
@@ -714,7 +718,7 @@ public function downloadReport($id, Request $request)
     ];
 
     foreach ($sales as $inv) {
-        $pt   = $inv->party->party_type ?? 'customer';
+        $pt   = $inv->party?->party_type ?? 'customer';
         $rate = $salesman->getCommissionRateForPartyType($pt);
         $amt  = (float) $inv->grand_total;
         $comm = $amt * $rate / 100;
@@ -738,19 +742,46 @@ public function downloadReport($id, Request $request)
         ->orderBy('paid_at', 'desc')
         ->get();
 
+    // All-time commission calculations for accurate report headers/totals
+    $allSalesInvoices = SalesInvoice::where('salesman_id', $id)
+        ->whereIn('status', ['completed', 'confirmed', 'generated'])
+        ->with('party')
+        ->get();
+
+    $totalEarnedCommission = 0;
+    foreach ($allSalesInvoices as $inv) {
+        $pt                     = $inv->party?->party_type ?? 'customer';
+        $totalEarnedCommission += (float) $inv->grand_total
+            * $salesman->getCommissionRateForPartyType($pt) / 100;
+    }
+
+    $allTimeTotalCommPaid = (float) \App\Models\SalesmanPayment::where('salesman_id', $id)
+        ->where('payment_type', 'commission')
+        ->sum('amount');
+
+    $allTimeTotalFixedPaid = (float) \App\Models\SalesmanPayment::where('salesman_id', $id)
+        ->where('payment_type', 'fixed')
+        ->sum('amount');
+
+    $pendingCommission = max(0, round($totalEarnedCommission - $allTimeTotalCommPaid, 2));
+
     // Returns the view directly — html2pdf.js handles PDF generation in browser
     return view('admin.salesmen.pdf-report', [
-        'salesman'            => $salesman,
-        'sales'               => $sales,
-        'invoices'            => $invoices,
-        'parties'             => $parties,
-        'totalSales'          => $totalSales,
-        'commissionEarned'    => $commissionEarned,
-        'salesBreakdown'      => $salesBreakdown,
-        'generated_date'      => now()->format('d M Y h:i A'),
-        'filters'             => $filters,
-        'commissionPayments'  => $commissionPayments,
-        'fixedPayments'       => $fixedPayments,
+        'salesman'              => $salesman,
+        'sales'                 => $sales,
+        'invoices'              => $invoices,
+        'parties'               => $parties,
+        'totalSales'            => $totalSales,
+        'commissionEarned'      => $commissionEarned,
+        'salesBreakdown'        => $salesBreakdown,
+        'generated_date'        => now()->format('d M Y h:i A'),
+        'filters'               => $filters,
+        'commissionPayments'    => $commissionPayments,
+        'fixedPayments'         => $fixedPayments,
+        'totalEarnedCommission' => $totalEarnedCommission,
+        'allTimeTotalCommPaid'  => $allTimeTotalCommPaid,
+        'allTimeTotalFixedPaid' => $allTimeTotalFixedPaid,
+        'pendingCommission'     => $pendingCommission,
     ]);
 }
 }

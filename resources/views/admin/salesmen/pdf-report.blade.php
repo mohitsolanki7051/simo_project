@@ -863,19 +863,20 @@ body {
                 <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;">
                     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#92400e;margin-bottom:10px;">Commission Status</div>
                     <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #fef3c7;font-size:11px;">
-                        <span style="color:#374151;">Total Earned</span>
+                        <span style="color:#374151;">Earned (For Period)</span>
                         <span style="font-weight:700;color:#111827;">&#8377;{{ number_format($commissionEarned, 2) }}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #fef3c7;font-size:11px;">
-                        <span style="color:#374151;">Total Paid</span>
-                        <span style="font-weight:700;color:#065f46;">&#8377;{{ number_format(isset($commissionPayments) ? $commissionPayments->sum('amount') : 0, 2) }}</span>
+                        <span style="color:#374151;">Earned (All Time)</span>
+                        <span style="font-weight:700;color:#111827;">&#8377;{{ number_format($totalEarnedCommission, 2) }}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #fef3c7;font-size:11px;">
+                        <span style="color:#374151;">Paid (All Time)</span>
+                        <span style="font-weight:700;color:#065f46;">&#8377;{{ number_format($allTimeTotalCommPaid, 2) }}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;padding:7px 0 0;font-size:12px;">
-                        <span style="font-weight:700;color:#111827;">Pending</span>
-                        @php
-                            $pendingComm = $commissionEarned - (isset($commissionPayments) ? $commissionPayments->sum('amount') : 0);
-                        @endphp
-                        <span style="font-weight:700;color:{{ $pendingComm > 0 ? '#b45309' : '#065f46' }};font-size:14px;">&#8377;{{ number_format($pendingComm, 2) }}</span>
+                        <span style="font-weight:700;color:#111827;">Pending (All Time)</span>
+                        <span style="font-weight:700;color:{{ $pendingCommission > 0 ? '#b45309' : '#065f46' }};font-size:14px;">&#8377;{{ number_format($pendingCommission, 2) }}</span>
                     </div>
                 </div>
             </td>

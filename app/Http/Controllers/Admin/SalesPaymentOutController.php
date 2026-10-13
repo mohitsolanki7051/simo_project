@@ -920,6 +920,241 @@ class SalesPaymentOutController extends Controller
         }
     }
 
+    /**
+     * Helper to reverse allocations of a purchase payment
+     */
+    private function reversePurchasePaymentAllocations(PurchasePayment $payment)
+    {
+        if (empty($payment->allocations)) return;
+
+        foreach ($payment->allocations as $allocation) {
+            $type = $allocation['type'] ?? '';
+            $amt  = (float) ($allocation['amount'] ?? 0);
+
+            if ($type === 'invoice' && !empty($allocation['invoice_id'])) {
+                $invoice = PurchaseInvoice::find($allocation['invoice_id']);
+                if ($invoice) {
+                    $currentPaid = $this->decimalToFloat($invoice->total_paid);
+                    $newPaid     = max(0, $currentPaid - $amt);
+                    $grandTotal  = $this->decimalToFloat($invoice->grand_total);
+                    $newBalance  = $grandTotal - $newPaid;
+
+                    $paymentStatus = 'unpaid';
+                    if ($newPaid > 0 && $newBalance > 0.01) $paymentStatus = 'partial';
+                    elseif ($newBalance <= 0.01) { $paymentStatus = 'paid'; $newBalance = 0; }
+
+                    $invoice->update([
+                        'total_paid'     => round($newPaid, 2),
+                        'balance_amount' => round($newBalance, 2),
+                        'payment_status' => $paymentStatus
+                    ]);
+                }
+            } elseif ($type === 'debit_note' && !empty($allocation['debit_note_id'])) {
+                $debitNote = DebitNote::find($allocation['debit_note_id']);
+                if ($debitNote) {
+                    $debitNote->used_amount      = max(0, $this->decimalToFloat($debitNote->used_amount) - $amt);
+                    $debitNote->remaining_amount = $this->decimalToFloat($debitNote->amount) - $this->decimalToFloat($debitNote->used_amount);
+                    $debitNote->status           = $debitNote->remaining_amount <= 0 ? 'settled' : 'partial';
+                    $debitNote->save();
+                }
+            } elseif ($type === 'credit_note' && !empty($allocation['credit_note_id'])) {
+                $creditNote = \App\Models\CreditNote::find($allocation['credit_note_id']);
+                if ($creditNote) {
+                    $creditNote->used_amount      = max(0, $this->decimalToFloat($creditNote->used_amount) - $amt);
+                    $creditNote->remaining_amount = $this->decimalToFloat($creditNote->amount) - $this->decimalToFloat($creditNote->used_amount);
+                    $creditNote->status           = $creditNote->remaining_amount > 0 ? 'active' : 'used';
+                    $creditNote->save();
+                }
+            }
+        }
+    }
+
+    public function destroy($id)
+    {
+        if (!auth()->guard('admin')->check()) {
+            return response()->json(['success' => false, 'message' => 'Only Admin can delete payments.'], 403);
+        }
+
+        try {
+            $payment = PurchasePayment::findOrFail($id);
+            $this->reversePurchasePaymentAllocations($payment);
+            $payment->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment Out deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getEditData($id)
+    {
+        if (!auth()->guard('admin')->check()) {
+            return response()->json(['success' => false, 'message' => 'Only Admin can edit payments.'], 403);
+        }
+
+        $payment = PurchasePayment::findOrFail($id);
+        return response()->json([
+            'success' => true,
+            'payment' => [
+                'id'             => (string)$payment->_id,
+                'payment_number' => $payment->payment_number ?? '—',
+                'amount'         => $this->decimalToFloat($payment->amount),
+                'payment_date'   => $payment->payment_date instanceof \Carbon\Carbon ? $payment->payment_date->format('Y-m-d') : date('Y-m-d', strtotime($payment->payment_date)),
+                'payment_method' => $payment->payment_method,
+                'reference_no'   => $payment->reference_no ?? '',
+                'notes'          => $payment->notes ?? '',
+            ]
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        if (!auth()->guard('admin')->check()) {
+            return response()->json(['success' => false, 'message' => 'Only Admin can edit payment details.'], 403);
+        }
+
+        $request->validate([
+            'amount'         => 'required|numeric|min:0.01',
+            'payment_date'   => 'required|date',
+            'payment_method' => 'required|in:cash,upi,bank_transfer,cheque,card',
+            'reference_no'   => 'nullable|string|max:255',
+            'notes'          => 'nullable|string',
+        ]);
+
+        try {
+            $payment = PurchasePayment::findOrFail($id);
+
+            $party = Vendor::find($payment->party_id);
+            $partyType = 'vendor';
+            if (!$party) {
+                $party = Customer::find($payment->party_id);
+                $partyType = $party?->party_type ?? 'dealer';
+            }
+            if (!$party) {
+                throw new \Exception('Party not found');
+            }
+
+            // 1. Reverse old allocations
+            $this->reversePurchasePaymentAllocations($payment);
+
+            // 2. Check due details after reversal
+            $cashAmount = (float) $request->amount;
+            $dueDetails = $this->getPartyDueDetailsForPurchase($party, $partyType);
+
+            if ($cashAmount > ($dueDetails['net_payable'] + 0.01)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment amount (₹ ' . number_format($cashAmount, 2) .
+                                 ') cannot exceed net payable (₹ ' . number_format($dueDetails['net_payable'], 2) . ')'
+                ], 422);
+            }
+
+            $allocations = [];
+            $debitAllocations = [];
+            $debitUsedTotal   = 0;
+
+            foreach ($dueDetails['debit_notes'] as $dnData) {
+                if ($dnData['remaining_amount'] <= 0) continue;
+
+                $debitModel = DebitNote::find($dnData['id']);
+                if (!$debitModel) continue;
+
+                $toUse = min($dnData['remaining_amount'], $cashAmount - $debitUsedTotal);
+                if ($toUse <= 0) break;
+
+                $debitModel->used_amount      = $this->decimalToFloat($debitModel->used_amount) + $toUse;
+                $debitModel->remaining_amount = max(0, $this->decimalToFloat($debitModel->remaining_amount) - $toUse);
+                if ($debitModel->remaining_amount <= 0.01) {
+                    $debitModel->remaining_amount = 0;
+                    $debitModel->status           = 'settled';
+                } else {
+                    $debitModel->status = 'partial';
+                }
+                $debitModel->save();
+
+                $debitAllocations[] = [
+                    'type'               => 'debit_note',
+                    'debit_note_id'      => $dnData['id'],
+                    'debit_note_number'  => $dnData['debit_note_number'],
+                    'amount'             => $toUse,
+                    'description'        => 'Debit Note Adjustment: ' . $dnData['debit_note_number'],
+                ];
+
+                $debitUsedTotal += $toUse;
+            }
+
+            $allocations   = array_merge($allocations, $debitAllocations);
+            $pool          = $debitUsedTotal + $cashAmount;
+            $remainingPool = $pool;
+
+            if ($dueDetails['opening_balance'] > 0 && $remainingPool > 0) {
+                $payToOpening = min($dueDetails['opening_balance'], $remainingPool);
+                if ($payToOpening > 0) {
+                    $allocations[] = [
+                        'type'        => 'opening_balance',
+                        'amount'      => $payToOpening,
+                        'description' => 'Opening Balance Payment',
+                    ];
+                    $remainingPool -= $payToOpening;
+                }
+            }
+
+            foreach ($dueDetails['invoices'] as $invoiceData) {
+                if ($remainingPool <= 0.001) break;
+
+                $invoice = PurchaseInvoice::find($invoiceData['id']);
+                if (!$invoice || $invoiceData['balance'] <= 0) continue;
+
+                $payToInvoice = min($invoiceData['balance'], $remainingPool);
+
+                if ($payToInvoice > 0.001) {
+                    $newPaid    = $invoiceData['paid'] + $payToInvoice;
+                    $newBalance = $invoiceData['balance'] - $payToInvoice;
+
+                    $paymentStatus = ($newBalance <= 0.01) ? 'paid' : 'partial';
+                    if ($paymentStatus === 'paid') $newBalance = 0;
+
+                    $invoice->update([
+                        'total_paid'     => round($newPaid, 2),
+                        'balance_amount' => round($newBalance, 2),
+                        'payment_status' => $paymentStatus
+                    ]);
+
+                    $allocations[] = [
+                        'type'           => 'invoice',
+                        'invoice_id'     => $invoiceData['id'],
+                        'invoice_number' => $invoiceData['invoice_number'],
+                        'amount'         => round($payToInvoice, 2),
+                        'description'    => 'Payment applied to purchase invoice ' . $invoiceData['invoice_number'],
+                    ];
+
+                    $remainingPool -= $payToInvoice;
+                }
+            }
+
+            $payment->update([
+                'amount'         => round($cashAmount, 2),
+                'payment_date'   => $request->payment_date,
+                'payment_method' => $request->payment_method,
+                'reference_no'   => $request->reference_no,
+                'notes'          => $request->notes,
+                'allocations'    => $allocations,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment Out updated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Update payment out error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     private function decimalToFloat($value)
     {
         if ($value instanceof Decimal128) {

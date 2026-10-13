@@ -153,4 +153,89 @@ class CreditNote extends Model
         }
         return (float) $value;
     }
+
+    /**
+     * Tally / ERP Standard: Auto-allocate active/partial credit notes to unpaid invoices (FIFO)
+     */
+    public static function autoAllocateToPendingInvoices($partyId)
+    {
+        if (empty($partyId)) return;
+
+        $partyIdStr = (string) $partyId;
+
+        $activeCreditNotes = self::where('party_id', $partyIdStr)
+            ->whereIn('status', ['active', 'partial'])
+            ->where('remaining_amount', '>', 0)
+            ->orderBy('credit_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($activeCreditNotes->isEmpty()) {
+            return;
+        }
+
+        $unpaidInvoices = SalesInvoice::where('party_id', $partyIdStr)
+            ->where('status', '!=', 'draft')
+            ->where('status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['unpaid', 'partial'])
+            ->orderBy('invoice_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($unpaidInvoices->isEmpty()) {
+            return;
+        }
+
+        foreach ($activeCreditNotes as $cn) {
+            $cnRem = $cn->remaining_amount;
+            if ($cnRem instanceof \MongoDB\BSON\Decimal128) {
+                $cnRem = (float) $cnRem->__toString();
+            } else {
+                $cnRem = (float) $cnRem;
+            }
+
+            if ($cnRem <= 0.001) continue;
+
+            foreach ($unpaidInvoices as $inv) {
+                if ($cnRem <= 0.001) break;
+
+                $invBal = $inv->balance_amount;
+                if ($invBal instanceof \MongoDB\BSON\Decimal128) {
+                    $invBal = (float) $invBal->__toString();
+                } else {
+                    $invBal = (float) $invBal;
+                }
+
+                if ($invBal <= 0.001) continue;
+
+                $apply = min($cnRem, $invBal);
+                $newBal = round($invBal - $apply, 2);
+                $newStatus = ($newBal <= 0.001) ? 'paid' : 'partial';
+
+                $used = $cn->used_amount;
+                if ($used instanceof \MongoDB\BSON\Decimal128) {
+                    $used = (float) $used->__toString();
+                } else {
+                    $used = (float) $used;
+                }
+
+                $cn->used_amount = round($used + $apply, 2);
+                $cnRem = round($cnRem - $apply, 2);
+                $cn->remaining_amount = $cnRem;
+                $cn->status = ($cnRem <= 0.001) ? 'settled' : 'partial';
+                $cn->save();
+
+                $inv->balance_amount = ($newBal <= 0.001) ? 0 : $newBal;
+                $inv->payment_status = $newStatus;
+                $inv->credit_note_applied = round((float) ($inv->credit_note_applied ?? 0) + $apply, 2);
+
+                $cns = !empty($inv->credit_note_numbers) ? explode(', ', $inv->credit_note_numbers) : [];
+                if (!in_array($cn->credit_note_number, $cns)) {
+                    $cns[] = $cn->credit_note_number;
+                }
+                $inv->credit_note_numbers = implode(', ', $cns);
+                $inv->save();
+            }
+        }
+    }
 }
