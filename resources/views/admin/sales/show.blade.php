@@ -1209,36 +1209,7 @@
                     <span class="iv-total-value">₹ {{ number_format($invoice->grand_total, 2) }}</span>
                 </div>
 
-                {{-- PREVIOUS OUTSTANDING BALANCE --}}
-                @if($dynamicOpeningBalance > 0 || $previousPendingBalance > 0)
-                <div style="margin-top:12px;padding:10px 12px;background:#fff8f0;border:1px solid #fed7aa;border-radius:6px;border-left:3px solid #f97316;">
-                    <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:8px;">⚠️ Previous Outstanding</div>
 
-                    @if($dynamicOpeningBalance > 0)
-                    <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px dotted #fed7aa;">
-                        <span style="color:#78350f;">Opening Balance</span>
-                        <span style="font-weight:600;color:#c2410c;">₹ {{ number_format($dynamicOpeningBalance, 2) }}</span>
-                    </div>
-                    @endif
-
-                    @if($previousPendingBalance > 0)
-                    <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px dotted #fed7aa;">
-                        <span style="color:#78350f;">Other Unpaid Invoices ({{ count($unpaidInvoices) }})</span>
-                        <span style="font-weight:600;color:#c2410c;">₹ {{ number_format($previousPendingBalance, 2) }}</span>
-                    </div>
-                    @endif
-
-                    <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px dotted #fed7aa;">
-                        <span style="color:#78350f;">This Invoice Balance</span>
-                        <span style="font-weight:600;color:#c2410c;">₹ {{ number_format($invoice->balance_amount ?? 0, 2) }}</span>
-                    </div>
-
-                    <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0 0 0;margin-top:4px;">
-                        <span style="font-weight:700;color:#92400e;">Total Outstanding</span>
-                        <span style="font-weight:700;color:#dc2626;font-size:13px;">₹ {{ number_format($totalOutstanding, 2) }}</span>
-                    </div>
-                </div>
-                @endif
 
                 {{-- PAYMENT STATUS --}}
                 <div style="margin-top: 15px;">
